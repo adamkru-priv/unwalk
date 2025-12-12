@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-sans text-gray-900 bg-white;
+  }
+}
+
+@layer utilities {
+  .blur-dynamic {
+    transition: filter 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
