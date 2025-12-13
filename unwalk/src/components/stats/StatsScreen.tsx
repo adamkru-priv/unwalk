@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { AppHeader } from '../common/AppHeader';
 import { BottomNavigation } from '../common/BottomNavigation';
 import { WeeklyStats } from '../home/WeeklyStats';

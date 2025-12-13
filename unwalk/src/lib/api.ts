@@ -112,6 +112,71 @@ export async function getCompletedChallenges(): Promise<UserChallenge[]> {
   return data || [];
 }
 
+// Get completed but unclaimed challenges
+export async function getUnclaimedChallenges(): Promise<UserChallenge[]> {
+  const deviceId = getDeviceId();
+  
+  const { data, error } = await supabase
+    .from('user_challenges')
+    .select(`
+      *,
+      admin_challenge:admin_challenges(*)
+    `)
+    .eq('device_id', deviceId)
+    .eq('status', 'completed_unclaimed')
+    .order('completed_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
+// Claim completed challenge reward
+export async function claimCompletedChallenge(userChallengeId: string): Promise<UserChallenge> {
+  const { data, error } = await supabase
+    .from('user_challenges')
+    .update({
+      status: 'claimed',
+      claimed_at: new Date().toISOString(),
+    })
+    .eq('id', userChallengeId)
+    .select(`
+      *,
+      admin_challenge:admin_challenges(*)
+    `)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+// Update challenge status
+export async function updateChallengeStatus(
+  userChallengeId: string,
+  status: string
+): Promise<UserChallenge> {
+  const updateData: any = { status };
+  
+  // Add timestamp based on status
+  if (status === 'completed_unclaimed' || status === 'completed') {
+    updateData.completed_at = new Date().toISOString();
+  } else if (status === 'claimed') {
+    updateData.claimed_at = new Date().toISOString();
+  }
+
+  const { data, error } = await supabase
+    .from('user_challenges')
+    .update(updateData)
+    .eq('id', userChallengeId)
+    .select(`
+      *,
+      admin_challenge:admin_challenges(*)
+    `)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 // ========== CUSTOM CHALLENGES API ==========
 
 // Upload custom challenge image to Supabase Storage

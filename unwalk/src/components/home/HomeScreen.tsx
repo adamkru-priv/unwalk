@@ -1,12 +1,37 @@
 import { useChallengeStore } from '../../stores/useChallengeStore';
+import { useEffect, useState } from 'react';
 import { AppHeader } from '../common/AppHeader';
 import { BottomNavigation } from '../common/BottomNavigation';
+import { getUnclaimedChallenges } from '../../lib/api';
+import type { UserChallenge } from '../../types';
+import { CelebrationModal } from './CelebrationModal';
 
 export function HomeScreen() {
+  const [unclaimedChallenges, setUnclaimedChallenges] = useState<UserChallenge[]>([]);
+  const [selectedCompletedChallenge, setSelectedCompletedChallenge] = useState<UserChallenge | null>(null);
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
   const pausedChallenges = useChallengeStore((s) => s.pausedChallenges);
   const resumeChallenge = useChallengeStore((s) => s.resumeChallenge);
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
+
+  useEffect(() => {
+    loadUnclaimedChallenges();
+  }, []);
+
+  const loadUnclaimedChallenges = async () => {
+    try {
+      const data = await getUnclaimedChallenges();
+      setUnclaimedChallenges(data);
+    } catch (err) {
+      console.error('Failed to load unclaimed challenges:', err);
+    }
+  };
+
+  const handleClaimSuccess = () => {
+    setSelectedCompletedChallenge(null);
+    loadUnclaimedChallenges(); // Refresh list
+    setCurrentScreen('badges'); // Go to badges to see the new addition
+  };
 
   const calculateProgress = () => {
     if (!activeUserChallenge) return 0;
@@ -42,7 +67,74 @@ export function HomeScreen() {
       {/* Header */}
       <AppHeader />
 
+      {/* Celebration Modal */}
+      {selectedCompletedChallenge && (
+        <CelebrationModal
+          challenge={selectedCompletedChallenge}
+          onClaim={handleClaimSuccess}
+        />
+      )}
+
       <main className="px-6 py-6 max-w-4xl mx-auto space-y-6">
+        {/* COMPLETED CHALLENGES TO CLAIM - Top priority! */}
+        {unclaimedChallenges.length > 0 && (
+          <section>
+            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+              <span className="animate-bounce">🎉</span>
+              <span>Completed - Claim Your Reward!</span>
+            </h2>
+            
+            <div className="space-y-3">
+              {unclaimedChallenges.map((challenge) => (
+                <button
+                  key={challenge.id}
+                  onClick={() => setSelectedCompletedChallenge(challenge)}
+                  className="w-full bg-gradient-to-r from-green-900/30 to-emerald-900/30 border-2 border-green-600/50 rounded-xl p-4 hover:from-green-900/50 hover:to-emerald-900/50 hover:border-green-500 transition-all group"
+                >
+                  <div className="flex items-center gap-4">
+                    {/* Thumbnail - fully revealed */}
+                    <div className="relative w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 ring-2 ring-green-500">
+                      <img
+                        src={challenge.admin_challenge?.image_url}
+                        alt={challenge.admin_challenge?.title}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover:bg-black/20 transition-colors">
+                        <div className="text-4xl">🎁</div>
+                      </div>
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0 text-left">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-bold text-white text-lg truncate">
+                          {challenge.admin_challenge?.title}
+                        </h3>
+                        <span className="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full animate-pulse">
+                          NEW
+                        </span>
+                      </div>
+                      <div className="text-sm text-green-300 mb-2">
+                        ✓ Challenge completed!
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        {challenge.current_steps.toLocaleString()} steps • {((challenge.current_steps * 0.8) / 1000).toFixed(1)}km
+                      </div>
+                    </div>
+
+                    {/* Arrow */}
+                    <div className="text-green-400 flex-shrink-0">
+                      <svg className="w-8 h-8 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* ACTIVE CHALLENGE CARD */}
         {activeUserChallenge ? (
           <section>

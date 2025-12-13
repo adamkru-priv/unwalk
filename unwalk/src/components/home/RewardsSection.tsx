@@ -6,11 +6,7 @@ interface Reward {
   gradient: string;
 }
 
-interface RewardsProps {
-  onClaim: (rewardId: string) => void;
-}
-
-export function RewardsSection({ onClaim }: RewardsProps) {
+export function RewardsSection() {
   // Mock rewards - Apple-style badges
   const rewards: Reward[] = [
     {

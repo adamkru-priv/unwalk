@@ -1,28 +1,10 @@
-import { useState } from 'react';
 import { AppHeader } from '../common/AppHeader';
 import { BottomNavigation } from '../common/BottomNavigation';
 import { useChallengeStore } from '../../stores/useChallengeStore';
 
 export function ProfileScreen() {
-  const [showProfile, setShowProfile] = useState(false);
   const userTier = useChallengeStore((s) => s.userTier);
   const setUserTier = useChallengeStore((s) => s.setUserTier);
-  const setOnboardingComplete = useChallengeStore((s) => s.setOnboardingComplete);
-  const clearChallenge = useChallengeStore((s) => s.clearChallenge);
-  const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
-
-  // Mock stats - later from API
-  const totalSteps = 5000;
-  const completedChallenges = 1;
-  const activeDays = 0;
-
-  const handleResetApp = () => {
-    if (confirm('⚠️ Reset the entire app?\n\nThis will:\n• Clear all your challenges\n• Reset your progress\n• Return to onboarding\n\nThis cannot be undone!')) {
-      clearChallenge();
-      setOnboardingComplete(false);
-      setCurrentScreen('onboarding');
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gray-900 text-white pb-20">
@@ -30,30 +12,9 @@ export function ProfileScreen() {
       <AppHeader 
         title="Profile" 
         showBackButton 
-        onProfileClick={() => setShowProfile(true)} 
       />
 
       <main className="px-6 py-6 max-w-2xl mx-auto space-y-6">
-        {/* User Stats Card */}
-        <section className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl p-6">
-          <h2 className="text-xl font-bold text-white mb-6">Your Progress</h2>
-          
-          <div className="grid grid-cols-3 gap-4">
-            <div className="text-center">
-              <div className="text-3xl font-bold text-blue-400 mb-1">{totalSteps.toLocaleString()}</div>
-              <div className="text-sm text-gray-400">Total Steps</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-green-400 mb-1">{completedChallenges}</div>
-              <div className="text-sm text-gray-400">Completed</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-purple-400 mb-1">{activeDays}</div>
-              <div className="text-sm text-gray-400">Active Days</div>
-            </div>
-          </div>
-        </section>
-
         {/* Account Type */}
         <section className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl p-6">
           <h2 className="text-lg font-bold text-white mb-4">Account Type</h2>
@@ -152,20 +113,6 @@ export function ProfileScreen() {
               </div>
             </div>
           )}
-        </section>
-
-        {/* Danger Zone */}
-        <section className="bg-red-900/20 border border-red-700/50 rounded-xl p-6">
-          <h2 className="text-lg font-bold text-red-400 mb-4">Danger Zone</h2>
-          <button
-            onClick={handleResetApp}
-            className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-3 rounded-lg font-semibold transition-colors"
-          >
-            Reset App
-          </button>
-          <p className="text-xs text-red-300/70 mt-2 text-center">
-            This will clear all data and return to onboarding
-          </p>
         </section>
       </main>
 

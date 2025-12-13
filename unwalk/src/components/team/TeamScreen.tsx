@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { AppHeader } from '../common/AppHeader';
 import { BottomNavigation } from '../common/BottomNavigation';
-import { useChallengeStore } from '../../stores/useChallengeStore';
 
 export function TeamScreen() {
   const [referralCode] = useState('MOVE2025');
@@ -30,7 +29,7 @@ export function TeamScreen() {
     alert(`✅ Invitation accepted! ${id} is now part of your team.`);
   };
 
-  const handleDeclineInvite = (id: string) => {
+  const handleDeclineInvite = (_id: string) => {
     alert(`❌ Invitation declined.`);
   };
 

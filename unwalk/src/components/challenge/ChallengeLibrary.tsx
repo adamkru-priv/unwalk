@@ -213,17 +213,6 @@ export function ChallengeLibrary() {
           </div>
         )}
 
-        {/* Create Custom Challenge Button */}
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="w-full mb-4 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-purple-500/50 flex items-center justify-center gap-2"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Create Custom Challenge
-        </button>
-
         {/* 🔍 COMPACT Filters & Sort */}
         <div className="mb-4">
           <button
@@ -243,7 +232,7 @@ export function ChallengeLibrary() {
               className={`w-4 h-4 text-white/60 transition-transform ${filterExpanded ? 'rotate-180' : ''}`} 
               fill="none" 
               stroke="currentColor" 
-              viewBox="0 24 24"
+              viewBox="0 0 24 24"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
@@ -302,8 +291,39 @@ export function ChallengeLibrary() {
           )}
         </div>
 
-        {/* Netflix-style Grid - ALL challenges, NO completed filter */}
+        {/* Grid with Create Custom Challenge as first box */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {/* CREATE CUSTOM CHALLENGE BOX - FIRST */}
+          <div
+            onClick={() => setShowCreateModal(true)}
+            className="group relative rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer hover:scale-105 bg-gradient-to-br from-purple-600 via-purple-700 to-purple-800"
+            style={{ aspectRatio: '3/4' }}
+          >
+            {/* Animated gradient background */}
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-purple-600/20 animate-pulse" />
+            
+            {/* Content */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-4">
+              <div className="bg-white/10 backdrop-blur-sm rounded-full p-6 mb-4 group-hover:scale-110 transition-transform">
+                <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              </div>
+              
+              <h3 className="text-lg font-bold text-white text-center mb-2">
+                Create Custom<br />Challenge
+              </h3>
+              
+              <p className="text-sm text-white/80 text-center">
+                Upload your own photo
+              </p>
+            </div>
+
+            {/* Hover Effect */}
+            <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors pointer-events-none" />
+          </div>
+
+          {/* Regular challenge cards */}
           {filteredChallenges.map((challenge) => (
             <div
               key={challenge.id}
@@ -336,7 +356,7 @@ export function ChallengeLibrary() {
                   {challenge.title.length > 30 ? challenge.title.substring(0, 30) + '...' : challenge.title}
                 </h3>
 
-                {/* Goal - removed badges */}
+                {/* Goal */}
                 <div className="flex items-center gap-1.5 text-sm text-white/90 font-medium">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
