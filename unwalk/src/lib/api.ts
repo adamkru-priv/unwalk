@@ -111,3 +111,101 @@ export async function getCompletedChallenges(): Promise<UserChallenge[]> {
   if (error) throw error;
   return data || [];
 }
+
+// ========== CUSTOM CHALLENGES API ==========
+
+// Upload custom challenge image to Supabase Storage
+export async function uploadChallengeImage(file: File): Promise<string> {
+  const deviceId = getDeviceId();
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${deviceId}_${Date.now()}.${fileExt}`;
+  const filePath = `challenge-images/${fileName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('custom-challenges')
+    .upload(filePath, file);
+
+  if (uploadError) throw uploadError;
+
+  // Get public URL
+  const { data } = supabase.storage
+    .from('custom-challenges')
+    .getPublicUrl(filePath);
+
+  return data.publicUrl;
+}
+
+// Create custom challenge
+export async function createCustomChallenge(challenge: {
+  title: string;
+  description: string;
+  goal_steps: number;
+  image_url: string;
+  is_image_hidden: boolean;
+  deadline?: string;
+}): Promise<AdminChallenge> {
+  const deviceId = getDeviceId();
+  
+  const { data, error } = await supabase
+    .from('admin_challenges')
+    .insert({
+      ...challenge,
+      is_custom: true,
+      created_by_device_id: deviceId,
+      category: 'fun',
+      difficulty: 'medium',
+      sort_order: 999,
+      is_active: true,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+// Assign challenge to user(s)
+export async function assignChallengeToUsers(
+  adminChallengeId: string,
+  targetDeviceIds: string[],
+  isGroupChallenge: boolean = false
+): Promise<UserChallenge[]> {
+  const assignerDeviceId = getDeviceId();
+  
+  const challenges = targetDeviceIds.map(deviceId => ({
+    device_id: deviceId,
+    admin_challenge_id: adminChallengeId,
+    current_steps: 0,
+    status: 'active' as const,
+    started_at: new Date().toISOString(),
+    assigned_by: assignerDeviceId,
+    is_group_challenge: isGroupChallenge,
+    group_members: isGroupChallenge ? targetDeviceIds : undefined,
+  }));
+
+  const { data, error } = await supabase
+    .from('user_challenges')
+    .insert(challenges)
+    .select(`
+      *,
+      admin_challenge:admin_challenges(*)
+    `);
+
+  if (error) throw error;
+  return data || [];
+}
+
+// Get custom challenges created by current user
+export async function getMyCustomChallenges(): Promise<AdminChallenge[]> {
+  const deviceId = getDeviceId();
+  
+  const { data, error } = await supabase
+    .from('admin_challenges')
+    .select('*')
+    .eq('is_custom', true)
+    .eq('created_by_device_id', deviceId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}

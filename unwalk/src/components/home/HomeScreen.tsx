@@ -1,82 +1,20 @@
-import { motion } from 'framer-motion';
 import { useChallengeStore } from '../../stores/useChallengeStore';
-import { useEffect, useState } from 'react';
-import { getCompletedChallenges } from '../../lib/api';
-import type { UserChallenge } from '../../types';
+import { AppHeader } from '../common/AppHeader';
+import { BottomNavigation } from '../common/BottomNavigation';
 
 export function HomeScreen() {
-  const [completedChallenges, setCompletedChallenges] = useState<UserChallenge[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showProfile, setShowProfile] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<{ url: string; title: string } | null>(null);
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
   const pausedChallenges = useChallengeStore((s) => s.pausedChallenges);
-  const userTier = useChallengeStore((s) => s.userTier);
-  const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
-  const pauseActiveChallenge = useChallengeStore((s) => s.pauseActiveChallenge);
   const resumeChallenge = useChallengeStore((s) => s.resumeChallenge);
-
-  // Mock family members - later from API
-  const [familyMembers] = useState([
-    { id: '1', name: 'Mama', avatar: '👩', activeChallenges: 1, completedChallenges: 3 },
-    { id: '2', name: 'Tata', avatar: '👨', activeChallenges: 0, completedChallenges: 5 },
-    { id: '3', name: 'Kasia', avatar: '👧', activeChallenges: 2, completedChallenges: 1 },
-  ]);
-
-  useEffect(() => {
-    loadCompletedChallenges();
-  }, []);
-
-  const loadCompletedChallenges = async () => {
-    try {
-      const data = await getCompletedChallenges();
-      setCompletedChallenges(data);
-    } catch (err) {
-      console.error('Failed to load completed challenges:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePauseChallenge = async () => {
-    if (!activeUserChallenge) return;
-    
-    const confirmed = confirm(
-      `⏸️ Pause "${activeUserChallenge.admin_challenge?.title}"?\n\n` +
-      `Progress saved: ${activeUserChallenge.current_steps.toLocaleString()} steps.\n\n` +
-      `You can start a new challenge and resume later.`
-    );
-    
-    if (confirmed) {
-      const pausedChallenge = { ...activeUserChallenge, status: 'paused' as const, paused_at: new Date().toISOString() };
-      pauseActiveChallenge(pausedChallenge);
-    }
-  };
-
-  const handleAbandonChallenge = async () => {
-    if (!activeUserChallenge) return;
-    
-    const confirmed = confirm(
-      `⚠️ Abandon "${activeUserChallenge.admin_challenge?.title}"?\n\n` +
-      `Progress will be LOST: ${activeUserChallenge.current_steps.toLocaleString()} steps.\n\n` +
-      `This cannot be undone!`
-    );
-    
-    if (confirmed) {
-      const { clearChallenge } = useChallengeStore.getState();
-      clearChallenge();
-      loadCompletedChallenges();
-    }
-  };
-
-  const handleResumeChallenge = (challenge: UserChallenge) => {
-    const activeChallenge = { ...challenge, status: 'active' as const };
-    resumeChallenge(activeChallenge);
-  };
+  const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
 
   const calculateProgress = () => {
     if (!activeUserChallenge) return 0;
     return Math.round((activeUserChallenge.current_steps / (activeUserChallenge.admin_challenge?.goal_steps || 1)) * 100);
+  };
+
+  const calculateProgressForChallenge = (challenge: any) => {
+    return Math.round((challenge.current_steps / (challenge.admin_challenge?.goal_steps || 1)) * 100);
   };
 
   const calculateDaysActive = () => {
@@ -87,201 +25,32 @@ export function HomeScreen() {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  const totalSteps = completedChallenges.reduce((sum, c) => sum + c.current_steps, 0) + (activeUserChallenge?.current_steps || 0);
+  const handleResumeChallenge = (challenge: any) => {
+    if (confirm(`▶️ Resume "${challenge.admin_challenge?.title}"?\n\nYour progress: ${calculateProgressForChallenge(challenge)}%`)) {
+      resumeChallenge(challenge);
+      setCurrentScreen('dashboard');
+    }
+  };
+
+  // Mock today's stats - later from Health API
+  const todaySteps = 7234;
+  const todayDistance = 5.8;
+  const currentStreak = 3;
 
   return (
     <div className="min-h-screen bg-gray-900 text-white pb-20">
       {/* Header */}
-      <header className="bg-gray-900 border-b border-gray-800 px-6 py-4 sticky top-0 z-10">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-white">UnWalk</h1>
-        </div>
-      </header>
+      <AppHeader />
 
-      {/* Profile Modal */}
-      {showProfile && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-6"
-          onClick={() => setShowProfile(false)}
-        >
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">Profile</h2>
-              <button onClick={() => setShowProfile(false)} className="text-gray-400 hover:text-gray-600">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Stats */}
-            <div className="space-y-4 mb-6">
-              <div className="bg-gray-50 rounded-xl p-4">
-                <div className="text-sm text-gray-600 mb-1">Total Steps</div>
-                <div className="text-3xl font-bold text-gray-900">{totalSteps.toLocaleString()}</div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-green-50 rounded-xl p-4">
-                  <div className="text-sm text-green-600 mb-1">Completed</div>
-                  <div className="text-2xl font-bold text-green-700">{completedChallenges.length}</div>
-                </div>
-                <div className="bg-blue-50 rounded-xl p-4">
-                  <div className="text-sm text-blue-600 mb-1">Active Days</div>
-                  <div className="text-2xl font-bold text-blue-700">{calculateDaysActive()}</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Tier Toggle */}
-            <div className="mb-6">
-              <div className="text-sm text-gray-600 mb-2">Account Type</div>
-              <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
-                <button
-                  onClick={() => useChallengeStore.getState().setUserTier('basic')}
-                  className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    userTier === 'basic' 
-                      ? 'bg-white text-gray-900 shadow-sm' 
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  Basic
-                </button>
-                <button
-                  onClick={() => useChallengeStore.getState().setUserTier('pro')}
-                  className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    userTier === 'pro' 
-                      ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-sm' 
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  Pro ⭐
-                </button>
-              </div>
-              {userTier === 'basic' && (
-                <p className="text-xs text-gray-500 mt-2">
-                  Upgrade to Pro for unlimited paused challenges
-                </p>
-              )}
-            </div>
-
-            {/* Actions */}
-            <button
-              onClick={() => {
-                if (confirm('Reset all data and return to onboarding?')) {
-                  useChallengeStore.getState().clearChallenge();
-                  useChallengeStore.getState().setOnboardingComplete(false);
-                  setCurrentScreen('onboarding');
-                }
-              }}
-              className="w-full bg-red-50 text-red-600 hover:bg-red-100 px-4 py-3 rounded-xl font-medium transition-colors"
-            >
-              Reset App
-            </button>
-          </motion.div>
-        </motion.div>
-      )}
-
-      {/* Image Viewer Modal */}
-      {selectedImage && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-4"
-          onClick={() => setSelectedImage(null)}
-        >
-          <button
-            onClick={() => setSelectedImage(null)}
-            className="absolute top-4 right-4 text-white/80 hover:text-white z-10"
-          >
-            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-          
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="max-w-4xl w-full"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <img
-              src={selectedImage.url}
-              alt={selectedImage.title}
-              className="w-full h-auto rounded-lg shadow-2xl"
-            />
-            <div className="mt-4 text-center">
-              <h3 className="text-xl font-bold text-white mb-1">{selectedImage.title}</h3>
-              <p className="text-white/70 text-sm">Tap outside to close</p>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-
-      <main className="px-6 py-6 max-w-4xl mx-auto space-y-8">
-        {/* MY FAMILY / TEAM SECTION */}
-        <section>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-white">My Family</h2>
-            <button className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors">
-              + Invite
-            </button>
-          </div>
-          
-          <div className="grid grid-cols-3 gap-3">
-            {familyMembers.map((member) => (
-              <motion.div
-                key={member.id}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl p-4 hover:bg-gray-800 transition-all cursor-pointer"
-              >
-                <div className="text-4xl mb-2 text-center">{member.avatar}</div>
-                <div className="text-center">
-                  <div className="font-bold text-white text-sm mb-1">{member.name}</div>
-                  <div className="text-xs text-gray-400">
-                    {member.activeChallenges > 0 && (
-                      <span className="text-green-400">🔥 {member.activeChallenges} active</span>
-                    )}
-                    {member.activeChallenges === 0 && (
-                      <span className="text-gray-500">No active</span>
-                    )}
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    ✓ {member.completedChallenges} completed
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Quick Action */}
-          {!activeUserChallenge && (
-            <motion.button
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              onClick={() => setCurrentScreen('library')}
-              className="w-full mt-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-4 rounded-xl font-semibold transition-all shadow-lg hover:shadow-blue-500/50"
-            >
-              🎯 Assign New Challenge to Family
-            </motion.button>
-          )}
-        </section>
-
-        {/* ACTIVE CHALLENGE */}
-        {activeUserChallenge && (
+      <main className="px-6 py-6 max-w-4xl mx-auto space-y-6">
+        {/* ACTIVE CHALLENGE CARD */}
+        {activeUserChallenge ? (
           <section>
-            <h2 className="text-xl font-bold text-white mb-4">Active Challenge</h2>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
+            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+              <span>🎯</span>
+              <span>Active Challenge</span>
+            </h2>
+            <div
               onClick={() => setCurrentScreen('dashboard')}
               className="relative rounded-2xl overflow-hidden shadow-lg cursor-pointer hover:shadow-xl transition-all group"
             >
@@ -302,197 +71,200 @@ export function HomeScreen() {
               <div className="relative p-6">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
-                    <h3 className="text-xl font-bold text-white mb-1">
+                    <h3 className="text-2xl font-bold text-white mb-2">
                       {activeUserChallenge.admin_challenge?.title}
                     </h3>
                     <p className="text-white/80 text-sm">
                       Day {calculateDaysActive()} • {calculateProgress()}% revealed
                     </p>
                   </div>
-                  <div className="text-3xl">{calculateProgress() === 100 ? '🎉' : '🔥'}</div>
+                  <div className="text-4xl">{calculateProgress() === 100 ? '🎉' : '🔥'}</div>
                 </div>
 
                 {/* Progress Bar */}
-                <div className="bg-white/20 rounded-full h-2 mb-4">
+                <div className="bg-white/20 rounded-full h-3 mb-4">
                   <div
-                    className="bg-green-400 h-full rounded-full transition-all"
+                    className="bg-gradient-to-r from-green-400 to-green-500 h-full rounded-full transition-all"
                     style={{ width: `${calculateProgress()}%` }}
                   />
                 </div>
 
-                {/* Stats */}
-                <div className="flex items-center justify-between text-white/90 text-sm">
-                  <span>{activeUserChallenge.current_steps.toLocaleString()} / {activeUserChallenge.admin_challenge?.goal_steps.toLocaleString()} steps</span>
-                  <div className="flex items-center gap-3">
-                    {userTier === 'pro' && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handlePauseChallenge();
-                        }}
-                        className="text-yellow-300 hover:text-yellow-200 text-xs font-medium"
-                      >
-                        ⏸️ Pause
-                      </button>
-                    )}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAbandonChallenge();
-                      }}
-                      className="text-red-300 hover:text-red-200 text-xs font-medium"
-                    >
-                      Abandon
-                    </button>
+                {/* Stats Row */}
+                <div className="flex items-center justify-between text-white/90">
+                  <div className="text-center">
+                    <div className="text-lg font-bold">{activeUserChallenge.current_steps.toLocaleString()}</div>
+                    <div className="text-xs text-white/60">Current</div>
+                  </div>
+                  <div className="text-white/40">/</div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold">{activeUserChallenge.admin_challenge?.goal_steps.toLocaleString()}</div>
+                    <div className="text-xs text-white/60">Goal</div>
+                  </div>
+                  <div className="text-white/40">•</div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-blue-400">
+                      {((activeUserChallenge.current_steps * 0.8) / 1000).toFixed(1)}km
+                    </div>
+                    <div className="text-xs text-white/60">Distance</div>
                   </div>
                 </div>
+
+                {/* Tap to view hint */}
+                <div className="mt-4 text-center text-white/50 text-xs">
+                  Tap to view details →
+                </div>
               </div>
-            </motion.div>
+
+              {/* Hover effect */}
+              <div className="absolute inset-0 bg-white/0 group-hover:bg-white/5 transition-colors pointer-events-none" />
+            </div>
+          </section>
+        ) : (
+          /* EMPTY STATE - No active challenge */
+          <section>
+            <div className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 border border-blue-700/50 rounded-2xl p-12 relative overflow-hidden">
+              {/* Decorative circles in background */}
+              <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl"></div>
+              <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl"></div>
+              
+              <div className="relative text-center">
+                <h2 className="text-2xl font-bold text-white mb-2">Ready to start your journey?</h2>
+                <p className="text-white/70 mb-8">
+                  Choose a challenge and start revealing amazing destinations!
+                </p>
+                
+                {/* Large Circular START Button */}
+                <div className="flex justify-center mb-6">
+                  <button
+                    onClick={() => setCurrentScreen('library')}
+                    className="relative group"
+                  >
+                    {/* Outer glow ring */}
+                    <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-xl group-hover:bg-blue-500/30 transition-all"></div>
+                    
+                    {/* Main button */}
+                    <div className="relative w-32 h-32 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-2xl group-hover:scale-105 transition-transform">
+                      <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                    </div>
+                    
+                    {/* Label below */}
+                    <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap">
+                      <span className="text-white font-bold text-lg">Start Challenge</span>
+                    </div>
+                  </button>
+                </div>
+
+                {/* Secondary action */}
+                <div className="mt-12 pt-6 border-t border-white/10">
+                  <button
+                    onClick={() => setCurrentScreen('team')}
+                    className="text-white/70 hover:text-white text-sm font-medium transition-colors flex items-center justify-center gap-2 mx-auto"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    or challenge friends & family
+                  </button>
+                </div>
+              </div>
+            </div>
           </section>
         )}
 
-        {/* PAUSED CHALLENGES (PRO) */}
-        {userTier === 'pro' && pausedChallenges.length > 0 && (
+        {/* PAUSED CHALLENGES SECTION - Only for Pro users */}
+        {pausedChallenges.length > 0 && (
           <section>
-            <h2 className="text-xl font-bold text-white mb-4">Paused ({pausedChallenges.length})</h2>
+            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+              <span>⏸️</span>
+              <span>Paused Challenges ({pausedChallenges.length})</span>
+            </h2>
+            
             <div className="space-y-3">
               {pausedChallenges.map((challenge) => (
                 <div
                   key={challenge.id}
-                  className="bg-gray-800 border border-gray-700 rounded-xl p-4 flex items-center gap-4"
+                  className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl p-4 hover:bg-gray-800/70 transition-all"
                 >
-                  <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 relative">
-                    <img
-                      src={challenge.admin_challenge?.image_url}
-                      alt={challenge.admin_challenge?.title}
-                      className="w-full h-full object-cover"
-                      style={{ filter: 'blur(15px)' }}
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                      <span className="text-xl">⏸️</span>
+                  <div className="flex items-center gap-4">
+                    {/* Thumbnail */}
+                    <div className="relative w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
+                      <img
+                        src={challenge.admin_challenge?.image_url}
+                        alt={challenge.admin_challenge?.title}
+                        className="w-full h-full object-cover grayscale opacity-50"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
                     </div>
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-white truncate">{challenge.admin_challenge?.title}</h3>
-                    <p className="text-sm text-gray-400">
-                      {challenge.current_steps.toLocaleString()} / {challenge.admin_challenge?.goal_steps.toLocaleString()} 
-                      <span className="mx-1">•</span>
-                      {Math.round((challenge.current_steps / (challenge.admin_challenge?.goal_steps || 1)) * 100)}%
-                    </p>
-                  </div>
 
-                  <button
-                    onClick={() => handleResumeChallenge(challenge)}
-                    className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors flex-shrink-0"
-                  >
-                    Resume
-                  </button>
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-white mb-1 truncate">
+                        {challenge.admin_challenge?.title}
+                      </h3>
+                      <div className="text-sm text-gray-400 mb-2">
+                        {calculateProgressForChallenge(challenge)}% complete • {challenge.current_steps.toLocaleString()} steps
+                      </div>
+                      
+                      {/* Progress bar */}
+                      <div className="bg-gray-700 rounded-full h-1.5 overflow-hidden">
+                        <div
+                          className="bg-gradient-to-r from-yellow-400 to-yellow-500 h-full rounded-full transition-all"
+                          style={{ width: `${calculateProgressForChallenge(challenge)}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Resume Button */}
+                    <button
+                      onClick={() => handleResumeChallenge(challenge)}
+                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2 flex-shrink-0"
+                    >
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+                      </svg>
+                      Resume
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
           </section>
         )}
 
-        {/* COMPLETED CHALLENGES */}
-        {completedChallenges.length > 0 && (
-          <section>
-            <h2 className="text-xl font-bold text-white mb-4">
-              Completed ({completedChallenges.length})
-            </h2>
-            <div className="grid grid-cols-2 gap-3">
-              {completedChallenges.map((challenge) => (
-                <motion.div
-                  key={challenge.id}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  onClick={() => setSelectedImage({
-                    url: challenge.admin_challenge?.image_url || '',
-                    title: challenge.admin_challenge?.title || ''
-                  })}
-                  className="relative aspect-square rounded-xl overflow-hidden shadow-md group cursor-pointer hover:scale-105 transition-transform"
-                >
-                  <img
-                    src={challenge.admin_challenge?.image_url}
-                    alt={challenge.admin_challenge?.title}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-3">
-                    <div className="text-white w-full">
-                      <div className="font-bold text-sm mb-1 truncate">{challenge.admin_challenge?.title}</div>
-                      <div className="text-xs opacity-90">{challenge.current_steps.toLocaleString()} steps</div>
-                    </div>
-                  </div>
-                  <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1.5">
-                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  
-                  {/* Zoom hint overlay */}
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
-                    <div className="bg-white/90 backdrop-blur-sm rounded-full p-2">
-                      <svg className="w-6 h-6 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
-                      </svg>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
+        {/* TODAY'S STATS - Mini widget */}
+        <section>
+          <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl p-5">
+            <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
+              <span>📊</span>
+              <span>Today</span>
+            </h3>
+            
+            <div className="grid grid-cols-3 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-400 mb-1">{todaySteps.toLocaleString()}</div>
+                <div className="text-xs text-gray-400">Steps</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-400 mb-1">{todayDistance}km</div>
+                <div className="text-xs text-gray-400">Distance</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-orange-400 mb-1">🔥 {currentStreak}</div>
+                <div className="text-xs text-gray-400">Streak</div>
+              </div>
             </div>
-          </section>
-        )}
+          </div>
+        </section>
       </main>
 
-      {/* Floating Action Button - Active Challenge */}
-      {activeUserChallenge && (
-        <motion.button
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0, opacity: 0 }}
-          onClick={() => setCurrentScreen('dashboard')}
-          className="fixed bottom-24 right-6 bg-gradient-to-br from-green-500 to-green-600 text-white rounded-full w-16 h-16 shadow-2xl hover:shadow-green-500/50 transition-all flex items-center justify-center z-30 hover:scale-110"
-        >
-          <div className="relative">
-            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-            <div className="absolute -top-1 -right-1 w-3 h-3 bg-white rounded-full animate-pulse"></div>
-          </div>
-        </motion.button>
-      )}
-
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-800 px-6 py-3 z-20">
-        <div className="max-w-md mx-auto flex items-center justify-around">
-          <button className="flex flex-col items-center gap-1 text-blue-400">
-            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
-            </svg>
-            <span className="text-xs font-medium">Home</span>
-          </button>
-
-          <button
-            onClick={() => setCurrentScreen('library')}
-            className="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition-colors"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <span className="text-xs font-medium">Explore</span>
-          </button>
-
-          <button
-            onClick={() => setShowProfile(!showProfile)}
-            className="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition-colors"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-            <span className="text-xs font-medium">Profile</span>
-          </button>
-        </div>
-      </nav>
+      <BottomNavigation currentScreen="home" />
     </div>
   );
 }

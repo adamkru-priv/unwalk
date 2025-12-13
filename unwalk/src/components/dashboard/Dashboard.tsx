@@ -2,15 +2,21 @@ import { useChallengeStore } from '../../stores/useChallengeStore';
 import { EmptyState } from './EmptyState';
 import { useState } from 'react';
 import { updateChallengeProgress } from '../../lib/api';
+import { BottomNavigation } from '../common/BottomNavigation';
+import { ProfileModal } from '../common/ProfileModal';
 
 export function Dashboard() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [showStats, setShowStats] = useState(true);
+  const [showProfile, setShowProfile] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
   const setActiveChallenge = useChallengeStore((s) => s.setActiveChallenge);
+  const pauseActiveChallenge = useChallengeStore((s) => s.pauseActiveChallenge);
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
   const setOnboardingComplete = useChallengeStore((s) => s.setOnboardingComplete);
   const clearChallenge = useChallengeStore((s) => s.clearChallenge);
+  const userTier = useChallengeStore((s) => s.userTier);
 
   const handleReset = () => {
     if (confirm('Reset the app? This will clear your current challenge and return to onboarding.')) {
@@ -20,7 +26,58 @@ export function Dashboard() {
     }
   };
 
-  // DEV: Simulator
+  const handleExitChallenge = () => {
+    setShowMenu(false);
+    if (confirm('⚠️ Exit this challenge?\n\nYour progress will be lost. This cannot be undone!')) {
+      clearChallenge();
+      setCurrentScreen('home');
+    }
+  };
+
+  const handlePauseChallenge = () => {
+    setShowMenu(false);
+    if (userTier !== 'pro') {
+      alert('⭐ Pause feature is only available for Pro users!\n\nUpgrade to Pro to pause and resume challenges.');
+      return;
+    }
+    if (!activeUserChallenge) return;
+    
+    if (confirm('⏸️ Pause this challenge?\n\nYour progress will be saved and you can resume later.')) {
+      // Pauzuj wyzwanie (zapisuje do pausedChallenges i usuwa z activeUserChallenge)
+      pauseActiveChallenge(activeUserChallenge);
+      alert('✅ Challenge paused! You can resume it anytime from the Home screen.');
+      setCurrentScreen('home');
+    }
+  };
+
+  const handleCompleteChallenge = async () => {
+    setShowMenu(false);
+    if (!activeUserChallenge) return;
+    
+    const progress = (activeUserChallenge.current_steps / (activeUserChallenge.admin_challenge?.goal_steps || 1)) * 100;
+    
+    if (progress < 100) {
+      if (userTier !== 'pro') {
+        alert('⭐ Early completion is only available for Pro users!\n\nUpgrade to Pro or reach 100% to complete.');
+        return;
+      }
+      if (!confirm('🏁 Complete this challenge early?\n\nYou are at ' + Math.round(progress) + '% progress.\n\nThis will reveal the image and mark as completed.')) {
+        return;
+      }
+    }
+
+    try {
+      const { completeChallenge } = await import('../../lib/api');
+      await completeChallenge(activeUserChallenge.id);
+      alert('🎉 Congratulations! Challenge completed!');
+      clearChallenge();
+      setCurrentScreen('home');
+    } catch (error) {
+      console.error('Failed to complete challenge:', error);
+      alert('❌ Failed to complete challenge. Please try again.');
+    }
+  };
+
   const handleAddSteps = async (steps: number) => {
     if (isUpdating || !activeUserChallenge) return;
     
@@ -52,6 +109,14 @@ export function Dashboard() {
     }
   };
 
+  const calculateDaysActive = () => {
+    if (!activeUserChallenge?.started_at) return 0;
+    const startDate = new Date(activeUserChallenge.started_at);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - startDate.getTime());
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
   // Calculate stats
   const progress = activeUserChallenge 
     ? (activeUserChallenge.current_steps / (activeUserChallenge.admin_challenge?.goal_steps || 1)) * 100 
@@ -61,21 +126,8 @@ export function Dashboard() {
     : 0;
   const blurAmount = Math.max(0, 30 - (progress * 0.3));
 
-  const calculateDaysActive = () => {
-    if (!activeUserChallenge?.started_at) return 0;
-    const startDate = new Date(activeUserChallenge.started_at);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - startDate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
-  };
-
   const distanceKm = activeUserChallenge 
     ? ((activeUserChallenge.current_steps * 0.8) / 1000).toFixed(1) 
-    : 0;
-
-  const calories = activeUserChallenge 
-    ? Math.round((activeUserChallenge.current_steps * 40) / 1000) 
     : 0;
 
   if (!activeUserChallenge) {
@@ -83,7 +135,7 @@ export function Dashboard() {
       <div className="min-h-screen bg-gray-900 text-white">
         <header className="bg-gray-900 border-b border-gray-800 px-6 py-4">
           <button onClick={() => setCurrentScreen('home')} className="text-2xl font-bold">
-            UnWalk
+            MOVEE
           </button>
         </header>
         <EmptyState />
@@ -93,6 +145,9 @@ export function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white relative overflow-hidden">
+      {/* Profile Modal */}
+      <ProfileModal isOpen={showProfile} onClose={() => setShowProfile(false)} />
+
       {/* BLURRED IMAGE AS BACKGROUND */}
       <div className="fixed inset-0 z-0">
         <img
@@ -113,7 +168,7 @@ export function Dashboard() {
             onClick={() => setCurrentScreen('home')}
             className="text-2xl font-bold"
           >
-            UnWalk
+            MOVEE
           </button>
           <div className="flex items-center gap-3">
             <button
@@ -129,12 +184,90 @@ export function Dashboard() {
                 )}
               </svg>
             </button>
-            <button onClick={handleReset} className="text-white/70 hover:text-white transition-colors">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </button>
+            
+            {/* Settings Menu Button */}
+            <div className="relative">
+              <button 
+                onClick={() => setShowMenu(!showMenu)} 
+                className="text-white/70 hover:text-white transition-colors"
+                title="Challenge options"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </button>
+
+              {/* Dropdown Menu */}
+              {showMenu && (
+                <>
+                  {/* Backdrop */}
+                  <div 
+                    className="fixed inset-0 z-20" 
+                    onClick={() => setShowMenu(false)}
+                  />
+                  
+                  {/* Menu */}
+                  <div className="absolute right-0 top-10 z-30 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl min-w-[200px] overflow-hidden">
+                    {/* Pause (Pro only) */}
+                    <button
+                      onClick={handlePauseChallenge}
+                      className="w-full px-4 py-3 text-left hover:bg-gray-700 transition-colors flex items-center gap-3 text-white"
+                    >
+                      <svg className="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <div className="flex-1">
+                        <div className="font-medium">Pause</div>
+                        {userTier !== 'pro' && (
+                          <div className="text-xs text-gray-400">Pro only</div>
+                        )}
+                      </div>
+                      {userTier !== 'pro' && <span className="text-amber-400">⭐</span>}
+                    </button>
+
+                    {/* Complete */}
+                    <button
+                      onClick={handleCompleteChallenge}
+                      className="w-full px-4 py-3 text-left hover:bg-gray-700 transition-colors flex items-center gap-3 text-white border-t border-gray-700"
+                    >
+                      <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <div className="flex-1">
+                        <div className="font-medium">Complete</div>
+                        {progress < 100 && userTier !== 'pro' && (
+                          <div className="text-xs text-gray-400">Pro only</div>
+                        )}
+                      </div>
+                      {progress < 100 && userTier !== 'pro' && <span className="text-amber-400">⭐</span>}
+                    </button>
+
+                    {/* Exit */}
+                    <button
+                      onClick={handleExitChallenge}
+                      className="w-full px-4 py-3 text-left hover:bg-gray-700 transition-colors flex items-center gap-3 text-red-400 border-t border-gray-700"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      </svg>
+                      <div className="font-medium">Exit Challenge</div>
+                    </button>
+
+                    {/* Dev Reset */}
+                    <button
+                      onClick={handleReset}
+                      className="w-full px-4 py-3 text-left hover:bg-gray-700 transition-colors flex items-center gap-3 text-gray-400 border-t border-gray-700"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      <div className="font-medium text-xs">DEV: Reset App</div>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </header>
 
@@ -187,83 +320,49 @@ export function Dashboard() {
           </div>
         )}
 
-        {/* DEV: Simulator */}
-        {import.meta.env.DEV && (
-          <div className="px-6 pb-3 flex-shrink-0">
-            <div className="bg-blue-900/80 backdrop-blur-sm rounded-lg p-3 border border-blue-700/50">
-              <p className="text-xs font-semibold text-blue-200 mb-2">🛠️ Step Simulator</p>
-              <div className="grid grid-cols-4 gap-2">
-                <button
-                  onClick={() => handleAddSteps(100)}
-                  disabled={isUpdating}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50"
-                >
-                  +100
-                </button>
-                <button
-                  onClick={() => handleAddSteps(500)}
-                  disabled={isUpdating}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50"
-                >
-                  +500
-                </button>
-                <button
-                  onClick={() => handleAddSteps(1000)}
-                  disabled={isUpdating}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50"
-                >
-                  +1K
-                </button>
-                <button
-                  onClick={() => handleAddSteps(5000)}
-                  disabled={isUpdating}
-                  className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50"
-                >
-                  +5K
-                </button>
-              </div>
+        {/* TEST Simulator - Always visible for testing */}
+        <div className="px-6 pb-3 flex-shrink-0">
+          <div className="bg-blue-900/80 backdrop-blur-sm rounded-lg p-3 border border-blue-700/50">
+            <p className="text-xs font-semibold text-blue-200 mb-2">🛠️ Step Simulator (TEST MODE)</p>
+            <div className="grid grid-cols-4 gap-2">
+              <button
+                onClick={() => handleAddSteps(100)}
+                disabled={isUpdating}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50"
+              >
+                +100
+              </button>
+              <button
+                onClick={() => handleAddSteps(500)}
+                disabled={isUpdating}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50"
+              >
+                +500
+              </button>
+              <button
+                onClick={() => handleAddSteps(1000)}
+                disabled={isUpdating}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50"
+              >
+                +1K
+              </button>
+              <button
+                onClick={() => handleAddSteps(5000)}
+                disabled={isUpdating}
+                className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50"
+              >
+                +5K
+              </button>
             </div>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-gray-900/95 backdrop-blur-sm border-t border-white/10 px-6 py-3 z-20">
-        <div className="max-w-md mx-auto flex items-center justify-around">
-          <button onClick={() => setCurrentScreen('home')} className="flex flex-col items-center gap-1 text-gray-400 hover:text-white">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-            </svg>
-            <span className="text-xs">Home</span>
-          </button>
-          <button onClick={() => setCurrentScreen('library')} className="flex flex-col items-center gap-1 text-gray-400 hover:text-white">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-            </svg>
-            <span className="text-xs">Explore</span>
-          </button>
-          <button className="flex flex-col items-center gap-1 text-yellow-400">
-            <div className="relative w-7 h-7">
-              <svg className="w-7 h-7 transform -rotate-90" viewBox="0 0 36 36">
-                <circle cx="18" cy="18" r="16" fill="none" stroke="currentColor" strokeWidth="3" className="text-gray-700" />
-                <circle
-                  cx="18" cy="18" r="16" fill="none" stroke="currentColor" strokeWidth="3"
-                  strokeDasharray={`${2 * Math.PI * 16}`}
-                  strokeDashoffset={`${2 * Math.PI * 16 * (1 - progress / 100)}`}
-                  strokeLinecap="round"
-                  className="text-yellow-400 transition-all duration-500"
-                />
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-              </div>
-            </div>
-            <span className="text-xs">Active</span>
-          </button>
-        </div>
-      </nav>
+      <BottomNavigation 
+        currentScreen="dashboard" 
+        onProfileClick={() => setShowProfile(true)} 
+      />
     </div>
   );
 }

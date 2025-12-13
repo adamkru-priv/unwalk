@@ -1,0 +1,21 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Gradient background -->
+  <rect width="512" height="512" rx="100" fill="url(#gradient)"/>
+  
+  <!-- Walking figure icon -->
+  <path d="M256 120C278.091 120 296 102.091 296 80C296 57.9086 278.091 40 256 40C233.909 40 216 57.9086 216 80C216 102.091 233.909 120 256 120Z" fill="white"/>
+  
+  <!-- Body -->
+  <path d="M296 160L336 280L296 400H256L216 320L176 400H136L176 280L136 160H176L216 240L256 160H296Z" fill="white"/>
+  
+  <!-- Movement lines -->
+  <path d="M360 180L380 200M360 240L390 260M360 300L385 320" stroke="white" stroke-width="12" stroke-linecap="round"/>
+  <path d="M152 180L132 200M152 240L122 260M152 300L127 320" stroke="white" stroke-width="12" stroke-linecap="round"/>
+  
+  <defs>
+    <linearGradient id="gradient" x1="0" y1="0" x2="512" y2="512">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#8B5CF6"/>
+    </linearGradient>
+  </defs>
+</svg>

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Challenge, UserChallenge, UserTier } from '../types';
 
-type Screen = 'onboarding' | 'home' | 'dashboard' | 'library';
+type Screen = 'onboarding' | 'home' | 'dashboard' | 'library' | 'team' | 'stats' | 'profile' | 'badges';
 
 interface ChallengeStore {
   challenge: Challenge | null;

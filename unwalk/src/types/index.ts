@@ -1,4 +1,4 @@
-// UnWalk Types - Stage 1: Admin-Curated
+// MOVEE Types - Stage 1: Admin-Curated
 
 // Admin creates these challenges in Supabase Dashboard
 export interface AdminChallenge {
@@ -12,6 +12,10 @@ export interface AdminChallenge {
   sort_order: number;
   is_active: boolean;
   created_at: string;
+  is_custom?: boolean; // Flag for custom challenges
+  created_by_device_id?: string; // Who created this custom challenge
+  is_image_hidden?: boolean; // Should image be blurred initially
+  deadline?: string; // Optional deadline for challenge
 }
 
 // User's active/completed challenges (guest mode with device_id)
@@ -25,6 +29,9 @@ export interface UserChallenge {
   started_at: string;
   paused_at?: string;
   completed_at?: string;
+  assigned_by?: string; // Device ID of person who assigned this
+  is_group_challenge?: boolean; // Is this a group challenge
+  group_members?: string[]; // Array of device IDs in the group
 }
 
 // Legacy Challenge type (keeping for backward compatibility)

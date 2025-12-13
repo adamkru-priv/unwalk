@@ -1,17 +1,19 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import type { AdminChallenge, UserChallenge } from '../../types';
-import { getAdminChallenges, getCompletedChallenges, startChallenge } from '../../lib/api';
+import type { AdminChallenge } from '../../types';
+import { getAdminChallenges, startChallenge } from '../../lib/api';
 import { useChallengeStore } from '../../stores/useChallengeStore';
+import { BottomNavigation } from '../common/BottomNavigation';
+import { AppHeader } from '../common/AppHeader';
+import { CreateChallengeModal } from './CreateChallengeModal';
 
 export function ChallengeLibrary() {
   const [challenges, setChallenges] = useState<AdminChallenge[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState<string | null>(null);
-  const [showProfile, setShowProfile] = useState(false);
-  const [selectedChallenge, setSelectedChallenge] = useState<AdminChallenge | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedChallenge, setSelectedChallenge] = useState<AdminChallenge | null>(null);
   const { activeUserChallenge, setActiveChallenge, setCurrentScreen } = useChallengeStore();
   
   // 🔍 Filter & Sort State
@@ -28,19 +30,6 @@ export function ChallengeLibrary() {
 
   useEffect(() => {
     loadData();
-  }, []);
-
-  // 🔄 Reload when screen becomes visible
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        console.log('🔄 Library visible again - reloading data...');
-        loadData();
-      }
-    };
-    
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
   const loadData = async () => {
@@ -210,73 +199,11 @@ export function ChallengeLibrary() {
         </motion.div>
       )}
 
-      {/* Profile Modal */}
-      {showProfile && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-6"
-          onClick={() => setShowProfile(false)}
-        >
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">Profile</h2>
-              <button onClick={() => setShowProfile(false)} className="text-gray-400 hover:text-gray-600">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Simple profile info */}
-            <div className="text-center py-8">
-              <div className="w-20 h-20 bg-gray-200 rounded-full mx-auto mb-4 flex items-center justify-center">
-                <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-              </div>
-              <p className="text-gray-600">View your profile stats on the Home screen</p>
-            </div>
-
-            <button
-              onClick={() => {
-                setShowProfile(false);
-                setCurrentScreen('home');
-              }}
-              className="w-full bg-blue-500 text-white px-4 py-3 rounded-xl font-medium hover:bg-blue-600 transition-colors"
-            >
-              Go to Home
-            </button>
-          </motion.div>
-        </motion.div>
-      )}
-
       {/* Header */}
-      <header className="bg-gradient-to-b from-gray-900 to-transparent px-6 py-4 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center gap-4 mb-2">
-            <button
-              onClick={() => setCurrentScreen('home')}
-              className="text-white/80 hover:text-white transition-colors"
-              aria-label="Back to home"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <h1 className="text-2xl font-bold">Explore Challenges</h1>
-          </div>
-          <p className="text-white/70 ml-10">Choose for yourself or assign to family</p>
-        </div>
-      </header>
+      <AppHeader title="Explore" subtitle="Choose for yourself or assign to family" showBackButton onProfileClick={() => {}} />
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-6 py-6">
         {error && (
           <div className="bg-red-900/50 border border-red-700 text-red-200 px-4 py-3 rounded-lg mb-6">
             {error}
@@ -287,54 +214,51 @@ export function ChallengeLibrary() {
         )}
 
         {/* Create Custom Challenge Button */}
-        <motion.button
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
+        <button
           onClick={() => setShowCreateModal(true)}
-          className="w-full mb-6 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-6 py-4 rounded-xl font-semibold transition-all shadow-lg hover:shadow-purple-500/50 flex items-center justify-center gap-2"
+          className="w-full mb-4 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-purple-500/50 flex items-center justify-center gap-2"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
           Create Custom Challenge
-        </motion.button>
+        </button>
 
-        {/* 🔍 Filters & Sort Controls */}
-        <div className="mb-6 bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700">
-          {/* Header - Always visible */}
+        {/* 🔍 COMPACT Filters & Sort */}
+        <div className="mb-4">
           <button
             onClick={() => setFilterExpanded(!filterExpanded)}
-            className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-800/30 transition-colors rounded-xl"
+            className="w-full flex items-center justify-between px-4 py-2.5 bg-gray-800/30 hover:bg-gray-800/50 border border-gray-700/50 rounded-lg transition-colors"
           >
-            <div className="flex items-center gap-2">
-              <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex items-center gap-2 text-sm">
+              <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
               </svg>
-              <span className="font-semibold">Filter & Sort</span>
-              <span className="text-sm text-white/60">
-                ({filteredChallenges.length} of {challenges.length} challenges)
+              <span className="text-white/80 font-medium">Filter & Sort</span>
+              <span className="text-white/50 text-xs">
+                ({filteredChallenges.length}/{challenges.length})
               </span>
             </div>
             <svg 
-              className={`w-5 h-5 text-white/60 transition-transform ${filterExpanded ? 'rotate-180' : ''}`} 
+              className={`w-4 h-4 text-white/60 transition-transform ${filterExpanded ? 'rotate-180' : ''}`} 
               fill="none" 
               stroke="currentColor" 
-              viewBox="0 0 24 24"
+              viewBox="0 24 24"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
 
-          {/* Expanded Controls */}
+          {/* Expanded Controls - Compact */}
           {filterExpanded && (
-            <div className="px-4 pb-4 space-y-4 border-t border-gray-700 pt-4">
-              {/* Sort Dropdown */}
+            <div className="mt-2 p-3 bg-gray-800/30 border border-gray-700/50 rounded-lg space-y-3">
+              {/* Sort Dropdown - Compact */}
               <div>
-                <label className="block text-sm font-medium text-white/80 mb-2">Sort by Steps</label>
+                <label className="block text-xs font-medium text-white/70 mb-1.5">Sort by Steps</label>
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as any)}
-                  className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   <option value="default">Default Order</option>
                   <option value="steps-asc">Fewest Steps First 📈</option>
@@ -342,10 +266,10 @@ export function ChallengeLibrary() {
                 </select>
               </div>
 
-              {/* Steps Range Slider */}
+              {/* Steps Range Slider - Compact */}
               <div>
-                <label className="block text-sm font-medium text-white/80 mb-2">
-                  Maximum Steps: {(maxSteps / 1000).toFixed(0)}k
+                <label className="block text-xs font-medium text-white/70 mb-1.5">
+                  Max Steps: {(maxSteps / 1000).toFixed(0)}k
                 </label>
                 <input
                   type="range"
@@ -354,22 +278,22 @@ export function ChallengeLibrary() {
                   step={1000}
                   value={maxSteps}
                   onChange={(e) => setMaxSteps(Number(e.target.value))}
-                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                  className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
                 />
-                <div className="flex justify-between text-xs text-white/50 mt-1">
+                <div className="flex justify-between text-xs text-white/40 mt-1">
                   <span>{(stepsRange.min / 1000).toFixed(0)}k</span>
                   <span>{(stepsRange.max / 1000).toFixed(0)}k</span>
                 </div>
               </div>
 
-              {/* Reset Button */}
+              {/* Reset Button - Compact */}
               {(sortBy !== 'default' || maxSteps !== stepsRange.max) && (
                 <button
                   onClick={() => {
                     setSortBy('default');
                     setMaxSteps(stepsRange.max);
                   }}
-                  className="w-full py-2 px-4 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium transition-colors"
+                  className="w-full py-1.5 px-3 bg-gray-700/50 hover:bg-gray-700 rounded-lg text-xs font-medium transition-colors"
                 >
                   Reset Filters
                 </button>
@@ -380,13 +304,11 @@ export function ChallengeLibrary() {
 
         {/* Netflix-style Grid - ALL challenges, NO completed filter */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {filteredChallenges.map((challenge, index) => (
-            <motion.div
+          {filteredChallenges.map((challenge) => (
+            <div
               key={challenge.id}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: index * 0.05 }}
-              className="group relative aspect-[3/2] rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer hover:scale-105"
+              className="group relative rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer hover:scale-105"
+              style={{ aspectRatio: '3/4' }}
               onClick={() => handleChallengeClick(challenge)}
             >
               {/* Background Image */}
@@ -411,20 +333,10 @@ export function ChallengeLibrary() {
               {/* Content */}
               <div className="absolute inset-0 p-4 flex flex-col justify-end">
                 <h3 className="text-base font-bold mb-2 line-clamp-2 text-white">
-                  {challenge.title}
+                  {challenge.title.length > 30 ? challenge.title.substring(0, 30) + '...' : challenge.title}
                 </h3>
-                
-                {/* Tags */}
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  <span className="px-2 py-0.5 bg-white/25 backdrop-blur-sm rounded-full text-xs text-white font-medium">
-                    {challenge.difficulty}
-                  </span>
-                  <span className="px-2 py-0.5 bg-white/25 backdrop-blur-sm rounded-full text-xs text-white font-medium">
-                    {challenge.category}
-                  </span>
-                </div>
 
-                {/* Goal */}
+                {/* Goal - removed badges */}
                 <div className="flex items-center gap-1.5 text-sm text-white/90 font-medium">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
@@ -441,7 +353,7 @@ export function ChallengeLibrary() {
                   </svg>
                 </div>
               </div>
-            </motion.div>
+            </div>
           ))}
         </div>
 
@@ -471,43 +383,20 @@ export function ChallengeLibrary() {
       )}
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-800 px-6 py-3 z-20">
-        <div className="max-w-md mx-auto flex items-center justify-around">
-          {/* Home */}
-          <button
-            onClick={() => setCurrentScreen('home')}
-            className="flex flex-col items-center gap-1 text-white/60 hover:text-white transition-colors"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-            </svg>
-            <span className="text-xs font-medium">Home</span>
-          </button>
+      <BottomNavigation 
+        currentScreen="library" 
+        onProfileClick={() => {}} 
+      />
 
-          {/* Explore */}
-          <button
-            onClick={() => setCurrentScreen('library')}
-            className="flex flex-col items-center gap-1 text-white"
-          >
-            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
-            </svg>
-            <span className="text-xs font-medium">Explore</span>
-          </button>
-
-          {/* Profile */}
-          <button
-            onClick={() => setShowProfile(true)}
-            className="flex flex-col items-center gap-1 text-white/60 hover:text-white transition-colors"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A9 9 0 1112 21a9 9 0 01-6.879-3.196z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            <span className="text-xs font-medium">Profile</span>
-          </button>
-        </div>
-      </nav>
+      {/* Create Challenge Modal */}
+      <CreateChallengeModal 
+        isOpen={showCreateModal} 
+        onClose={() => setShowCreateModal(false)} 
+        onSuccess={() => {
+          loadData(); // Reload challenges to show new custom challenge
+          setShowCreateModal(false);
+        }}
+      />
     </div>
   );
 }
