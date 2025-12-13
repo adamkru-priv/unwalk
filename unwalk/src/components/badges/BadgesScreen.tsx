@@ -99,9 +99,9 @@ export function BadgesScreen() {
   const unlockedCount = badges.filter(b => b.unlocked).length;
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white pb-20">
+    <div className="min-h-screen bg-[#0B101B] text-white pb-20 font-sans">
       {/* Header */}
-      <AppHeader title="Badges & Achievements" />
+      <AppHeader />
 
       {/* Image Viewer Modal */}
       {selectedImage && (
@@ -135,7 +135,7 @@ export function BadgesScreen() {
       <main className="px-6 py-6 max-w-4xl mx-auto space-y-8">
         {/* BADGES SECTION */}
         <section>
-          <div className="bg-[#1a2332] border border-gray-700/50 rounded-2xl p-6">
+          <div className="bg-[#151A25] border border-white/5 rounded-3xl p-6">
             {/* Header */}
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
@@ -148,20 +148,20 @@ export function BadgesScreen() {
             </div>
 
             {/* Badges Grid */}
-            <div className="grid grid-cols-3 gap-6 mb-5">
+            <div className="grid grid-cols-3 gap-6">
               {badges.map((badge) => (
-                <div key={badge.id} className="flex flex-col items-center gap-3">
+                <div key={badge.id} className="flex flex-col items-center gap-2">
                   {/* Badge Circle */}
                   <div className="relative">
                     <div
-                      className={`w-24 h-24 rounded-full flex items-center justify-center transition-all ${
+                      className={`w-20 h-20 rounded-full flex items-center justify-center transition-all ${
                         badge.unlocked
                           ? `bg-gradient-to-br ${badge.gradient} shadow-xl`
-                          : 'bg-gradient-to-br from-gray-700 to-gray-800 opacity-30'
+                          : 'bg-[#0B101B] border border-white/5 opacity-50'
                       }`}
                     >
                       {/* Icon */}
-                      <div className={`text-5xl ${!badge.unlocked && 'grayscale opacity-50'}`}>
+                      <div className={`text-4xl ${!badge.unlocked && 'grayscale opacity-50'}`}>
                         {badge.icon}
                       </div>
 
@@ -175,21 +175,13 @@ export function BadgesScreen() {
                   </div>
 
                   {/* Title */}
-                  <div className={`text-sm text-center font-medium ${
+                  <div className={`text-xs text-center font-medium ${
                     badge.unlocked ? 'text-white' : 'text-gray-500'
                   }`}>
                     {badge.title}
                   </div>
                 </div>
               ))}
-            </div>
-
-            {/* Progress Hint */}
-            <div className="pt-4 border-t border-gray-700/50">
-              <div className="text-sm text-gray-400 text-center flex items-center justify-center gap-2">
-                <span>💡</span>
-                <span>Walk 10,000 steps to unlock <span className="text-white font-semibold">10K Master</span></span>
-              </div>
             </div>
           </div>
         </section>
@@ -209,7 +201,7 @@ export function BadgesScreen() {
                     url: challenge.admin_challenge?.image_url || '',
                     title: challenge.admin_challenge?.title || ''
                   })}
-                  className="relative aspect-square rounded-xl overflow-hidden shadow-md group cursor-pointer hover:scale-105 transition-transform"
+                  className="relative aspect-square rounded-2xl overflow-hidden shadow-md group cursor-pointer hover:scale-105 transition-transform"
                 >
                   <img
                     src={challenge.admin_challenge?.image_url}
@@ -245,7 +237,7 @@ export function BadgesScreen() {
         {/* Empty State for Completed Challenges */}
         {completedChallenges.length === 0 && (
           <section>
-            <div className="bg-gray-800/30 border border-gray-700/50 rounded-xl p-8 text-center">
+            <div className="bg-[#151A25] border border-white/5 rounded-3xl p-8 text-center">
               <div className="text-4xl mb-3">🎯</div>
               <h3 className="text-lg font-bold text-white mb-2">No Completed Challenges Yet</h3>
               <p className="text-gray-400 text-sm">

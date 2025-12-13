@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import type { AdminChallenge } from '../../types';
 import { getAdminChallenges, startChallenge } from '../../lib/api';
@@ -7,19 +7,19 @@ import { BottomNavigation } from '../common/BottomNavigation';
 import { AppHeader } from '../common/AppHeader';
 import { CreateChallengeModal } from './CreateChallengeModal';
 
+type StepGoal = 5000 | 10000 | 15000 | 25000 | 50000;
+type Category = 'animals' | 'sport' | 'nature' | 'surprise';
+
 export function ChallengeLibrary() {
-  const [challenges, setChallenges] = useState<AdminChallenge[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [selectedSteps, setSelectedSteps] = useState<StepGoal | null>(null);
+  const [customSteps, setCustomSteps] = useState<string>('');
+  const [showCustomInput, setShowCustomInput] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [starting, setStarting] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedChallenge, setSelectedChallenge] = useState<AdminChallenge | null>(null);
   const { activeUserChallenge, setActiveChallenge, setCurrentScreen } = useChallengeStore();
-  
-  // 🔍 Filter & Sort State
-  const [sortBy, setSortBy] = useState<'steps-asc' | 'steps-desc' | 'default'>('default');
-  const [maxSteps, setMaxSteps] = useState<number>(100000);
-  const [filterExpanded, setFilterExpanded] = useState(false);
 
   // Mock family members for assignment
   const [familyMembers] = useState([
@@ -28,58 +28,102 @@ export function ChallengeLibrary() {
     { id: '3', name: 'Kasia', avatar: '👧' },
   ]);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  const stepOptions: { value: StepGoal; label: string; emoji: string }[] = [
+    { value: 5000, label: '5,000', emoji: '🚶' },
+    { value: 10000, label: '10,000', emoji: '🏃' },
+    { value: 15000, label: '15,000', emoji: '💪' },
+    { value: 25000, label: '25,000', emoji: '🔥' },
+    { value: 50000, label: '50,000', emoji: '🚀' },
+  ];
 
-  const loadData = async () => {
+  const categoryOptions: { value: Category; label: string; emoji: string }[] = [
+    { value: 'animals', label: 'Animals', emoji: '🦁' },
+    { value: 'sport', label: 'Sport', emoji: '⚽' },
+    { value: 'nature', label: 'Nature', emoji: '🏔️' },
+    { value: 'surprise', label: 'Surprise', emoji: '🎲' },
+  ];
+
+  const handleGetChallenge = async () => {
+    // Get actual steps value (either from slider or custom input)
+    const actualSteps = showCustomInput && customSteps 
+      ? parseInt(customSteps.replace(/,/g, '')) 
+      : selectedSteps;
+
+    if (!actualSteps || !selectedCategory) {
+      setError('Please select both steps and category');
+      return;
+    }
+
     try {
       setLoading(true);
-      const adminChallenges = await getAdminChallenges();
-      
-      console.log('📊 Library loaded:', {
-        totalChallenges: adminChallenges.length,
-      });
-      
-      setChallenges(adminChallenges);
       setError(null);
+
+      // Check if user already has an active challenge
+      if (activeUserChallenge) {
+        setError(`You already have an active challenge: "${activeUserChallenge.admin_challenge?.title}". Please complete or abandon it first.`);
+        setLoading(false);
+        return;
+      }
+
+      // Get all challenges
+      const allChallenges = await getAdminChallenges();
+      
+      // Filter by steps (allow ±20% tolerance)
+      const minSteps = actualSteps * 0.8;
+      const maxSteps = actualSteps * 1.2;
+      let filtered = allChallenges.filter(
+        c => c.goal_steps >= minSteps && c.goal_steps <= maxSteps
+      );
+
+      // Filter by category (if not surprise)
+      if (selectedCategory !== 'surprise') {
+        filtered = filtered.filter(c => 
+          c.category?.toLowerCase() === selectedCategory
+        );
+      }
+
+      // If no matches, fallback to any challenge with similar steps
+      if (filtered.length === 0) {
+        filtered = allChallenges.filter(
+          c => c.goal_steps >= minSteps && c.goal_steps <= maxSteps
+        );
+      }
+
+      // If still no matches, just pick from all
+      if (filtered.length === 0) {
+        filtered = allChallenges;
+      }
+
+      // Pick random challenge
+      const randomChallenge = filtered[Math.floor(Math.random() * filtered.length)];
+      
+      if (!randomChallenge) {
+        setError('No challenges available. Please try again later.');
+        setLoading(false);
+        return;
+      }
+
+      // Show modal with selected challenge
+      setSelectedChallenge(randomChallenge);
+      setLoading(false);
     } catch (err) {
-      setError('Failed to load challenges. Please try again.');
-      console.error('Error loading challenges:', err);
-    } finally {
+      setError('Failed to load challenge. Please try again.');
+      console.error('Error:', err);
       setLoading(false);
     }
-  };
-
-  const handleChallengeClick = (challenge: AdminChallenge) => {
-    setSelectedChallenge(challenge);
   };
 
   const handleStartForMyself = async () => {
     if (!selectedChallenge) return;
     
     try {
-      setStarting(selectedChallenge.id);
-      
-      // Check if user already has an active challenge
-      if (activeUserChallenge) {
-        setError(`You already have an active challenge: "${activeUserChallenge.admin_challenge?.title}". Please complete or abandon it first.`);
-        setStarting(null);
-        setSelectedChallenge(null);
-        return;
-      }
-      
       const userChallenge = await startChallenge(selectedChallenge.id);
-      
       setActiveChallenge(userChallenge);
       setSelectedChallenge(null);
       setCurrentScreen('home');
-      
-      setStarting(null);
     } catch (err) {
       setError('Failed to start challenge. Please try again.');
       console.error('Error starting challenge:', err);
-      setStarting(null);
     }
   };
 
@@ -87,109 +131,71 @@ export function ChallengeLibrary() {
     if (!selectedChallenge) return;
     
     const member = familyMembers.find(m => m.id === memberId);
-    alert(`✅ Challenge "${selectedChallenge.title}" assigned to ${member?.name}!\n\nThey will receive a notification.`);
+    alert(`✅ Challenge "${selectedChallenge.title}" assigned to ${member?.name}!`);
     setSelectedChallenge(null);
   };
 
-  // 🔍 Get min/max steps from challenges
-  const getStepsRange = () => {
-    if (challenges.length === 0) return { min: 0, max: 100000 };
-    const steps = challenges.map(c => c.goal_steps);
-    return {
-      min: Math.min(...steps),
-      max: Math.max(...steps)
-    };
-  };
-
-  // 🔍 Filter and sort challenges
-  const getFilteredAndSortedChallenges = () => {
-    let filtered = challenges.filter(c => c.goal_steps <= maxSteps);
-    
-    if (sortBy === 'steps-asc') {
-      filtered = [...filtered].sort((a, b) => a.goal_steps - b.goal_steps);
-    } else if (sortBy === 'steps-desc') {
-      filtered = [...filtered].sort((a, b) => b.goal_steps - a.goal_steps);
-    }
-    
-    return filtered;
-  };
-
-  const filteredChallenges = getFilteredAndSortedChallenges();
-  const stepsRange = getStepsRange();
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-          <p className="text-white">Loading challenges...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gray-900 text-white pb-20">
-      {/* Challenge Action Modal */}
+    <div className="min-h-screen bg-[#0B101B] text-white pb-20 font-sans">
+      {/* Challenge Preview Modal */}
       {selectedChallenge && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6"
+          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-5"
           onClick={() => setSelectedChallenge(null)}
         >
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             onClick={(e) => e.stopPropagation()}
-            className="bg-gray-800 border border-gray-700 rounded-2xl p-6 max-w-md w-full shadow-2xl"
+            className="bg-[#151A25] border border-white/10 rounded-2xl p-5 max-w-sm w-full"
           >
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-white">{selectedChallenge.title}</h2>
+              <h2 className="text-lg font-bold text-white">Your Challenge!</h2>
               <button onClick={() => setSelectedChallenge(null)} className="text-gray-400 hover:text-white">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
-            <div className="mb-6">
-              <div className="relative aspect-[3/2] rounded-xl overflow-hidden mb-4">
+            <div className="mb-4">
+              <div className="relative aspect-[3/2] rounded-xl overflow-hidden mb-3">
                 <img
                   src={selectedChallenge.image_url}
                   alt={selectedChallenge.title}
                   className="w-full h-full object-cover"
-                  style={{ filter: 'blur(25px)' }}
+                  style={{ filter: 'blur(20px)' }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent flex items-end p-4">
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex items-end p-3">
                   <div className="text-white">
-                    <div className="text-sm font-medium mb-1">🎯 Goal: {(selectedChallenge.goal_steps / 1000).toFixed(0)}k steps</div>
-                    <div className="text-xs text-white/70">{selectedChallenge.difficulty} • {selectedChallenge.category}</div>
+                    <div className="text-sm font-semibold mb-0.5">{selectedChallenge.title}</div>
+                    <div className="text-xs text-white/70">🎯 {(selectedChallenge.goal_steps / 1000).toFixed(0)}k steps</div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               <button
                 onClick={handleStartForMyself}
-                disabled={starting === selectedChallenge.id}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
               >
-                {starting === selectedChallenge.id ? 'Starting...' : '🚶‍♂️ Do it Myself'}
+                🚶‍♂️ Start Now
               </button>
 
               <div>
-                <div className="text-sm text-gray-400 mb-2 text-center">or assign to</div>
+                <div className="text-xs text-gray-400 mb-2 text-center">or assign to</div>
                 <div className="grid grid-cols-3 gap-2">
                   {familyMembers.map((member) => (
                     <button
                       key={member.id}
                       onClick={() => handleAssignToMember(member.id)}
-                      className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-3 rounded-lg text-sm font-medium transition-colors flex flex-col items-center gap-1"
+                      className="bg-[#0B101B] hover:bg-gray-800 border border-white/5 text-white px-2 py-2 rounded-lg text-xs font-medium transition-colors flex flex-col items-center gap-1"
                     >
-                      <span className="text-2xl">{member.avatar}</span>
-                      <span className="text-xs">{member.name}</span>
+                      <span className="text-xl">{member.avatar}</span>
+                      <span className="text-[10px]">{member.name}</span>
                     </button>
                   ))}
                 </div>
@@ -200,189 +206,201 @@ export function ChallengeLibrary() {
       )}
 
       {/* Header */}
-      <AppHeader title="Explore" subtitle="Choose for yourself or assign to family" showBackButton onProfileClick={() => {}} />
+      <AppHeader />
 
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-6 py-6">
+      <main className="px-5 py-6 max-w-md mx-auto">
+        {/* Hero Section */}
+        <div className="text-center mb-8">
+          <h1 className="text-2xl font-bold text-white mb-2">Start New Challenge</h1>
+          <p className="text-gray-400 text-sm">
+            Pick your goal and let us surprise you with a mystery photo!
+          </p>
+        </div>
+
+        {/* Error Message */}
         {error && (
-          <div className="bg-red-900/50 border border-red-700 text-red-200 px-4 py-3 rounded-lg mb-6">
+          <div className="bg-red-900/30 border border-red-700/50 text-red-200 px-4 py-3 rounded-xl mb-5 text-sm">
             {error}
-            <button onClick={loadData} className="ml-4 underline hover:no-underline">
-              Retry
-            </button>
           </div>
         )}
 
-        {/* 🔍 COMPACT Filters & Sort */}
-        <div className="mb-4">
-          <button
-            onClick={() => setFilterExpanded(!filterExpanded)}
-            className="w-full flex items-center justify-between px-4 py-2.5 bg-gray-800/30 hover:bg-gray-800/50 border border-gray-700/50 rounded-lg transition-colors"
-          >
-            <div className="flex items-center gap-2 text-sm">
-              <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-              </svg>
-              <span className="text-white/80 font-medium">Filter & Sort</span>
-              <span className="text-white/50 text-xs">
-                ({filteredChallenges.length}/{challenges.length})
-              </span>
+        <div className="space-y-6">
+          {/* Step Selection - Slider or Custom Input */}
+          <section>
+            <div className="flex items-center justify-between mb-3 px-1">
+              <h2 className="text-sm font-semibold text-white">How many steps?</h2>
+              {!showCustomInput ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">{stepOptions.find(o => o.value === selectedSteps)?.emoji || '🚶'}</span>
+                  <span className="text-lg font-bold text-white">
+                    {selectedSteps ? (selectedSteps / 1000).toFixed(0) + 'k' : '—'}
+                  </span>
+                </div>
+              ) : customSteps ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">🚀</span>
+                  <span className="text-lg font-bold text-white">
+                    {parseInt(customSteps.replace(/,/g, '')).toLocaleString()}
+                  </span>
+                </div>
+              ) : null}
             </div>
-            <svg 
-              className={`w-4 h-4 text-white/60 transition-transform ${filterExpanded ? 'rotate-180' : ''}`} 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-
-          {/* Expanded Controls - Compact */}
-          {filterExpanded && (
-            <div className="mt-2 p-3 bg-gray-800/30 border border-gray-700/50 rounded-lg space-y-3">
-              {/* Sort Dropdown - Compact */}
-              <div>
-                <label className="block text-xs font-medium text-white/70 mb-1.5">Sort by Steps</label>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
-                  className="w-full bg-gray-900/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="default">Default Order</option>
-                  <option value="steps-asc">Fewest Steps First 📈</option>
-                  <option value="steps-desc">Most Steps First 📊</option>
-                </select>
+            
+            {showCustomInput ? (
+              /* Custom Input Mode */
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="Enter steps (e.g., 500000)"
+                    value={customSteps}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^0-9]/g, '');
+                      if (value && parseInt(value) > 0) {
+                        setCustomSteps(parseInt(value).toLocaleString());
+                      } else {
+                        setCustomSteps('');
+                      }
+                    }}
+                    className="flex-1 bg-[#151A25] border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 text-base"
+                  />
+                  <button
+                    onClick={() => {
+                      if (customSteps) {
+                        // Keep the custom value and close input
+                        setShowCustomInput(false);
+                      }
+                    }}
+                    disabled={!customSteps}
+                    className="px-5 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed border border-blue-500 disabled:border-white/10 rounded-lg text-sm text-white font-semibold transition-colors"
+                  >
+                    OK
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowCustomInput(false);
+                      setCustomSteps('');
+                      if (!selectedSteps) setSelectedSteps(10000);
+                    }}
+                    className="px-4 py-3 bg-[#151A25] hover:bg-[#1c2230] border border-white/10 rounded-lg text-sm text-gray-400 hover:text-white transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                {customSteps && (
+                  <div className="text-xs text-gray-400 px-1">
+                    = {parseInt(customSteps.replace(/,/g, '')).toLocaleString()} steps
+                  </div>
+                )}
               </div>
-
-              {/* Steps Range Slider - Compact */}
-              <div>
-                <label className="block text-xs font-medium text-white/70 mb-1.5">
-                  Max Steps: {(maxSteps / 1000).toFixed(0)}k
-                </label>
+            ) : (
+              /* Slider Mode */
+              <div className="relative">
                 <input
                   type="range"
-                  min={stepsRange.min}
-                  max={stepsRange.max}
-                  step={1000}
-                  value={maxSteps}
-                  onChange={(e) => setMaxSteps(Number(e.target.value))}
-                  className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                />
-                <div className="flex justify-between text-xs text-white/40 mt-1">
-                  <span>{(stepsRange.min / 1000).toFixed(0)}k</span>
-                  <span>{(stepsRange.max / 1000).toFixed(0)}k</span>
-                </div>
-              </div>
-
-              {/* Reset Button - Compact */}
-              {(sortBy !== 'default' || maxSteps !== stepsRange.max) && (
-                <button
-                  onClick={() => {
-                    setSortBy('default');
-                    setMaxSteps(stepsRange.max);
+                  min="0"
+                  max="4"
+                  step="1"
+                  value={selectedSteps ? stepOptions.findIndex(o => o.value === selectedSteps) : 0}
+                  onChange={(e) => {
+                    const index = parseInt(e.target.value);
+                    setSelectedSteps(stepOptions[index].value);
                   }}
-                  className="w-full py-1.5 px-3 bg-gray-700/50 hover:bg-gray-700 rounded-lg text-xs font-medium transition-colors"
-                >
-                  Reset Filters
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                  style={{
+                    background: selectedSteps 
+                      ? `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(stepOptions.findIndex(o => o.value === selectedSteps) / 4) * 100}%, #374151 ${(stepOptions.findIndex(o => o.value === selectedSteps) / 4) * 100}%, #374151 100%)`
+                      : '#374151'
+                  }}
+                />
+                <div className="flex justify-between mt-2 text-xs text-gray-500">
+                  {stepOptions.map((option) => (
+                    <span key={option.value}>{(option.value / 1000).toFixed(0)}k</span>
+                  ))}
+                </div>
+              </div>
+            )}
 
-        {/* Grid with Create Custom Challenge as first box */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {/* CREATE CUSTOM CHALLENGE BOX - FIRST */}
-          <div
-            onClick={() => setShowCreateModal(true)}
-            className="group relative rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer hover:scale-105 bg-gradient-to-br from-purple-600 via-purple-700 to-purple-800"
-            style={{ aspectRatio: '3/4' }}
-          >
-            {/* Animated gradient background */}
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-purple-600/20 animate-pulse" />
-            
-            {/* Content */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center p-4">
-              <div className="bg-white/10 backdrop-blur-sm rounded-full p-6 mb-4 group-hover:scale-110 transition-transform">
-                <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            {/* Custom Steps Toggle */}
+            {!showCustomInput && (
+              <button
+                onClick={() => {
+                  setShowCustomInput(true);
+                  setSelectedSteps(null);
+                }}
+                className="mt-3 text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1 px-1"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                 </svg>
-              </div>
-              
-              <h3 className="text-lg font-bold text-white text-center mb-2">
-                Create Custom<br />Challenge
-              </h3>
-              
-              <p className="text-sm text-white/80 text-center">
-                Upload your own photo
-              </p>
-            </div>
+                <span>Enter custom amount</span>
+              </button>
+            )}
+          </section>
 
-            {/* Hover Effect */}
-            <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors pointer-events-none" />
+          {/* Category Selection */}
+          <section>
+            <h2 className="text-sm font-semibold text-white mb-3 px-1">What category?</h2>
+            <div className="grid grid-cols-2 gap-2">
+              {categoryOptions.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => setSelectedCategory(option.value)}
+                  className={`p-4 rounded-xl border-2 transition-all ${
+                    selectedCategory === option.value
+                      ? 'border-purple-500 bg-purple-500/10'
+                      : 'border-white/10 bg-[#151A25] hover:border-white/20'
+                  }`}
+                >
+                  <div className="text-2xl mb-1">{option.emoji}</div>
+                  <div className="text-sm font-bold text-white">{option.label}</div>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* Get Challenge Button */}
+          <button
+            onClick={handleGetChallenge}
+            disabled={(!selectedSteps && !customSteps) || !selectedCategory || loading}
+            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-700 disabled:to-gray-700 text-white px-6 py-4 rounded-xl font-bold text-base transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                <span>Finding Challenge...</span>
+              </>
+            ) : (
+              <>
+                <span>🎁</span>
+                <span>Get My Challenge</span>
+              </>
+            )}
+          </button>
+
+          {/* Divider */}
+          <div className="relative py-4">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-white/10"></div>
+            </div>
+            <div className="relative flex justify-center text-xs">
+              <span className="bg-[#0B101B] px-3 text-gray-500">or</span>
+            </div>
           </div>
 
-          {/* Regular challenge cards */}
-          {filteredChallenges.map((challenge) => (
-            <div
-              key={challenge.id}
-              className="group relative rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer hover:scale-105"
-              style={{ aspectRatio: '3/4' }}
-              onClick={() => handleChallengeClick(challenge)}
-            >
-              {/* Background Image */}
-              <img
-                src={challenge.image_url}
-                alt={challenge.title}
-                className="w-full h-full object-cover"
-                style={{ filter: 'blur(25px)' }}
-              />
-              
-              {/* Gradient Overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/60 to-black/20 transition-opacity" />
-              
-              {/* MYSTERY BOX Badge */}
-              <div className="absolute top-2 left-2">
-                <div className="bg-purple-600/90 backdrop-blur-sm text-white px-2.5 py-1 rounded-full text-xs font-bold shadow-lg flex items-center gap-1">
-                  <span>🎁</span>
-                  <span>MYSTERY</span>
-                </div>
-              </div>
-              
-              {/* Content */}
-              <div className="absolute inset-0 p-4 flex flex-col justify-end">
-                <h3 className="text-base font-bold mb-2 line-clamp-2 text-white">
-                  {challenge.title.length > 30 ? challenge.title.substring(0, 30) + '...' : challenge.title}
-                </h3>
-
-                {/* Goal */}
-                <div className="flex items-center gap-1.5 text-sm text-white/90 font-medium">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                  </svg>
-                  {(challenge.goal_steps / 1000).toFixed(0)}k steps
-                </div>
-              </div>
-
-              {/* Hover Effect */}
-              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                <div className="bg-white/30 backdrop-blur-sm rounded-full p-4">
-                  <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-                  </svg>
-                </div>
-              </div>
-            </div>
-          ))}
+          {/* Create Custom Challenge */}
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="w-full bg-[#151A25] hover:bg-[#1c2230] border border-white/10 text-white px-6 py-4 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            <span>Create Custom Challenge</span>
+          </button>
         </div>
-
-        {filteredChallenges.length === 0 && !loading && (
-          <div className="text-center py-12">
-            <p className="text-white/70">No challenges available at the moment.</p>
-          </div>
-        )}
-      </div>
+      </main>
 
       {/* Floating Action Button - Active Challenge */}
       {activeUserChallenge && (
@@ -391,29 +409,25 @@ export function ChallengeLibrary() {
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0, opacity: 0 }}
           onClick={() => setCurrentScreen('dashboard')}
-          className="fixed bottom-24 right-6 bg-gradient-to-br from-green-500 to-green-600 text-white rounded-full w-16 h-16 shadow-2xl hover:shadow-green-500/50 transition-all flex items-center justify-center z-30 hover:scale-110"
+          className="fixed bottom-24 right-6 bg-gradient-to-br from-green-500 to-green-600 text-white rounded-full w-14 h-14 shadow-2xl hover:shadow-green-500/50 transition-all flex items-center justify-center z-30 hover:scale-110"
         >
           <div className="relative">
-            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
-            <div className="absolute -top-1 -right-1 w-3 h-3 bg-white rounded-full animate-pulse"></div>
+            <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-white rounded-full animate-pulse"></div>
           </div>
         </motion.button>
       )}
 
       {/* Bottom Navigation */}
-      <BottomNavigation 
-        currentScreen="library" 
-        onProfileClick={() => {}} 
-      />
+      <BottomNavigation currentScreen="library" />
 
       {/* Create Challenge Modal */}
       <CreateChallengeModal 
         isOpen={showCreateModal} 
         onClose={() => setShowCreateModal(false)} 
         onSuccess={() => {
-          loadData(); // Reload challenges to show new custom challenge
           setShowCreateModal(false);
         }}
       />

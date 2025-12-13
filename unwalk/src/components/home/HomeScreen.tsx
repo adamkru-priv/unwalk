@@ -59,11 +59,9 @@ export function HomeScreen() {
 
   // Mock today's stats - later from Health API
   const todaySteps = 7234;
-  const todayDistance = 5.8;
-  const currentStreak = 3;
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white pb-20">
+    <div className="min-h-screen bg-[#0B101B] text-white pb-24 font-sans selection:bg-blue-500/30">
       {/* Header */}
       <AppHeader />
 
@@ -75,62 +73,44 @@ export function HomeScreen() {
         />
       )}
 
-      <main className="px-6 py-6 max-w-4xl mx-auto space-y-6">
+      <main className="px-5 pt-2 pb-6 max-w-md mx-auto space-y-8">
+        
         {/* COMPLETED CHALLENGES TO CLAIM - Top priority! */}
         {unclaimedChallenges.length > 0 && (
           <section>
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-              <span className="animate-bounce">🎉</span>
-              <span>Completed - Claim Your Reward!</span>
-            </h2>
-            
-            <div className="space-y-3">
-              {unclaimedChallenges.map((challenge) => (
-                <button
-                  key={challenge.id}
-                  onClick={() => setSelectedCompletedChallenge(challenge)}
-                  className="w-full bg-gradient-to-r from-green-900/30 to-emerald-900/30 border-2 border-green-600/50 rounded-xl p-4 hover:from-green-900/50 hover:to-emerald-900/50 hover:border-green-500 transition-all group"
-                >
-                  <div className="flex items-center gap-4">
-                    {/* Thumbnail - fully revealed */}
-                    <div className="relative w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 ring-2 ring-green-500">
+            <div className="bg-gradient-to-r from-emerald-900/40 to-teal-900/40 border border-emerald-500/30 rounded-3xl p-5 relative overflow-hidden">
+              <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-emerald-500/20 rounded-full blur-2xl"></div>
+              
+              <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2 relative z-10">
+                <span className="animate-bounce">🎁</span>
+                <span>Reward Waiting!</span>
+              </h2>
+              
+              <div className="space-y-3 relative z-10">
+                {unclaimedChallenges.map((challenge) => (
+                  <button
+                    key={challenge.id}
+                    onClick={() => setSelectedCompletedChallenge(challenge)}
+                    className="w-full bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl p-3 transition-all group flex items-center gap-4 text-left"
+                  >
+                    <div className="relative w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 ring-2 ring-emerald-500/50">
                       <img
                         src={challenge.admin_challenge?.image_url}
                         alt={challenge.admin_challenge?.title}
                         className="w-full h-full object-cover"
                       />
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover:bg-black/20 transition-colors">
-                        <div className="text-4xl">🎁</div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-white text-sm truncate">
+                        {challenge.admin_challenge?.title}
+                      </h3>
+                      <div className="text-xs text-emerald-400 font-medium mt-0.5">
+                        Tap to claim reward →
                       </div>
                     </div>
-
-                    {/* Info */}
-                    <div className="flex-1 min-w-0 text-left">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-bold text-white text-lg truncate">
-                          {challenge.admin_challenge?.title}
-                        </h3>
-                        <span className="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full animate-pulse">
-                          NEW
-                        </span>
-                      </div>
-                      <div className="text-sm text-green-300 mb-2">
-                        ✓ Challenge completed!
-                      </div>
-                      <div className="text-xs text-gray-400">
-                        {challenge.current_steps.toLocaleString()} steps • {((challenge.current_steps * 0.8) / 1000).toFixed(1)}km
-                      </div>
-                    </div>
-
-                    {/* Arrow */}
-                    <div className="text-green-400 flex-shrink-0">
-                      <svg className="w-8 h-8 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </div>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                ))}
+              </div>
             </div>
           </section>
         )}
@@ -138,221 +118,183 @@ export function HomeScreen() {
         {/* ACTIVE CHALLENGE CARD */}
         {activeUserChallenge ? (
           <section>
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-              <span>🎯</span>
-              <span>Active Challenge</span>
-            </h2>
+            <div className="flex items-center justify-between mb-4 px-1">
+              <h2 className="text-lg font-semibold text-white">Current Mission</h2>
+              <span className="text-xs font-medium text-blue-400 bg-blue-400/10 px-2.5 py-1 rounded-full">
+                {calculateProgress()}% Complete
+              </span>
+            </div>
+            
             <div
               onClick={() => setCurrentScreen('dashboard')}
-              className="relative rounded-2xl overflow-hidden shadow-lg cursor-pointer hover:shadow-xl transition-all group"
+              className="relative aspect-[4/5] w-full rounded-[2rem] overflow-hidden shadow-2xl cursor-pointer group ring-1 ring-white/10"
             >
-              {/* Background */}
-              <div className="absolute inset-0">
-                <img
-                  src={activeUserChallenge.admin_challenge?.image_url}
-                  alt={activeUserChallenge.admin_challenge?.title}
-                  className="w-full h-full object-cover"
-                  style={{ 
-                    filter: `blur(${Math.max(0, 30 - (calculateProgress() * 0.3))}px)` 
-                  }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-black/30" />
-              </div>
+              {/* Background Image with blur effect */}
+              <img
+                src={activeUserChallenge.admin_challenge?.image_url}
+                alt={activeUserChallenge.admin_challenge?.title}
+                className="absolute inset-0 w-full h-full object-cover transition-all duration-700 group-hover:scale-105"
+                style={{ 
+                  filter: activeUserChallenge.admin_challenge?.is_image_hidden 
+                    ? `blur(${Math.max(0, 30 - (calculateProgress() * 0.3))}px)` 
+                    : 'none'
+                }}
+              />
+              
+              {/* Gradient Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0B101B] via-[#0B101B]/40 to-transparent opacity-90" />
 
               {/* Content */}
-              <div className="relative p-6">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <h3 className="text-2xl font-bold text-white mb-2">
-                      {activeUserChallenge.admin_challenge?.title}
-                    </h3>
-                    <p className="text-white/80 text-sm">
-                      Day {calculateDaysActive()} • {calculateProgress()}% revealed
-                    </p>
+              <div className="absolute inset-0 p-6 flex flex-col justify-end">
+                <div className="mb-6">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="bg-white/20 backdrop-blur-md text-white text-[10px] font-bold px-2 py-1 rounded-lg uppercase tracking-wider">
+                      {activeUserChallenge.admin_challenge?.category || 'Adventure'}
+                    </span>
+                    <span className="text-white/60 text-xs font-medium">Day {calculateDaysActive()}</span>
                   </div>
-                  <div className="text-4xl">{calculateProgress() === 100 ? '🎉' : '🔥'}</div>
-                </div>
+                  
+                  <h3 className="text-3xl font-bold text-white leading-tight mb-2">
+                    {activeUserChallenge.admin_challenge?.title}
+                  </h3>
+                  
+                  <p className="text-white/70 text-sm line-clamp-2 mb-4">
+                    {activeUserChallenge.admin_challenge?.description}
+                  </p>
 
-                {/* Progress Bar */}
-                <div className="bg-white/20 rounded-full h-3 mb-4">
-                  <div
-                    className="bg-gradient-to-r from-green-400 to-green-500 h-full rounded-full transition-all"
-                    style={{ width: `${calculateProgress()}%` }}
-                  />
-                </div>
-
-                {/* Stats Row */}
-                <div className="flex items-center justify-between text-white/90">
-                  <div className="text-center">
-                    <div className="text-lg font-bold">{activeUserChallenge.current_steps.toLocaleString()}</div>
-                    <div className="text-xs text-white/60">Current</div>
-                  </div>
-                  <div className="text-white/40">/</div>
-                  <div className="text-center">
-                    <div className="text-lg font-bold">{activeUserChallenge.admin_challenge?.goal_steps.toLocaleString()}</div>
-                    <div className="text-xs text-white/60">Goal</div>
-                  </div>
-                  <div className="text-white/40">•</div>
-                  <div className="text-center">
-                    <div className="text-lg font-bold text-blue-400">
-                      {((activeUserChallenge.current_steps * 0.8) / 1000).toFixed(1)}km
+                  {/* Progress Bar */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-xs font-medium text-white/80">
+                      <span>{activeUserChallenge.current_steps.toLocaleString()} steps</span>
+                      <span>{activeUserChallenge.admin_challenge?.goal_steps.toLocaleString()} goal</span>
                     </div>
-                    <div className="text-xs text-white/60">Distance</div>
+                    <div className="bg-white/20 rounded-full h-2 overflow-hidden backdrop-blur-sm">
+                      <div
+                        className="bg-gradient-to-r from-blue-400 to-purple-500 h-full rounded-full transition-all duration-1000 ease-out"
+                        style={{ width: `${calculateProgress()}%` }}
+                      />
+                    </div>
                   </div>
                 </div>
-
-                {/* Tap to view hint */}
-                <div className="mt-4 text-center text-white/50 text-xs">
-                  Tap to view details →
+                
+                <div className="text-center text-white/40 text-xs font-medium group-hover:text-white/60 transition-colors">
+                  Tap to view details
                 </div>
               </div>
-
-              {/* Hover effect */}
-              <div className="absolute inset-0 bg-white/0 group-hover:bg-white/5 transition-colors pointer-events-none" />
             </div>
           </section>
         ) : (
-          /* EMPTY STATE - No active challenge */
+          /* EMPTY STATE - Redesigned */
           <section>
-            <div className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 border border-blue-700/50 rounded-2xl p-12 relative overflow-hidden">
-              {/* Decorative circles in background */}
-              <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl"></div>
-              <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl"></div>
+            <div className="bg-gradient-to-br from-[#1A1F2E] to-[#151925] border border-white/5 rounded-[2rem] p-8 text-center relative overflow-hidden shadow-2xl">
+              {/* Decorative background elements */}
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-500 via-red-500 to-yellow-500 opacity-50" />
+              <div className="absolute -top-24 -right-24 w-64 h-64 bg-orange-500/10 rounded-full blur-3xl"></div>
+              <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-red-500/10 rounded-full blur-3xl"></div>
               
-              <div className="relative text-center">
-                <h2 className="text-2xl font-bold text-white mb-2">Ready to start your journey?</h2>
-                <p className="text-white/70 mb-8">
-                  Choose a challenge and start revealing amazing destinations!
-                </p>
-                
-                {/* Large Circular START Button */}
-                <div className="flex justify-center mb-6">
-                  <button
-                    onClick={() => setCurrentScreen('library')}
-                    className="relative group"
-                  >
-                    {/* Outer glow ring */}
-                    <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-xl group-hover:bg-blue-500/30 transition-all"></div>
-                    
-                    {/* Main button */}
-                    <div className="relative w-32 h-32 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-2xl group-hover:scale-105 transition-transform">
-                      <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                    </div>
-                    
-                    {/* Label below */}
-                    <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap">
-                      <span className="text-white font-bold text-lg">Start Challenge</span>
-                    </div>
-                  </button>
+              <div className="relative z-10">
+                <div className="w-20 h-20 bg-gradient-to-br from-orange-500/20 to-red-500/20 rounded-2xl flex items-center justify-center mx-auto mb-6 ring-1 ring-white/10">
+                  <span className="text-4xl">👟</span>
                 </div>
 
-                {/* Secondary action */}
-                <div className="mt-12 pt-6 border-t border-white/10">
-                  <button
-                    onClick={() => setCurrentScreen('team')}
-                    className="text-white/70 hover:text-white text-sm font-medium transition-colors flex items-center justify-center gap-2 mx-auto"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                    or challenge friends & family
-                  </button>
-                </div>
+                <h2 className="text-2xl font-bold text-white mb-3 tracking-tight">
+                  Time to Walk!
+                </h2>
+                <p className="text-gray-400 mb-8 leading-relaxed text-sm max-w-[260px] mx-auto">
+                  Set a step goal and get moving. Challenge yourself to reach new limits today.
+                </p>
+                
+                <button
+                  onClick={() => setCurrentScreen('library')}
+                  className="w-full bg-white text-[#0B101B] py-4 rounded-xl font-bold text-base transition-all shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 group"
+                >
+                  <span>Pick a Challenge</span>
+                  <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
+                </button>
+
+                <button
+                  onClick={() => setCurrentScreen('team')}
+                  className="mt-4 text-sm text-gray-500 hover:text-white transition-colors"
+                >
+                  Or invite friends first
+                </button>
               </div>
             </div>
           </section>
         )}
 
+        {/* STATS GRID - Modern Bento Style */}
+        <section>
+          <h2 className="text-lg font-semibold text-white mb-4 px-1">Today's Activity</h2>
+          
+          <div className="grid grid-cols-1 gap-3">
+             {/* Steps - Big Card */}
+             <div className="bg-[#151A25] p-5 rounded-3xl border border-white/5 flex items-center justify-between relative overflow-hidden group hover:border-white/10 transition-colors">
+                <div className="relative z-10">
+                   <div className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Steps</div>
+                   <div className="text-4xl font-bold text-white tracking-tight">{todaySteps.toLocaleString()}</div>
+                   <div className="flex items-center gap-1.5 mt-2">
+                     <div className="w-16 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                       <div className="h-full bg-blue-500 w-[72%] rounded-full" />
+                     </div>
+                     <span className="text-xs text-gray-400 font-medium">72% of goal</span>
+                   </div>
+                </div>
+                <div className="w-14 h-14 rounded-2xl bg-blue-500/10 flex items-center justify-center text-2xl relative z-10 text-blue-400">
+                  👣
+                </div>
+                {/* Decorative gradient blob */}
+                <div className="absolute right-0 top-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl -mr-10 -mt-10 group-hover:bg-blue-500/10 transition-colors"></div>
+             </div>
+          </div>
+        </section>
+
         {/* PAUSED CHALLENGES SECTION - Only for Pro users */}
         {pausedChallenges.length > 0 && (
           <section>
-            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-              <span>⏸️</span>
-              <span>Paused Challenges ({pausedChallenges.length})</span>
+            <h2 className="text-sm font-bold text-gray-400 mb-3 px-1 uppercase tracking-wider">
+              Paused
             </h2>
             
             <div className="space-y-3">
               {pausedChallenges.map((challenge) => (
                 <div
                   key={challenge.id}
-                  className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl p-4 hover:bg-gray-800/70 transition-all"
+                  className="bg-[#151A25] border border-white/5 rounded-2xl p-4 flex items-center gap-4 opacity-75 hover:opacity-100 transition-opacity"
                 >
-                  <div className="flex items-center gap-4">
-                    {/* Thumbnail */}
-                    <div className="relative w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
-                      <img
-                        src={challenge.admin_challenge?.image_url}
-                        alt={challenge.admin_challenge?.title}
-                        className="w-full h-full object-cover grayscale opacity-50"
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                    </div>
-
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-white mb-1 truncate">
-                        {challenge.admin_challenge?.title}
-                      </h3>
-                      <div className="text-sm text-gray-400 mb-2">
-                        {calculateProgressForChallenge(challenge)}% complete • {challenge.current_steps.toLocaleString()} steps
-                      </div>
-                      
-                      {/* Progress bar */}
-                      <div className="bg-gray-700 rounded-full h-1.5 overflow-hidden">
-                        <div
-                          className="bg-gradient-to-r from-yellow-400 to-yellow-500 h-full rounded-full transition-all"
-                          style={{ width: `${calculateProgressForChallenge(challenge)}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Resume Button */}
-                    <button
-                      onClick={() => handleResumeChallenge(challenge)}
-                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2 flex-shrink-0"
-                    >
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-                      </svg>
-                      Resume
-                    </button>
+                  {/* Thumbnail */}
+                  <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 grayscale">
+                    <img
+                      src={challenge.admin_challenge?.image_url}
+                      alt={challenge.admin_challenge?.title}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-white text-sm truncate">
+                      {challenge.admin_challenge?.title}
+                    </h3>
+                    <div className="text-xs text-gray-500">
+                      {calculateProgressForChallenge(challenge)}% complete
+                    </div>
+                  </div>
+
+                  {/* Resume Button */}
+                  <button
+                    onClick={() => handleResumeChallenge(challenge)}
+                    className="text-xs font-bold text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    Resume
+                  </button>
                 </div>
               ))}
             </div>
           </section>
         )}
-
-        {/* TODAY'S STATS - Mini widget */}
-        <section>
-          <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl p-5">
-            <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
-              <span>📊</span>
-              <span>Today</span>
-            </h3>
-            
-            <div className="grid grid-cols-3 gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-400 mb-1">{todaySteps.toLocaleString()}</div>
-                <div className="text-xs text-gray-400">Steps</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-400 mb-1">{todayDistance}km</div>
-                <div className="text-xs text-gray-400">Distance</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-orange-400 mb-1">🔥 {currentStreak}</div>
-                <div className="text-xs text-gray-400">Streak</div>
-              </div>
-            </div>
-          </div>
-        </section>
       </main>
 
       {/* Bottom Navigation */}
