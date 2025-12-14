@@ -120,15 +120,6 @@ export function HomeScreen() {
     }
   };
 
-  const calculateDaysActive = () => {
-    // Deprecated - keeping for compatibility
-    if (!activeUserChallenge?.started_at) return 0;
-    const startDate = new Date(activeUserChallenge.started_at);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - startDate.getTime());
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  };
-
   const handleResumeChallenge = (challenge: any) => {
     if (confirm(`▶️ Resume "${challenge.admin_challenge?.title}"?\n\nYour progress: ${calculateProgressForChallenge(challenge)}%`)) {
       resumeChallenge(challenge);

@@ -12,7 +12,6 @@ export function Dashboard() {
   const setActiveChallenge = useChallengeStore((s) => s.setActiveChallenge);
   const pauseActiveChallenge = useChallengeStore((s) => s.pauseActiveChallenge);
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
-  const setOnboardingComplete = useChallengeStore((s) => s.setOnboardingComplete);
   const clearChallenge = useChallengeStore((s) => s.clearChallenge);
   const userTier = useChallengeStore((s) => s.userTier);
 
@@ -69,14 +68,6 @@ export function Dashboard() {
     } finally {
       setIsUpdating(false);
     }
-  };
-
-  const calculateDaysActive = () => {
-    if (!activeUserChallenge?.started_at) return 0;
-    const startDate = new Date(activeUserChallenge.started_at);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - startDate.getTime());
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
   const calculateActiveTime = () => {

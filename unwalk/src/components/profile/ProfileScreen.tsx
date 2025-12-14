@@ -10,7 +10,6 @@ export function ProfileScreen() {
   const setDailyStepGoal = useChallengeStore((s) => s.setDailyStepGoal);
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
   const setOnboardingComplete = useChallengeStore((s) => s.setOnboardingComplete);
-  const clearChallenge = useChallengeStore((s) => s.clearChallenge);
   
   const [isEditingGoal, setIsEditingGoal] = useState(false);
   const [inputValue, setInputValue] = useState('');
