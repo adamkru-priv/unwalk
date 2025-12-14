@@ -13,6 +13,51 @@ export function HomeScreen() {
   const pausedChallenges = useChallengeStore((s) => s.pausedChallenges);
   const resumeChallenge = useChallengeStore((s) => s.resumeChallenge);
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
+  const dailyStepGoal = useChallengeStore((s) => s.dailyStepGoal);
+
+  // Mock family members with their challenges - TODO: Get from API
+  const [teamMembers] = useState([
+    { 
+      id: '1', 
+      name: 'Mama', 
+      avatar: '👩',
+      hasActiveChallenge: true,
+      challengeTitle: 'Walk to Paris',
+      progress: 65,
+      currentSteps: 6500,
+      goalSteps: 10000,
+      status: 'active' as const
+    },
+    { 
+      id: '2', 
+      name: 'Tata', 
+      avatar: '👨',
+      hasActiveChallenge: true,
+      challengeTitle: 'Mountain Trek',
+      progress: 32,
+      currentSteps: 8000,
+      goalSteps: 25000,
+      status: 'active' as const
+    },
+    { 
+      id: '3', 
+      name: 'Kasia', 
+      avatar: '👧',
+      hasActiveChallenge: true,
+      challengeTitle: 'Beach Walk',
+      progress: 100,
+      currentSteps: 5000,
+      goalSteps: 5000,
+      status: 'completed' as const
+    },
+  ]);
+
+  // Mock today's stats - later from Health API
+  const todaySteps = 7234;
+  
+  // Calculate daily goal progress
+  const actualDailyGoal = dailyStepGoal || 10000;
+  const dailyGoalProgress = Math.min(100, Math.round((todaySteps / actualDailyGoal) * 100));
 
   useEffect(() => {
     loadUnclaimedChallenges();
@@ -42,7 +87,41 @@ export function HomeScreen() {
     return Math.round((challenge.current_steps / (challenge.admin_challenge?.goal_steps || 1)) * 100);
   };
 
+  const calculateActiveTime = () => {
+    if (!activeUserChallenge) return { days: 0, hours: 0, minutes: 0, totalSeconds: 0 };
+    
+    // Start with stored active time (time from previous sessions)
+    let totalSeconds = activeUserChallenge.active_time_seconds || 0;
+    
+    // If challenge is currently active (not paused), add current session time
+    if (activeUserChallenge.status === 'active' && activeUserChallenge.last_resumed_at) {
+      const resumedAt = new Date(activeUserChallenge.last_resumed_at);
+      const now = new Date();
+      const currentSessionSeconds = Math.floor((now.getTime() - resumedAt.getTime()) / 1000);
+      totalSeconds += currentSessionSeconds;
+    }
+    
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    
+    return { days, hours, minutes, totalSeconds };
+  };
+
+  const formatActiveTime = () => {
+    const { days, hours, minutes } = calculateActiveTime();
+    
+    if (days > 0) {
+      return `${days}d ${hours}h ${minutes}m`;
+    } else if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    } else {
+      return `${minutes}m`;
+    }
+  };
+
   const calculateDaysActive = () => {
+    // Deprecated - keeping for compatibility
     if (!activeUserChallenge?.started_at) return 0;
     const startDate = new Date(activeUserChallenge.started_at);
     const now = new Date();
@@ -57,9 +136,6 @@ export function HomeScreen() {
     }
   };
 
-  // Mock today's stats - later from Health API
-  const todaySteps = 7234;
-
   return (
     <div className="min-h-screen bg-[#0B101B] text-white pb-24 font-sans selection:bg-blue-500/30">
       {/* Header */}
@@ -73,7 +149,17 @@ export function HomeScreen() {
         />
       )}
 
-      <main className="px-5 pt-2 pb-6 max-w-md mx-auto space-y-8">
+      <main className="px-5 pt-6 pb-6 max-w-md mx-auto space-y-5">
+        
+        {/* Hero Header */}
+        <div className="text-center mb-2">
+          <h1 className="text-3xl font-black text-white mb-1">
+            Let's get moving
+          </h1>
+          <p className="text-sm text-white/50">
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+          </p>
+        </div>
         
         {/* COMPLETED CHALLENGES TO CLAIM - Top priority! */}
         {unclaimedChallenges.length > 0 && (
@@ -115,21 +201,15 @@ export function HomeScreen() {
           </section>
         )}
 
-        {/* ACTIVE CHALLENGE CARD */}
-        {activeUserChallenge ? (
-          <section>
-            <div className="flex items-center justify-between mb-4 px-1">
-              <h2 className="text-lg font-semibold text-white">Current Mission</h2>
-              <span className="text-xs font-medium text-blue-400 bg-blue-400/10 px-2.5 py-1 rounded-full">
-                {calculateProgress()}% Complete
-              </span>
-            </div>
-            
+        {/* MOVE FOR YOURSELF - Main Box #1 */}
+        <section>
+          {activeUserChallenge ? (
+            // Has active challenge - show progress
             <div
               onClick={() => setCurrentScreen('dashboard')}
-              className="relative aspect-[4/5] w-full rounded-[2rem] overflow-hidden shadow-2xl cursor-pointer group ring-1 ring-white/10"
+              className="relative aspect-[16/10] w-full rounded-3xl overflow-hidden shadow-2xl cursor-pointer group ring-1 ring-white/10"
             >
-              {/* Background Image with blur effect */}
+              {/* Background Image */}
               <img
                 src={activeUserChallenge.admin_challenge?.image_url}
                 alt={activeUserChallenge.admin_challenge?.title}
@@ -142,148 +222,243 @@ export function HomeScreen() {
               />
               
               {/* Gradient Overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0B101B] via-[#0B101B]/40 to-transparent opacity-90" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0B101B] via-[#0B101B]/60 to-transparent" />
 
               {/* Content */}
-              <div className="absolute inset-0 p-6 flex flex-col justify-end">
-                <div className="mb-6">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="bg-white/20 backdrop-blur-md text-white text-[10px] font-bold px-2 py-1 rounded-lg uppercase tracking-wider">
-                      {activeUserChallenge.admin_challenge?.category || 'Adventure'}
-                    </span>
-                    <span className="text-white/60 text-xs font-medium">Day {calculateDaysActive()}</span>
-                  </div>
-                  
-                  <h3 className="text-3xl font-bold text-white leading-tight mb-2">
+              <div className="absolute inset-0 p-6 flex flex-col justify-between">
+                {/* Top Right - ACTIVE Badge */}
+                <div className="flex items-start justify-end">
+                  <span className="bg-white text-gray-900 text-xs font-black px-3 py-1.5 rounded-full shadow-lg animate-pulse">
+                    ACTIVE
+                  </span>
+                </div>
+                
+                {/* Bottom Content */}
+                <div>
+                  <h3 className="text-2xl font-bold text-white leading-tight mb-2">
                     {activeUserChallenge.admin_challenge?.title}
                   </h3>
                   
-                  <p className="text-white/70 text-sm line-clamp-2 mb-4">
-                    {activeUserChallenge.admin_challenge?.description}
-                  </p>
+                  <div className="flex items-center gap-3 text-xs text-white/70 mb-3">
+                    <span>{formatActiveTime()}</span>
+                    <span>•</span>
+                    <span>{activeUserChallenge.current_steps.toLocaleString()} / {activeUserChallenge.admin_challenge?.goal_steps.toLocaleString()} steps</span>
+                  </div>
 
-                  {/* Progress Bar */}
+                  {/* Progress Bar with Percentage */}
                   <div className="space-y-2">
-                    <div className="flex justify-between text-xs font-medium text-white/80">
-                      <span>{activeUserChallenge.current_steps.toLocaleString()} steps</span>
-                      <span>{activeUserChallenge.admin_challenge?.goal_steps.toLocaleString()} goal</span>
-                    </div>
                     <div className="bg-white/20 rounded-full h-2 overflow-hidden backdrop-blur-sm">
                       <div
-                        className="bg-gradient-to-r from-blue-400 to-purple-500 h-full rounded-full transition-all duration-1000 ease-out"
+                        className="bg-white h-full rounded-full transition-all duration-1000"
                         style={{ width: `${calculateProgress()}%` }}
                       />
                     </div>
+                    <div className="flex items-center justify-end">
+                      <span className="text-white text-sm font-bold">
+                        {calculateProgress()}%
+                      </span>
+                    </div>
                   </div>
-                </div>
-                
-                <div className="text-center text-white/40 text-xs font-medium group-hover:text-white/60 transition-colors">
-                  Tap to view details
                 </div>
               </div>
             </div>
-          </section>
-        ) : (
-          /* EMPTY STATE - Redesigned */
-          <section>
-            <div className="bg-gradient-to-br from-[#1A1F2E] to-[#151925] border border-white/5 rounded-[2rem] p-8 text-center relative overflow-hidden shadow-2xl">
-              {/* Decorative background elements */}
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-500 via-red-500 to-yellow-500 opacity-50" />
-              <div className="absolute -top-24 -right-24 w-64 h-64 bg-orange-500/10 rounded-full blur-3xl"></div>
-              <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-red-500/10 rounded-full blur-3xl"></div>
+          ) : (
+            // No active challenge - show CTA
+            <div className="relative bg-gradient-to-br from-[#1A1F2E] to-[#151A25] border-2 border-white/10 rounded-3xl p-8 overflow-hidden group hover:border-blue-500/30 transition-all cursor-pointer"
+                 onClick={() => setCurrentScreen('library')}>
+              {/* Accent line */}
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-purple-500"></div>
+              
+              {/* Subtle gradient accent */}
+              <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-full blur-3xl"></div>
               
               <div className="relative z-10">
-                <div className="w-20 h-20 bg-gradient-to-br from-orange-500/20 to-red-500/20 rounded-2xl flex items-center justify-center mx-auto mb-6 ring-1 ring-white/10">
-                  <span className="text-4xl">👟</span>
+                <div className="mb-6">
+                  <div className="text-xs font-bold text-blue-400 mb-3 uppercase tracking-widest">Solo Challenge</div>
+                  <h2 className="text-4xl font-black text-white mb-3 leading-none tracking-tight uppercase">
+                    Move for<br />Yourself
+                  </h2>
+                  
+                  <p className="text-white/60 text-sm">
+                    Start your personal challenge
+                  </p>
                 </div>
-
-                <h2 className="text-2xl font-bold text-white mb-3 tracking-tight">
-                  Time to Walk!
-                </h2>
-                <p className="text-gray-400 mb-8 leading-relaxed text-sm max-w-[260px] mx-auto">
-                  Set a step goal and get moving. Challenge yourself to reach new limits today.
-                </p>
                 
-                <button
-                  onClick={() => setCurrentScreen('library')}
-                  className="w-full bg-white text-[#0B101B] py-4 rounded-xl font-bold text-base transition-all shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 group"
-                >
-                  <span>Pick a Challenge</span>
+                <button className="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-5 py-3 rounded-xl font-bold text-sm transition-all flex items-center gap-2 group-hover:border-white/30">
+                  <span>Browse Challenges</span>
                   <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                   </svg>
                 </button>
+              </div>
+            </div>
+          )}
+        </section>
 
-                <button
-                  onClick={() => setCurrentScreen('team')}
-                  className="mt-4 text-sm text-gray-500 hover:text-white transition-colors"
-                >
-                  Or invite friends first
+        {/* MOVE A FRIEND - Main Box #2 */}
+        <section>
+          {teamMembers.filter(m => m.hasActiveChallenge).length > 0 ? (
+            // Has team challenges - show them
+            <div className="bg-gradient-to-br from-[#1A1F2E] to-[#151A25] border-2 border-white/10 rounded-3xl p-6 relative overflow-hidden">
+              {/* Accent line */}
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500"></div>
+              
+              {/* Subtle accent */}
+              <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-emerald-500/10 to-teal-500/10 rounded-full blur-3xl"></div>
+              
+              <div className="relative z-10">
+                <div className="flex items-start justify-between mb-6">
+                  <div>
+                    <div className="text-xs font-bold text-emerald-400 mb-2 uppercase tracking-widest">Social Challenge</div>
+                    <h2 className="text-3xl font-black text-white leading-none tracking-tight uppercase">
+                      Move a Friend
+                    </h2>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCurrentScreen('team');
+                    }}
+                    className="text-white/60 hover:text-white text-xs font-bold transition-colors uppercase tracking-wider"
+                  >
+                    View All →
+                  </button>
+                </div>
+                
+                <div className="space-y-3">
+                  {teamMembers.slice(0, 2).map((member) => (
+                    <div 
+                      key={member.id}
+                      onClick={() => {
+                        // Store selected member ID and navigate to team screen
+                        sessionStorage.setItem('selectedMemberId', member.id);
+                        setCurrentScreen('team');
+                      }}
+                      className="bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl p-4 flex items-center gap-3 cursor-pointer transition-all"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-white/20 to-white/5 flex items-center justify-center text-lg border border-white/10">
+                        {member.avatar}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-white text-sm">{member.name}</h3>
+                        <div className="text-xs text-white/50 truncate">{member.challengeTitle}</div>
+                        <div className="flex items-center gap-2 mt-2">
+                          <div className="flex-1 bg-white/10 rounded-full h-1.5 overflow-hidden">
+                            <div 
+                              className="h-full bg-white rounded-full transition-all" 
+                              style={{ width: `${member.progress}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-white/70 font-medium min-w-[35px] text-right">{member.progress}%</span>
+                        </div>
+                      </div>
+                      {member.status === 'completed' && (
+                        <div className="text-xl">✓</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            // No team challenges - show CTA
+            <div className="relative bg-gradient-to-br from-[#1A1F2E] to-[#151A25] border-2 border-white/10 rounded-3xl p-8 overflow-hidden group hover:border-emerald-500/30 transition-all cursor-pointer"
+                 onClick={() => setCurrentScreen('team')}>
+              {/* Accent line */}
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500"></div>
+              
+              {/* Subtle gradient accent */}
+              <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-emerald-500/10 to-teal-500/10 rounded-full blur-3xl"></div>
+              
+              <div className="relative z-10">
+                <div className="mb-6">
+                  <div className="text-xs font-bold text-emerald-400 mb-3 uppercase tracking-widest">Social Challenge</div>
+                  <h2 className="text-4xl font-black text-white mb-3 leading-none tracking-tight uppercase">
+                    Move a<br />Friend
+                  </h2>
+                  
+                  <p className="text-white/60 text-sm">
+                    Challenge friends & family together
+                  </p>
+                </div>
+                
+                <button className="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-5 py-3 rounded-xl font-bold text-sm transition-all flex items-center gap-2 group-hover:border-white/30">
+                  <span>Invite & Challenge</span>
+                  <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
                 </button>
               </div>
             </div>
-          </section>
-        )}
+          )}
+        </section>
 
-        {/* STATS GRID - Modern Bento Style */}
-        <section>
-          <h2 className="text-lg font-semibold text-white mb-4 px-1">Today's Activity</h2>
+        {/* TODAY'S ACTIVITY - Simplified, less prominence */}
+        <section className="pt-2">
+          <h2 className="text-sm font-bold text-white/60 mb-3 px-1 uppercase tracking-wider">
+            Today's Activity
+          </h2>
           
-          <div className="grid grid-cols-1 gap-3">
-             {/* Steps - Big Card */}
-             <div className="bg-[#151A25] p-5 rounded-3xl border border-white/5 flex items-center justify-between relative overflow-hidden group hover:border-white/10 transition-colors">
-                <div className="relative z-10">
-                   <div className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Steps</div>
-                   <div className="text-4xl font-bold text-white tracking-tight">{todaySteps.toLocaleString()}</div>
-                   <div className="flex items-center gap-1.5 mt-2">
-                     <div className="w-16 h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                       <div className="h-full bg-blue-500 w-[72%] rounded-full" />
-                     </div>
-                     <span className="text-xs text-gray-400 font-medium">72% of goal</span>
-                   </div>
-                </div>
-                <div className="w-14 h-14 rounded-2xl bg-blue-500/10 flex items-center justify-center text-2xl relative z-10 text-blue-400">
-                  👣
-                </div>
-                {/* Decorative gradient blob */}
-                <div className="absolute right-0 top-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl -mr-10 -mt-10 group-hover:bg-blue-500/10 transition-colors"></div>
-             </div>
+          <div className="bg-[#151A25] border border-white/5 rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <div className="text-3xl font-bold text-white">{todaySteps.toLocaleString()}</div>
+                <div className="text-xs text-white/60 mt-0.5">steps today</div>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-xl">
+                👣
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-white/60">Daily Goal</span>
+                <span className="text-white font-medium">{dailyGoalProgress}%</span>
+              </div>
+              <div className="bg-white/10 rounded-full h-2 overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-500" 
+                  style={{ width: `${dailyGoalProgress}%` }}
+                />
+              </div>
+              <div className="text-right text-xs text-white/50">
+                {(actualDailyGoal - todaySteps).toLocaleString()} steps to go
+              </div>
+            </div>
           </div>
         </section>
 
-        {/* PAUSED CHALLENGES SECTION - Only for Pro users */}
+        {/* PAUSED CHALLENGES - Only show if exist */}
         {pausedChallenges.length > 0 && (
-          <section>
-            <h2 className="text-sm font-bold text-gray-400 mb-3 px-1 uppercase tracking-wider">
-              Paused
+          <section className="pt-2">
+            <h2 className="text-sm font-bold text-white/60 mb-3 px-1 uppercase tracking-wider">
+              Paused Challenges
             </h2>
             
-            <div className="space-y-3">
+            <div className="space-y-2">
               {pausedChallenges.map((challenge) => (
                 <div
                   key={challenge.id}
-                  className="bg-[#151A25] border border-white/5 rounded-2xl p-4 flex items-center gap-4 opacity-75 hover:opacity-100 transition-opacity"
+                  className="bg-[#151A25] border border-white/5 rounded-2xl p-4 flex items-center gap-3 opacity-75"
                 >
-                  {/* Thumbnail */}
-                  <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 grayscale">
+                  <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
                     <img
                       src={challenge.admin_challenge?.image_url}
                       alt={challenge.admin_challenge?.title}
                       className="w-full h-full object-cover"
+                      style={{ filter: 'blur(4px)' }}
                     />
                   </div>
 
-                  {/* Info */}
                   <div className="flex-1 min-w-0">
                     <h3 className="font-bold text-white text-sm truncate">
                       {challenge.admin_challenge?.title}
                     </h3>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-white/50">
                       {calculateProgressForChallenge(challenge)}% complete
                     </div>
                   </div>
 
-                  {/* Resume Button */}
                   <button
                     onClick={() => handleResumeChallenge(challenge)}
                     className="text-xs font-bold text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors"

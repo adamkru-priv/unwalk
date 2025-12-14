@@ -3,6 +3,26 @@ import { supabase } from './supabase';
 import { getDeviceId } from './deviceId';
 import type { AdminChallenge, UserChallenge } from '../types';
 
+// Calculate points for a challenge based on goal_steps
+export function calculateChallengePoints(goalSteps: number, isDailyChallenge: boolean = false): number {
+  let basePoints = 0;
+  
+  if (goalSteps <= 5000) {
+    basePoints = 5;
+  } else if (goalSteps <= 10000) {
+    basePoints = 10;
+  } else if (goalSteps <= 15000) {
+    basePoints = 15;
+  } else if (goalSteps <= 25000) {
+    basePoints = 25;
+  } else {
+    basePoints = 50;
+  }
+  
+  // Daily challenge gets x3 multiplier
+  return isDailyChallenge ? basePoints * 3 : basePoints;
+}
+
 // Fetch all active admin challenges (sorted by sort_order)
 export async function getAdminChallenges(): Promise<AdminChallenge[]> {
   const { data, error } = await supabase
@@ -204,6 +224,7 @@ export async function uploadChallengeImage(file: File): Promise<string> {
 export async function createCustomChallenge(challenge: {
   title: string;
   description: string;
+  category: 'animals' | 'sport' | 'nature' | 'surprise';
   goal_steps: number;
   image_url: string;
   is_image_hidden: boolean;
@@ -214,10 +235,15 @@ export async function createCustomChallenge(challenge: {
   const { data, error } = await supabase
     .from('admin_challenges')
     .insert({
-      ...challenge,
+      title: challenge.title,
+      description: challenge.description,
+      category: challenge.category,
+      goal_steps: challenge.goal_steps,
+      image_url: challenge.image_url,
+      is_image_hidden: challenge.is_image_hidden,
+      deadline: challenge.deadline,
       is_custom: true,
       created_by_device_id: deviceId,
-      category: 'fun',
       difficulty: 'medium',
       sort_order: 999,
       is_active: true,
@@ -270,6 +296,68 @@ export async function getMyCustomChallenges(): Promise<AdminChallenge[]> {
     .eq('is_custom', true)
     .eq('created_by_device_id', deviceId)
     .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
+// Delete custom challenge
+export async function deleteCustomChallenge(challengeId: string): Promise<void> {
+  const deviceId = getDeviceId();
+  
+  // First, verify this is a custom challenge created by this user
+  const { data: challenge, error: fetchError } = await supabase
+    .from('admin_challenges')
+    .select('*')
+    .eq('id', challengeId)
+    .eq('is_custom', true)
+    .eq('created_by_device_id', deviceId)
+    .single();
+
+  if (fetchError) throw new Error('Challenge not found or not authorized to delete');
+  if (!challenge) throw new Error('Not authorized to delete this challenge');
+
+  // Delete associated user_challenges first
+  const { error: deleteUserChallengesError } = await supabase
+    .from('user_challenges')
+    .delete()
+    .eq('admin_challenge_id', challengeId);
+
+  if (deleteUserChallengesError) throw deleteUserChallengesError;
+
+  // Delete the challenge
+  const { error: deleteChallengeError } = await supabase
+    .from('admin_challenges')
+    .delete()
+    .eq('id', challengeId);
+
+  if (deleteChallengeError) throw deleteChallengeError;
+
+  // Delete image from storage if it exists
+  if (challenge.image_url && challenge.image_url.includes('custom-challenges')) {
+    const urlParts = challenge.image_url.split('/');
+    const fileName = urlParts[urlParts.length - 1];
+    const filePath = `challenge-images/${fileName}`;
+    
+    await supabase.storage
+      .from('custom-challenges')
+      .remove([filePath]);
+  }
+}
+
+// Get all user challenges (active, paused, waiting to start)
+export async function getAllUserChallenges(): Promise<UserChallenge[]> {
+  const deviceId = getDeviceId();
+  
+  const { data, error } = await supabase
+    .from('user_challenges')
+    .select(`
+      *,
+      admin_challenge:admin_challenges(*)
+    `)
+    .eq('device_id', deviceId)
+    .in('status', ['active', 'paused', 'pending'])
+    .order('started_at', { ascending: false });
 
   if (error) throw error;
   return data || [];

@@ -18,6 +18,7 @@ export function CreateChallengeModal({ isOpen, onClose, onSuccess }: CreateChall
   // Form state
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [category, setCategory] = useState<'animals' | 'sport' | 'nature' | 'surprise'>('nature');
   const [goalSteps, setGoalSteps] = useState(10000);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -34,6 +35,13 @@ export function CreateChallengeModal({ isOpen, onClose, onSuccess }: CreateChall
     { id: '1', name: 'Mama', avatar: '👩', deviceId: 'device-mama' },
     { id: '2', name: 'Tata', avatar: '👨', deviceId: 'device-tata' },
     { id: '3', name: 'Kasia', avatar: '👧', deviceId: 'device-kasia' },
+  ];
+
+  const categoryOptions = [
+    { value: 'animals' as const, label: 'Animals', emoji: '🦁' },
+    { value: 'sport' as const, label: 'Sport', emoji: '⚽' },
+    { value: 'nature' as const, label: 'Nature', emoji: '🏔️' },
+    { value: 'surprise' as const, label: 'Surprise', emoji: '🎲' },
   ];
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,6 +73,7 @@ export function CreateChallengeModal({ isOpen, onClose, onSuccess }: CreateChall
       const challenge = await createCustomChallenge({
         title,
         description: description || 'Custom challenge',
+        category,
         goal_steps: goalSteps,
         image_url: imageUrl,
         is_image_hidden: isImageHidden,
@@ -252,6 +261,31 @@ export function CreateChallengeModal({ isOpen, onClose, onSuccess }: CreateChall
               <div className="flex justify-between text-xs text-white/50 mt-1">
                 <span>1k</span>
                 <span>50k</span>
+              </div>
+            </div>
+
+            {/* Category */}
+            <div>
+              <label className="block text-sm font-medium text-white/80 mb-2">
+                Category
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {categoryOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => setCategory(option.value)}
+                    className={`p-3 rounded-lg border-2 transition-all ${
+                      category === option.value
+                        ? 'bg-blue-600/20 border-blue-500'
+                        : 'bg-gray-900 border-gray-700 hover:border-gray-600'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">{option.emoji}</span>
+                      <span className="text-sm text-white">{option.label}</span>
+                    </div>
+                  </button>
+                ))}
               </div>
             </div>
 

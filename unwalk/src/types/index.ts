@@ -8,6 +8,7 @@ export interface AdminChallenge {
   category: 'travel' | 'art' | 'motivation' | 'fun';
   difficulty: 'easy' | 'medium' | 'hard';
   goal_steps: number;
+  points?: number; // Points awarded for completing this challenge
   image_url: string;
   sort_order: number;
   is_active: boolean;
@@ -29,6 +30,8 @@ export interface UserChallenge {
   started_at: string;
   paused_at?: string;
   completed_at?: string;
+  active_time_seconds?: number; // Total active time (excluding pauses)
+  last_resumed_at?: string; // When challenge was last resumed (to calculate current session)
   assigned_by?: string; // Device ID of person who assigned this
   is_group_challenge?: boolean; // Is this a group challenge
   group_members?: string[]; // Array of device IDs in the group

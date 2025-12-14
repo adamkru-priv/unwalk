@@ -3,12 +3,10 @@ import { EmptyState } from './EmptyState';
 import { useState } from 'react';
 import { updateChallengeProgress } from '../../lib/api';
 import { BottomNavigation } from '../common/BottomNavigation';
-import { ProfileModal } from '../common/ProfileModal';
 
 export function Dashboard() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [showStats, setShowStats] = useState(true);
-  const [showProfile, setShowProfile] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
   const setActiveChallenge = useChallengeStore((s) => s.setActiveChallenge);
@@ -17,14 +15,6 @@ export function Dashboard() {
   const setOnboardingComplete = useChallengeStore((s) => s.setOnboardingComplete);
   const clearChallenge = useChallengeStore((s) => s.clearChallenge);
   const userTier = useChallengeStore((s) => s.userTier);
-
-  const handleReset = () => {
-    if (confirm('Reset the app? This will clear your current challenge and return to onboarding.')) {
-      clearChallenge();
-      setOnboardingComplete(false);
-      setCurrentScreen('onboarding');
-    }
-  };
 
   const handleExitChallenge = () => {
     setShowMenu(false);
@@ -47,34 +37,6 @@ export function Dashboard() {
       pauseActiveChallenge(activeUserChallenge);
       alert('✅ Challenge paused! You can resume it anytime from the Home screen.');
       setCurrentScreen('home');
-    }
-  };
-
-  const handleCompleteChallenge = async () => {
-    setShowMenu(false);
-    if (!activeUserChallenge) return;
-    
-    const progress = (activeUserChallenge.current_steps / (activeUserChallenge.admin_challenge?.goal_steps || 1)) * 100;
-    
-    if (progress < 100) {
-      if (userTier !== 'pro') {
-        alert('⭐ Early completion is only available for Pro users!\n\nUpgrade to Pro or reach 100% to complete.');
-        return;
-      }
-      if (!confirm('🏁 Complete this challenge early?\n\nYou are at ' + Math.round(progress) + '% progress.\n\nThis will reveal the image and mark as completed.')) {
-        return;
-      }
-    }
-
-    try {
-      const { completeChallenge } = await import('../../lib/api');
-      await completeChallenge(activeUserChallenge.id);
-      alert('🎉 Congratulations! Challenge completed!');
-      clearChallenge();
-      setCurrentScreen('home');
-    } catch (error) {
-      console.error('Failed to complete challenge:', error);
-      alert('❌ Failed to complete challenge. Please try again.');
     }
   };
 
@@ -117,6 +79,39 @@ export function Dashboard() {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
+  const calculateActiveTime = () => {
+    if (!activeUserChallenge) return { days: 0, hours: 0, minutes: 0, totalSeconds: 0 };
+    
+    // Start with stored active time (time from previous sessions)
+    let totalSeconds = activeUserChallenge.active_time_seconds || 0;
+    
+    // If challenge is currently active (not paused), add current session time
+    if (activeUserChallenge.status === 'active' && activeUserChallenge.last_resumed_at) {
+      const resumedAt = new Date(activeUserChallenge.last_resumed_at);
+      const now = new Date();
+      const currentSessionSeconds = Math.floor((now.getTime() - resumedAt.getTime()) / 1000);
+      totalSeconds += currentSessionSeconds;
+    }
+    
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    
+    return { days, hours, minutes, totalSeconds };
+  };
+
+  const formatActiveTime = () => {
+    const { days, hours, minutes } = calculateActiveTime();
+    
+    if (days > 0) {
+      return `${days}d ${hours}h`;
+    } else if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    } else {
+      return `${minutes}m`;
+    }
+  };
+
   // Calculate stats
   const progress = activeUserChallenge 
     ? (activeUserChallenge.current_steps / (activeUserChallenge.admin_challenge?.goal_steps || 1)) * 100 
@@ -146,7 +141,7 @@ export function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-900 text-white relative overflow-hidden">
       {/* Profile Modal */}
-      <ProfileModal isOpen={showProfile} onClose={() => setShowProfile(false)} />
+      {/* Removed ProfileModal component */}
 
       {/* BLURRED IMAGE AS BACKGROUND */}
       <div className="fixed inset-0 z-0">
@@ -226,23 +221,6 @@ export function Dashboard() {
                       {userTier !== 'pro' && <span className="text-amber-400">⭐</span>}
                     </button>
 
-                    {/* Complete */}
-                    <button
-                      onClick={handleCompleteChallenge}
-                      className="w-full px-4 py-3 text-left hover:bg-gray-700 transition-colors flex items-center gap-3 text-white border-t border-gray-700"
-                    >
-                      <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <div className="flex-1">
-                        <div className="font-medium">Complete</div>
-                        {progress < 100 && userTier !== 'pro' && (
-                          <div className="text-xs text-gray-400">Pro only</div>
-                        )}
-                      </div>
-                      {progress < 100 && userTier !== 'pro' && <span className="text-amber-400">⭐</span>}
-                    </button>
-
                     {/* Exit */}
                     <button
                       onClick={handleExitChallenge}
@@ -252,17 +230,6 @@ export function Dashboard() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                       </svg>
                       <div className="font-medium">Exit Challenge</div>
-                    </button>
-
-                    {/* Dev Reset */}
-                    <button
-                      onClick={handleReset}
-                      className="w-full px-4 py-3 text-left hover:bg-gray-700 transition-colors flex items-center gap-3 text-gray-400 border-t border-gray-700"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                      <div className="font-medium text-xs">DEV: Reset App</div>
                     </button>
                   </div>
                 </>
@@ -302,10 +269,10 @@ export function Dashboard() {
                   <div className="text-2xl font-bold text-blue-400">{distanceKm}</div>
                   <div className="text-xs text-white/50 mt-1">km</div>
                 </div>
-                {/* Days */}
+                {/* Active Time */}
                 <div>
-                  <div className="text-2xl font-bold text-purple-400">{calculateDaysActive()}</div>
-                  <div className="text-xs text-white/50 mt-1">days</div>
+                  <div className="text-base font-bold text-purple-400">{formatActiveTime()}</div>
+                  <div className="text-xs text-white/50 mt-1">active</div>
                 </div>
               </div>
               
@@ -360,8 +327,7 @@ export function Dashboard() {
 
       {/* Bottom Navigation */}
       <BottomNavigation 
-        currentScreen="dashboard" 
-        onProfileClick={() => setShowProfile(true)} 
+        currentScreen="dashboard"
       />
     </div>
   );

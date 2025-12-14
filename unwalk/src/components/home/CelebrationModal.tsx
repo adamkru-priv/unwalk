@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import type { UserChallenge } from '../../types';
-import { claimCompletedChallenge } from '../../lib/api';
+import { claimCompletedChallenge, calculateChallengePoints } from '../../lib/api';
+import { useChallengeStore } from '../../stores/useChallengeStore';
 
 interface CelebrationModalProps {
   challenge: UserChallenge;
@@ -13,6 +14,7 @@ export function CelebrationModal({ challenge, onClaim }: CelebrationModalProps) 
   const [claiming, setClaiming] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const navigate = useNavigate();
+  const userTier = useChallengeStore((s) => s.userTier);
 
   // Mock QR code - replace with real QR generation if needed
   const hasQRCode = Math.random() > 0.5; // 50% mają QR code
@@ -147,7 +149,7 @@ export function CelebrationModal({ challenge, onClaim }: CelebrationModalProps) 
             onClick={handleStatsClick}
             className="w-full px-4 py-4 hover:bg-white/5 transition-colors group"
           >
-            <div className="grid grid-cols-2 gap-4 text-center">
+            <div className="grid grid-cols-3 gap-3 text-center">
               <div className="bg-white/5 rounded-xl p-3 backdrop-blur-sm border border-white/10 group-hover:border-white/30 transition-colors">
                 <div className="text-2xl font-bold text-white mb-1">
                   {challenge.current_steps.toLocaleString()}
@@ -160,6 +162,15 @@ export function CelebrationModal({ challenge, onClaim }: CelebrationModalProps) 
                 </div>
                 <div className="text-xs text-white/60 uppercase tracking-wide">Distance</div>
               </div>
+              {/* Points earned - only for system challenges and Pro users */}
+              {!challenge.admin_challenge?.is_custom && userTier === 'pro' && (
+                <div className="bg-gradient-to-br from-amber-500/20 to-orange-500/20 rounded-xl p-3 backdrop-blur-sm border border-amber-500/30 group-hover:border-amber-500/50 transition-colors">
+                  <div className="text-2xl font-bold text-amber-300 mb-1">
+                    +{calculateChallengePoints(challenge.admin_challenge?.goal_steps || 0)}
+                  </div>
+                  <div className="text-xs text-amber-200/80 uppercase tracking-wide">Points</div>
+                </div>
+              )}
             </div>
             <p className="text-center text-white/40 text-xs mt-2 group-hover:text-white/60 transition-colors">
               Tap to view detailed stats →

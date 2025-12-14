@@ -10,6 +10,10 @@ interface AppHeaderProps {
 export function AppHeader({ title, showBackButton = false, subtitle }: AppHeaderProps) {
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
+  const userTier = useChallengeStore((s) => s.userTier);
+
+  // Mock - later from API: pending challenges sent by friends
+  const pendingInvitations = 2; // Example: 2 friends sent you challenges
 
   return (
     <header className="bg-[#0B101B]/80 backdrop-blur-md sticky top-0 z-20 px-6 py-4">
@@ -32,6 +36,11 @@ export function AppHeader({ title, showBackButton = false, subtitle }: AppHeader
             <h1 className="text-2xl font-bold text-white flex items-center gap-2">
               <span className="text-blue-400 inline-block" style={{ transform: 'scaleX(-1)' }}>🚶</span>
               MOVEE
+              {userTier === 'pro' && (
+                <span className="text-amber-400 text-sm font-light italic tracking-wide" style={{ fontFamily: 'Georgia, serif' }}>
+                  Pro
+                </span>
+              )}
               {title && <span className="text-white/60 text-lg">• {title}</span>}
             </h1>
             {subtitle && (
@@ -40,17 +49,23 @@ export function AppHeader({ title, showBackButton = false, subtitle }: AppHeader
           </div>
         </div>
 
-        {/* Right side - Stats, Active Challenge & Profile */}
+        {/* Right side - Notifications, Active Challenge & Profile */}
         <div className="flex items-center gap-3">
-          {/* Stats Button */}
+          {/* Notifications Button - NEW */}
           <button
-            onClick={() => setCurrentScreen('stats')}
+            onClick={() => setCurrentScreen('team')}
             className="relative text-white/70 hover:text-white transition-colors"
-            title="Statistics"
+            title="Challenge Invitations"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
             </svg>
+            {/* Red badge if there are pending invitations */}
+            {pendingInvitations > 0 && (
+              <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
+                <span className="text-white text-[10px] font-bold">{pendingInvitations}</span>
+              </div>
+            )}
           </button>
 
           {/* Active Challenge Indicator - Fire/Achievement icon */}

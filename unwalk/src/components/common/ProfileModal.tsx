@@ -184,19 +184,53 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
         </div>
 
         {/* Actions */}
-        <button
-          onClick={() => {
-            if (confirm('Reset all data and return to onboarding?')) {
-              useChallengeStore.getState().clearChallenge();
+        <div className="space-y-3">
+          {/* View Onboarding - NEW */}
+          <button
+            onClick={() => {
               useChallengeStore.getState().setOnboardingComplete(false);
               setCurrentScreen('onboarding');
               onClose();
-            }
-          }}
-          className="w-full bg-red-50 text-red-600 hover:bg-red-100 px-4 py-3 rounded-xl font-medium transition-colors"
-        >
-          Reset App
-        </button>
+            }}
+            className="w-full bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            View Onboarding Tutorial
+          </button>
+
+          <button
+            onClick={() => {
+              if (confirm('Reset all data and return to onboarding?')) {
+                useChallengeStore.getState().clearChallenge();
+                useChallengeStore.getState().setOnboardingComplete(false);
+                setCurrentScreen('onboarding');
+                onClose();
+              }
+            }}
+            className="w-full bg-red-50 text-red-600 hover:bg-red-100 px-4 py-3 rounded-xl font-medium transition-colors"
+          >
+            Reset App
+          </button>
+          
+          <button
+            onClick={() => {
+              if (confirm('🔧 DEV: Reset the app? This will clear your current challenge and return to onboarding.')) {
+                useChallengeStore.getState().clearChallenge();
+                useChallengeStore.getState().setOnboardingComplete(false);
+                setCurrentScreen('onboarding');
+                onClose();
+              }
+            }}
+            className="w-full bg-gray-100 text-gray-600 hover:bg-gray-200 px-4 py-3 rounded-xl font-medium text-sm transition-colors flex items-center justify-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            DEV: Reset App
+          </button>
+        </div>
       </motion.div>
     </motion.div>
   );
