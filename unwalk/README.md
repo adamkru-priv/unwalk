@@ -1,3 +1,33 @@
+# UnWalk - Walking Challenge App
+
+Progressive Web App (PWA) for solo and social walking challenges.
+
+## 🚀 DEPLOYMENT INSTRUCTIONS
+
+### Prerequisites
+- Node.js installed
+- Git repository connected to Vercel project
+
+### Deploy to Production
+
+**IMPORTANT: Vercel does NOT auto-deploy from git push!**
+
+Use this command EVERY TIME to deploy:
+
+```bash
+cd unwalk
+npx vercel --prod
+```
+
+This will:
+1. Upload code to Vercel
+2. Build the project
+3. Deploy to production URL
+
+**Do NOT rely on automatic deployments from GitHub!**
+
+---
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
@@ -70,4 +100,17 @@ export default defineConfig([
     },
   },
 ])
+```
+
+## Development
+
+```bash
+npm install
+npm run dev
+```
+
+## Build
+
+```bash
+npm run build
 ```
