@@ -57,6 +57,27 @@ export interface Badge {
   unlocked: boolean;
 }
 
+export interface ChallengeAssignment {
+  id: string;
+  sender_id: string;
+  sender_name: string | null;
+  sender_avatar: string | null;
+  recipient_id?: string;
+  recipient_name?: string | null;
+  recipient_avatar?: string | null;
+  admin_challenge_id: string;
+  challenge_title: string;
+  challenge_goal_steps: number;
+  challenge_image_url: string;
+  message: string | null;
+  status: 'pending' | 'accepted' | 'rejected';
+  sent_at: string;
+  responded_at: string | null;
+  user_challenge_id?: string | null;
+  current_steps?: number;
+  user_challenge_status?: string | null;
+}
+
 /**
  * AuthService - Wrapper dla Supabase Auth
  */
@@ -637,6 +658,342 @@ class TeamService {
     } catch (error) {
       console.error('❌ [Team] Assign challenge error:', error);
       return { error: error as Error };
+    }
+  }
+
+  /**
+   * Get received challenge assignments (pending)
+   */
+  async getReceivedChallenges(): Promise<ChallengeAssignment[]> {
+    try {
+      const user = await authService.getUser();
+      if (!user) {
+        console.log('❌ [Team] No user found for getReceivedChallenges');
+        return [];
+      }
+
+      const { data, error } = await supabase
+        .from('challenge_assignments')
+        .select(`
+          id,
+          sender_id,
+          recipient_id,
+          admin_challenge_id,
+          message,
+          status,
+          sent_at,
+          responded_at,
+          sender:sender_id(display_name, avatar_url),
+          challenge:admin_challenge_id(title, goal_steps, image_url)
+        `)
+        .eq('recipient_id', user.id)  // ✅ FIXED: Filtr tylko dla odbiorcy!
+        .eq('status', 'pending')
+        .order('sent_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Transform data to match ChallengeAssignment interface
+      const assignments = (data || []).map((item: any) => ({
+        id: item.id,
+        sender_id: item.sender_id,
+        sender_name: item.sender?.display_name || null,
+        sender_avatar: item.sender?.avatar_url || null,
+        admin_challenge_id: item.admin_challenge_id,
+        challenge_title: item.challenge?.title || 'Unknown Challenge',
+        challenge_goal_steps: item.challenge?.goal_steps || 0,
+        challenge_image_url: item.challenge?.image_url || '',
+        message: item.message,
+        status: item.status,
+        sent_at: item.sent_at,
+        responded_at: item.responded_at,
+      }));
+
+      return assignments as ChallengeAssignment[];
+    } catch (error) {
+      console.error('❌ [Team] Get received challenges error:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get count of pending challenge assignments
+   */
+  async getPendingChallengesCount(): Promise<number> {
+    try {
+      const user = await authService.getUser();
+      if (!user) return 0;
+
+      const { count, error } = await supabase
+        .from('challenge_assignments')
+        .select('*', { count: 'exact', head: true })
+        .eq('recipient_id', user.id)  // ✅ FIXED: Filtr tylko dla odbiorcy!
+        .eq('status', 'pending');
+
+      if (error) throw error;
+
+      return count || 0;
+    } catch (error) {
+      console.error('❌ [Team] Get pending challenges count error:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Accept challenge assignment (without starting it immediately)
+   */
+  async acceptChallengeAssignment(assignmentId: string): Promise<{ error: Error | null }> {
+    try {
+      const user = await authService.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Update assignment status to 'accepted' (but don't create user_challenge yet)
+      const { error: updateError } = await supabase
+        .from('challenge_assignments')
+        .update({
+          status: 'accepted',
+          responded_at: new Date().toISOString(),
+        })
+        .eq('id', assignmentId)
+        .eq('recipient_id', user.id)
+        .eq('status', 'pending');
+
+      if (updateError) throw updateError;
+
+      console.log('✅ [Team] Challenge assignment accepted (not started yet)');
+      return { error: null };
+    } catch (error) {
+      console.error('❌ [Team] Accept challenge assignment error:', error);
+      return { error: error as Error };
+    }
+  }
+
+  /**
+   * Start an accepted challenge assignment
+   */
+  async startChallengeAssignment(assignmentId: string): Promise<{ error: Error | null }> {
+    try {
+      const user = await authService.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Get user profile to get device_id
+      const profile = await authService.getUserProfile();
+      if (!profile) throw new Error('User profile not found');
+
+      // Get assignment details
+      const { data: assignment, error: fetchError } = await supabase
+        .from('challenge_assignments')
+        .select('admin_challenge_id, recipient_id, status')
+        .eq('id', assignmentId)
+        .eq('recipient_id', user.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (!assignment) throw new Error('Assignment not found');
+      if (assignment.status !== 'accepted') throw new Error('Challenge must be accepted first');
+
+      // Check if user already has an active challenge
+      const { data: activeChallenge } = await supabase
+        .from('user_challenges')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('device_id', profile.device_id || getDeviceId())
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (activeChallenge) {
+        throw new Error('You already have an active challenge. Complete or pause it first.');
+      }
+
+      // Create user_challenge (start the challenge)
+      const { data: userChallenge, error: createError } = await supabase
+        .from('user_challenges')
+        .insert({
+          user_id: user.id,
+          device_id: profile.device_id || getDeviceId(),
+          admin_challenge_id: assignment.admin_challenge_id,
+          current_steps: 0,
+          status: 'active',
+          started_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (createError) throw createError;
+
+      // Update assignment with user_challenge_id
+      const { error: updateError } = await supabase
+        .from('challenge_assignments')
+        .update({
+          user_challenge_id: userChallenge.id,
+        })
+        .eq('id', assignmentId);
+
+      if (updateError) throw updateError;
+
+      console.log('✅ [Team] Challenge assignment started');
+      return { error: null };
+    } catch (error) {
+      console.error('❌ [Team] Start challenge assignment error:', error);
+      return { error: error as Error };
+    }
+  }
+
+  /**
+   * Cancel challenge assignment (sender only, before it's accepted)
+   */
+  async cancelChallengeAssignment(assignmentId: string): Promise<{ error: Error | null }> {
+    try {
+      const user = await authService.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('challenge_assignments')
+        .delete()
+        .eq('id', assignmentId)
+        .eq('sender_id', user.id)
+        .eq('status', 'pending'); // Can only cancel pending assignments
+
+      if (error) throw error;
+
+      console.log('🗑️ [Team] Challenge assignment cancelled');
+      return { error: null };
+    } catch (error) {
+      console.error('❌ [Team] Cancel challenge assignment error:', error);
+      return { error: error as Error };
+    }
+  }
+
+  /**
+   * Reject challenge assignment
+   */
+  async rejectChallengeAssignment(assignmentId: string): Promise<{ error: Error | null }> {
+    try {
+      const { error } = await supabase
+        .from('challenge_assignments')
+        .update({
+          status: 'rejected',
+          responded_at: new Date().toISOString(),
+        })
+        .eq('id', assignmentId);
+
+      if (error) throw error;
+
+      console.log('❌ [Team] Challenge assignment rejected');
+      return { error: null };
+    } catch (error) {
+      console.error('❌ [Team] Reject challenge assignment error:', error);
+      return { error: error as Error };
+    }
+  }
+
+  /**
+   * Get sent challenge assignments (all statuses)
+   */
+  async getSentChallengeAssignments(): Promise<ChallengeAssignment[]> {
+    try {
+      const user = await authService.getUser();
+      if (!user) return [];
+
+      const { data, error } = await supabase
+        .from('challenge_assignments')
+        .select(`
+          id,
+          sender_id,
+          recipient_id,
+          admin_challenge_id,
+          message,
+          status,
+          sent_at,
+          responded_at,
+          user_challenge_id,
+          recipient:recipient_id(display_name, avatar_url),
+          challenge:admin_challenge_id(title, goal_steps, image_url),
+          user_challenge:user_challenge_id(current_steps, status)
+        `)
+        .eq('sender_id', user.id)
+        .order('sent_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Transform data
+      const assignments = (data || []).map((item: any) => ({
+        id: item.id,
+        sender_id: item.sender_id,
+        recipient_id: item.recipient_id,
+        recipient_name: item.recipient?.display_name || null,
+        recipient_avatar: item.recipient?.avatar_url || null,
+        admin_challenge_id: item.admin_challenge_id,
+        challenge_title: item.challenge?.title || 'Unknown Challenge',
+        challenge_goal_steps: item.challenge?.goal_steps || 0,
+        challenge_image_url: item.challenge?.image_url || '',
+        message: item.message,
+        status: item.status,
+        sent_at: item.sent_at,
+        responded_at: item.responded_at,
+        user_challenge_id: item.user_challenge_id,
+        current_steps: item.user_challenge?.current_steps || 0,
+        user_challenge_status: item.user_challenge?.status || null,
+      }));
+
+      return assignments as ChallengeAssignment[];
+    } catch (error) {
+      console.error('❌ [Team] Get sent challenges error:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get received challenge assignments (all statuses - including active ones)
+   */
+  async getReceivedChallengeHistory(): Promise<ChallengeAssignment[]> {
+    try {
+      const user = await authService.getUser();
+      if (!user) return [];
+
+      const { data, error } = await supabase
+        .from('challenge_assignments')
+        .select(`
+          id,
+          sender_id,
+          recipient_id,
+          admin_challenge_id,
+          message,
+          status,
+          sent_at,
+          responded_at,
+          user_challenge_id,
+          sender:sender_id(display_name, avatar_url),
+          challenge:admin_challenge_id(title, goal_steps, image_url),
+          user_challenge:user_challenge_id(current_steps, status)
+        `)
+        .eq('recipient_id', user.id)
+        .order('sent_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Transform data
+      const assignments = (data || []).map((item: any) => ({
+        id: item.id,
+        sender_id: item.sender_id,
+        sender_name: item.sender?.display_name || null,
+        sender_avatar: item.sender?.avatar_url || null,
+        admin_challenge_id: item.admin_challenge_id,
+        challenge_title: item.challenge?.title || 'Unknown Challenge',
+        challenge_goal_steps: item.challenge?.goal_steps || 0,
+        challenge_image_url: item.challenge?.image_url || '',
+        message: item.message,
+        status: item.status,
+        sent_at: item.sent_at,
+        responded_at: item.responded_at,
+        user_challenge_id: item.user_challenge_id,
+        current_steps: item.user_challenge?.current_steps || 0,
+        user_challenge_status: item.user_challenge?.status || null,
+      }));
+
+      return assignments as ChallengeAssignment[];
+    } catch (error) {
+      console.error('❌ [Team] Get received challenge history error:', error);
+      return [];
     }
   }
 }

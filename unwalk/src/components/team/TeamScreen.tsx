@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { AppHeader } from '../common/AppHeader';
 import { BottomNavigation } from '../common/BottomNavigation';
-import { teamService, authService, type TeamMember as ApiTeamMember, type TeamInvitation, type UserProfile } from '../../lib/auth';
+import { teamService, authService, type TeamMember as ApiTeamMember, type TeamInvitation, type UserProfile, type ChallengeAssignment } from '../../lib/auth';
 import { useChallengeStore } from '../../stores/useChallengeStore';
+import { getActiveUserChallenge } from '../../lib/api';
 
 export function TeamScreen() {
   const setCurrentScreen = useChallengeStore((state) => state.setCurrentScreen);
@@ -10,6 +11,9 @@ export function TeamScreen() {
   const [teamMembers, setTeamMembers] = useState<ApiTeamMember[]>([]);
   const [receivedInvitations, setReceivedInvitations] = useState<TeamInvitation[]>([]);
   const [sentInvitations, setSentInvitations] = useState<TeamInvitation[]>([]);
+  const [receivedChallenges, setReceivedChallenges] = useState<ChallengeAssignment[]>([]);
+  const [sentChallengeHistory, setSentChallengeHistory] = useState<ChallengeAssignment[]>([]);
+  const [receivedChallengeHistory, setReceivedChallengeHistory] = useState<ChallengeAssignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -17,6 +21,7 @@ export function TeamScreen() {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [selectedMember, setSelectedMember] = useState<ApiTeamMember | null>(null);
+  const [activeTab, setActiveTab] = useState<'team' | 'sent' | 'received'>('team');
 
   useEffect(() => {
     loadUserAndTeamData();
@@ -25,11 +30,14 @@ export function TeamScreen() {
   const loadUserAndTeamData = async () => {
     setLoading(true);
     try {
-      const [profile, members, received, sent] = await Promise.all([
+      const [profile, members, received, sent, challenges, sentHistory, receivedHistory] = await Promise.all([
         authService.getUserProfile(),
         teamService.getTeamMembers(),
         teamService.getReceivedInvitations(),
         teamService.getSentInvitations(),
+        teamService.getReceivedChallenges(),
+        teamService.getSentChallengeAssignments(),
+        teamService.getReceivedChallengeHistory(),
       ]);
 
       console.log('🔍 [TeamScreen] User profile loaded:', profile);
@@ -39,6 +47,9 @@ export function TeamScreen() {
       setTeamMembers(members);
       setReceivedInvitations(received.filter(inv => inv.status === 'pending'));
       setSentInvitations(sent);
+      setReceivedChallenges(challenges);
+      setSentChallengeHistory(sentHistory);
+      setReceivedChallengeHistory(receivedHistory);
     } catch (error) {
       console.error('Failed to load team data:', error);
     } finally {
@@ -49,15 +60,17 @@ export function TeamScreen() {
   const loadTeamData = async () => {
     setLoading(true);
     try {
-      const [members, received, sent] = await Promise.all([
+      const [members, received, sent, challenges] = await Promise.all([
         teamService.getTeamMembers(),
         teamService.getReceivedInvitations(),
         teamService.getSentInvitations(),
+        teamService.getReceivedChallenges(),
       ]);
 
       setTeamMembers(members);
       setReceivedInvitations(received.filter(inv => inv.status === 'pending'));
       setSentInvitations(sent);
+      setReceivedChallenges(challenges);
     } catch (error) {
       console.error('Failed to load team data:', error);
     } finally {
@@ -243,7 +256,6 @@ export function TeamScreen() {
           {/* Send Challenge Button */}
           <button 
             onClick={() => {
-              // Zapisz wybranego członka do store i przejdź do Challenges
               useChallengeStore.getState().setAssignTarget({
                 id: selectedMember.member_id,
                 name: selectedMember.display_name || selectedMember.email,
@@ -255,14 +267,12 @@ export function TeamScreen() {
           >
             Send Challenge to {selectedMember.display_name || 'Member'}
           </button>
-
-          {/* TODO: Show shared challenges */}
-          <div className="text-center text-white/50 text-sm py-8">
-            Challenge history coming soon...
-          </div>
         </main>
 
-        <BottomNavigation currentScreen="team" />
+        <BottomNavigation 
+          currentScreen="team" 
+          onTeamClick={() => setSelectedMember(null)}
+        />
       </div>
     );
   }
@@ -432,12 +442,6 @@ export function TeamScreen() {
           </div>
         ) : (
           <>
-            {/* Hero Header */}
-            <div className="text-center">
-              <h1 className="text-3xl font-black text-white mb-1">Your Team</h1>
-              <p className="text-sm text-white/50">Challenge friends & family</p>
-            </div>
-
             {loading ? (
               <div className="text-center py-12">
                 <div className="inline-block w-8 h-8 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
@@ -445,248 +449,573 @@ export function TeamScreen() {
               </div>
             ) : (
               <>
-                {/* RECEIVED INVITATIONS */}
-                {receivedInvitations.length > 0 && (
-                  <section>
-                    <div className="bg-gradient-to-br from-blue-900/40 to-purple-900/40 border border-blue-500/30 rounded-3xl p-5">
-                      <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                        <span>📬</span>
-                        <span>Invitations</span>
-                        <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                          {receivedInvitations.length}
-                        </span>
-                      </h2>
-                      
-                      <div className="space-y-3">
-                        {receivedInvitations.map((invitation) => (
-                          <div
-                            key={invitation.id}
-                            className="bg-white/5 border border-white/10 rounded-2xl p-3"
-                          >
-                            <div className="flex items-start gap-3 mb-3">
-                              <div 
-                                className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0"
-                                style={{ backgroundColor: getColorFromName(invitation.sender_name) }}
-                              >
-                                {getInitials(invitation.sender_name)}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <h3 className="font-bold text-white text-sm mb-1">
-                                  {invitation.sender_name || invitation.sender_email}
-                                </h3>
-                                <div className="text-xs text-blue-400 mb-1">
-                                  wants to team up!
-                                </div>
-                                {invitation.message && (
-                                  <p className="text-xs text-white/60 italic">
-                                    "{invitation.message}"
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                            
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleAcceptInvitation(invitation.id)}
-                                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-xl font-bold text-sm transition-all"
-                              >
-                                Accept
-                              </button>
-                              <button
-                                onClick={() => handleRejectInvitation(invitation.id)}
-                                className="flex-1 bg-white/10 hover:bg-white/20 text-white py-2 rounded-xl font-medium text-sm transition-all"
-                              >
-                                Decline
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </section>
-                )}
-
-                {/* TEAM MEMBERS */}
-                <section>
-                  <div className="flex items-center justify-between mb-3 px-1">
-                    <h2 className="text-sm font-bold text-white/60 uppercase tracking-wider">
-                      Team ({teamMembers.length})
-                    </h2>
-                    {/* Hide Invite button for guests */}
-                    {!userProfile?.is_guest && (
-                      <button
-                        onClick={handleInviteClick}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                        Invite
-                      </button>
+                {/* TABS NAVIGATION */}
+                <div className="bg-[#151A25] border border-white/10 rounded-2xl p-1 grid grid-cols-3 gap-1">
+                  <button
+                    onClick={() => setActiveTab('team')}
+                    className={`py-2.5 px-3 rounded-xl text-sm font-bold transition-all ${
+                      activeTab === 'team'
+                        ? 'bg-blue-600 text-white'
+                        : 'text-white/50 hover:text-white/80'
+                    }`}
+                  >
+                    Team
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('sent')}
+                    className={`py-2.5 px-3 rounded-xl text-sm font-bold transition-all relative ${
+                      activeTab === 'sent'
+                        ? 'bg-blue-600 text-white'
+                        : 'text-white/50 hover:text-white/80'
+                    }`}
+                  >
+                    Sent
+                    {sentChallengeHistory.filter(c => c.status === 'pending').length > 0 && (
+                      <span className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 rounded-full text-xs flex items-center justify-center">
+                        {sentChallengeHistory.filter(c => c.status === 'pending').length}
+                      </span>
                     )}
-                  </div>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('received')}
+                    className={`py-2.5 px-3 rounded-xl text-sm font-bold transition-all relative ${
+                      activeTab === 'received'
+                        ? 'bg-blue-600 text-white'
+                        : 'text-white/50 hover:text-white/80'
+                    }`}
+                  >
+                    Received
+                    {receivedChallengeHistory.filter(c => c.status === 'pending').length > 0 && (
+                      <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-xs flex items-center justify-center">
+                        {receivedChallengeHistory.filter(c => c.status === 'pending').length}
+                      </span>
+                    )}
+                  </button>
+                </div>
 
-                  {teamMembers.length === 0 ? (
-                    // Beautiful empty state
-                    <div className="relative overflow-hidden">
-                      {/* Gradient background card */}
-                      <div className="bg-gradient-to-br from-blue-900/30 via-purple-900/20 to-pink-900/30 border border-white/10 rounded-3xl p-8 text-center relative">
-                        {/* Decorative circles */}
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl"></div>
-                        <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl"></div>
-                        
-                        {/* Content */}
-                        <div className="relative z-10">
-                          {/* Animated illustration */}
-                          <div className="mb-6 relative inline-block">
-                            <div className="w-24 h-24 mx-auto bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-2xl">
-                              <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {/* TAB: TEAM */}
+                {activeTab === 'team' && (
+                  <>
+                    {/* RECEIVED INVITATIONS */}
+                    {receivedInvitations.length > 0 && (
+                      <section>
+                        <div className="bg-gradient-to-br from-blue-900/40 to-purple-900/40 border border-blue-500/30 rounded-3xl p-5">
+                          <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                            <span>📬</span>
+                            <span>Invitations</span>
+                            <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                              {receivedInvitations.length}
+                            </span>
+                          </h2>
+                          
+                          <div className="space-y-3">
+                            {receivedInvitations.map((invitation) => (
+                              <div
+                                key={invitation.id}
+                                className="bg-white/5 border border-white/10 rounded-2xl p-3"
+                              >
+                                <div className="flex items-start gap-3 mb-3">
+                                  <div 
+                                    className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0"
+                                    style={{ backgroundColor: getColorFromName(invitation.sender_name) }}
+                                  >
+                                    {getInitials(invitation.sender_name)}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <h3 className="font-bold text-white text-sm mb-1">
+                                      {invitation.sender_name || invitation.sender_email}
+                                    </h3>
+                                    <div className="text-xs text-blue-400 mb-1">
+                                      wants to team up!
+                                    </div>
+                                    {invitation.message && (
+                                      <p className="text-xs text-white/60 italic">
+                                        "{invitation.message}"
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                                
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => handleAcceptInvitation(invitation.id)}
+                                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-xl font-bold text-sm transition-all"
+                                  >
+                                    Accept
+                                  </button>
+                                  <button
+                                    onClick={() => handleRejectInvitation(invitation.id)}
+                                    className="flex-1 bg-white/10 hover:bg-white/20 text-white py-2 rounded-xl font-medium text-sm transition-all"
+                                  >
+                                    Decline
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </section>
+                    )}
+
+                    {/* RECEIVED CHALLENGES (PENDING ONLY) */}
+                    {receivedChallenges.length > 0 && (
+                      <section>
+                        <div className="bg-gradient-to-br from-purple-900/40 to-pink-900/40 border border-purple-500/30 rounded-3xl p-5">
+                          <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                            <span>🎯</span>
+                            <span>Challenges for You</span>
+                            <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                              {receivedChallenges.length}
+                            </span>
+                          </h2>
+                          
+                          <div className="space-y-3">
+                            {receivedChallenges.map((assignment) => {
+                              const handleAcceptChallenge = async () => {
+                                try {
+                                  const { error } = await teamService.acceptChallengeAssignment(assignment.id);
+                                  if (error) throw error;
+                                  
+                                  await loadUserAndTeamData();
+                                  window.location.reload();
+                                } catch (err) {
+                                  console.error('Failed to accept challenge:', err);
+                                  alert('Failed to accept challenge. You might already have an active challenge.');
+                                }
+                              };
+
+                              const handleRejectChallenge = async () => {
+                                try {
+                                  const { error } = await teamService.rejectChallengeAssignment(assignment.id);
+                                  if (error) throw error;
+                                  await loadUserAndTeamData();
+                                } catch (err) {
+                                  console.error('Failed to reject challenge:', err);
+                                  alert('Failed to reject challenge. Please try again.');
+                                }
+                              };
+
+                              return (
+                                <div
+                                  key={assignment.id}
+                                  className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden"
+                                >
+                                  <div className="relative aspect-[3/2]">
+                                    <img
+                                      src={assignment.challenge_image_url}
+                                      alt={assignment.challenge_title}
+                                      className="w-full h-full object-cover"
+                                      style={{ filter: 'blur(8px)' }}
+                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex items-end p-3">
+                                      <div className="text-white flex-1">
+                                        <div className="text-sm font-bold mb-1">{assignment.challenge_title}</div>
+                                        <div className="text-xs text-white/70">
+                                          {(assignment.challenge_goal_steps / 1000).toFixed(0)}k steps
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="p-3">
+                                    <div className="flex items-center gap-2 mb-3">
+                                      <div 
+                                        className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                                        style={{ backgroundColor: getColorFromName(assignment.sender_name) }}
+                                      >
+                                        {getInitials(assignment.sender_name)}
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="text-xs text-white/60">From</div>
+                                        <div className="font-bold text-white text-sm truncate">
+                                          {assignment.sender_name || 'Team Member'}
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {assignment.message && (
+                                      <p className="text-xs text-white/70 italic mb-3 bg-white/5 rounded-lg p-2">
+                                        "{assignment.message}"
+                                      </p>
+                                    )}
+
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={handleAcceptChallenge}
+                                        className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-2.5 rounded-xl font-bold text-sm transition-all"
+                                      >
+                                        Accept
+                                      </button>
+                                      <button
+                                        onClick={handleRejectChallenge}
+                                        className="flex-1 bg-white/10 hover:bg-white/20 text-white py-2.5 rounded-xl font-medium text-sm transition-all"
+                                      >
+                                        Decline
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </section>
+                    )}
+
+                    {/* TEAM MEMBERS */}
+                    <section>
+                      <div className="flex items-center justify-between mb-3 px-1">
+                        <h2 className="text-sm font-bold text-white/60 uppercase tracking-wider">
+                          Team ({teamMembers.length})
+                        </h2>
+                        {!userProfile?.is_guest && (
+                          <button
+                            onClick={handleInviteClick}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                            Invite
+                          </button>
+                        )}
+                      </div>
+
+                      {teamMembers.length === 0 ? (
+                        <div className="bg-gradient-to-br from-blue-900/30 via-purple-900/20 to-pink-900/30 border border-white/10 rounded-3xl p-8 text-center">
+                          <div className="mb-6">
+                            <div className="w-20 h-20 mx-auto bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                              <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                               </svg>
                             </div>
-                            {/* Pulse animation */}
-                            <div className="absolute inset-0 w-24 h-24 mx-auto bg-blue-500/30 rounded-full animate-ping"></div>
                           </div>
-
-                          {/* Title */}
-                          <h3 className="text-2xl font-black text-white mb-3">
-                            Build Your Team
-                          </h3>
-                          
-                          {/* Description */}
-                          <p className="text-white/70 text-sm mb-6 max-w-xs mx-auto leading-relaxed">
-                            {userProfile?.is_guest 
-                              ? 'Create an account to invite friends and family. Walk together, stay motivated!'
-                              : 'Invite friends and family to start your walking journey together. Stay motivated as a team!'
-                            }
+                          <h3 className="text-xl font-black text-white mb-2">Build Your Team</h3>
+                          <p className="text-white/60 text-sm mb-6">
+                            Invite friends to start your journey together
                           </p>
-
-                          {/* Features list */}
-                          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-4 mb-6 text-left max-w-xs mx-auto">
-                            <div className="space-y-3">
-                              <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                  </svg>
-                                </div>
-                                <span className="text-white/80 text-sm">Send challenges to friends</span>
-                              </div>
-                              <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                                  </svg>
-                                </div>
-                                <span className="text-white/80 text-sm">Compare progress & stats</span>
-                              </div>
-                              <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                  </svg>
-                                </div>
-                                <span className="text-white/80 text-sm">Stay motivated together</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* CTA Button */}
-                          {userProfile?.is_guest ? (
-                            <button
-                              onClick={() => setCurrentScreen('profile')}
-                              className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white px-8 py-3.5 rounded-2xl font-black text-sm transition-all shadow-2xl shadow-purple-500/30 hover:shadow-purple-500/50 hover:scale-105 transform"
-                            >
-                              Sign Up to Build Team →
-                            </button>
-                          ) : (
+                          {!userProfile?.is_guest && (
                             <button
                               onClick={handleInviteClick}
-                              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-3.5 rounded-2xl font-black text-sm transition-all shadow-2xl shadow-blue-500/30 hover:shadow-blue-500/50 hover:scale-105 transform inline-flex items-center gap-2"
+                              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-bold text-sm transition-all inline-flex items-center gap-2"
                             >
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                               </svg>
                               Send First Invite
                             </button>
                           )}
-
-                          {/* Helper text */}
-                          <p className="text-white/40 text-xs mt-4">
-                            It's more fun together! 🚶‍♀️🚶‍♂️
-                          </p>
                         </div>
-                      </div>
-                    </div>
-                  ) : (
-                    // Team members grid
-                    <div className="grid grid-cols-2 gap-3">
-                      {teamMembers.map((member) => (
-                        <button
-                          key={member.id}
-                          onClick={() => setSelectedMember(member)}
-                          className="bg-[#151A25] border border-white/5 hover:bg-[#1A1F2E] hover:border-white/10 rounded-2xl p-4 transition-all text-left"
-                        >
-                          <div 
-                            className="w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold mx-auto mb-2"
-                            style={{ backgroundColor: getColorFromName(member.display_name) }}
-                          >
-                            {getInitials(member.display_name)}
-                          </div>
-                          <div className="text-center">
-                            <div className="font-bold text-white text-sm mb-2 truncate">
-                              {member.display_name || member.email.split('@')[0]}
-                            </div>
-                            
-                            <div className="space-y-1">
-                              <div className="text-xs text-white/50">
-                                {member.active_challenges_count} active
+                      ) : (
+                        <div className="grid grid-cols-2 gap-3">
+                          {teamMembers.map((member) => (
+                            <button
+                              key={member.id}
+                              onClick={() => setSelectedMember(member)}
+                              className="bg-[#151A25] border border-white/5 hover:bg-[#1A1F2E] hover:border-white/10 rounded-2xl p-4 transition-all text-left"
+                            >
+                              <div 
+                                className="w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold mx-auto mb-2"
+                                style={{ backgroundColor: getColorFromName(member.display_name) }}
+                              >
+                                {getInitials(member.display_name)}
                               </div>
-                              {member.tier === 'pro' && (
-                                <div className="inline-block bg-amber-500/20 text-amber-400 text-xs font-bold px-2 py-0.5 rounded">
-                                  PRO
+                              <div className="text-center">
+                                <div className="font-bold text-white text-sm mb-1 truncate">
+                                  {member.display_name || member.email.split('@')[0]}
+                                </div>
+                                <div className="text-xs text-white/50">
+                                  {member.active_challenges_count} active
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </section>
+
+                    {/* SENT INVITATIONS */}
+                    {sentInvitations.filter(inv => inv.status === 'pending').length > 0 && (
+                      <section>
+                        <h2 className="text-sm font-bold text-white/60 mb-3 px-1 uppercase tracking-wider">
+                          Pending Invites
+                        </h2>
+                        <div className="space-y-2">
+                          {sentInvitations.filter(inv => inv.status === 'pending').map((invitation) => (
+                            <div
+                              key={invitation.id}
+                              className="bg-[#151A25] border border-white/5 rounded-2xl p-3 flex items-center gap-3"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="font-bold text-white text-sm truncate">
+                                  {invitation.recipient_email}
+                                </div>
+                                <div className="text-xs text-white/50">
+                                  Sent {new Date(invitation.invited_at).toLocaleDateString()}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => handleCancelInvitation(invitation.id)}
+                                className="text-red-400 hover:text-red-300 text-xs font-bold"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+                    )}
+                  </>
+                )}
+
+                {/* TAB: SENT CHALLENGES */}
+                {activeTab === 'sent' && (
+                  <section>
+                    {sentChallengeHistory.length === 0 ? (
+                      <div className="text-center py-16">
+                        <div className="text-6xl mb-4">📤</div>
+                        <h3 className="text-xl font-bold text-white mb-2">No Sent Challenges</h3>
+                        <p className="text-white/50 text-sm">
+                          Send your first challenge to a team member!
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {sentChallengeHistory.map((assignment) => {
+                          const progress = assignment.current_steps && assignment.challenge_goal_steps
+                            ? Math.round((assignment.current_steps / assignment.challenge_goal_steps) * 100)
+                            : 0;
+
+                          const handleCancelChallenge = async () => {
+                            if (!confirm('Cancel this challenge assignment?')) return;
+                            
+                            try {
+                              const { error } = await teamService.cancelChallengeAssignment(assignment.id);
+                              if (error) throw error;
+                              await loadUserAndTeamData();
+                            } catch (err) {
+                              console.error('Failed to cancel challenge:', err);
+                              alert('Failed to cancel challenge. It may have been already accepted.');
+                            }
+                          };
+
+                          return (
+                            <div
+                              key={assignment.id}
+                              className="bg-[#151A25] border border-white/5 rounded-2xl p-4"
+                            >
+                              <div className="flex gap-3 mb-3">
+                                <div className="relative w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
+                                  <img
+                                    src={assignment.challenge_image_url}
+                                    alt={assignment.challenge_title}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <h3 className="font-bold text-white text-sm mb-1 truncate">
+                                    {assignment.challenge_title}
+                                  </h3>
+                                  <div className="flex items-center gap-2">
+                                    <div 
+                                      className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                                      style={{ backgroundColor: getColorFromName(assignment.recipient_name) }}
+                                    >
+                                      {getInitials(assignment.recipient_name)}
+                                    </div>
+                                    <span className="text-xs text-white/60">
+                                      {assignment.recipient_name || 'Unknown'}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex flex-col items-end gap-1">
+                                  {assignment.status === 'pending' && (
+                                    <>
+                                      <span className="bg-amber-500/20 text-amber-400 text-xs font-bold px-2 py-1 rounded whitespace-nowrap">
+                                        Pending
+                                      </span>
+                                      <button
+                                        onClick={handleCancelChallenge}
+                                        className="text-red-400 hover:text-red-300 text-xs font-bold"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </>
+                                  )}
+                                  {assignment.status === 'accepted' && (
+                                    <span className="bg-green-500/20 text-green-400 text-xs font-bold px-2 py-1 rounded whitespace-nowrap">
+                                      {assignment.user_challenge_status === 'completed' ? 'Completed' : assignment.user_challenge_id ? 'Active' : 'Accepted'}
+                                    </span>
+                                  )}
+                                  {assignment.status === 'rejected' && (
+                                    <span className="bg-red-500/20 text-red-400 text-xs font-bold px-2 py-1 rounded whitespace-nowrap">
+                                      Declined
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {assignment.status === 'accepted' && assignment.user_challenge_id && assignment.user_challenge_status === 'active' && (
+                                <div className="mt-3 pt-3 border-t border-white/5">
+                                  <div className="flex items-center justify-between text-xs mb-2">
+                                    <span className="text-white/60">Progress</span>
+                                    <span className="text-white font-bold">{progress}%</span>
+                                  </div>
+                                  <div className="bg-white/10 rounded-full h-2 overflow-hidden">
+                                    <div
+                                      className="bg-gradient-to-r from-blue-500 to-purple-500 h-full rounded-full transition-all"
+                                      style={{ width: `${progress}%` }}
+                                    />
+                                  </div>
+                                  <div className="text-xs text-white/50 mt-1">
+                                    {assignment.current_steps?.toLocaleString()} / {assignment.challenge_goal_steps.toLocaleString()} steps
+                                  </div>
                                 </div>
                               )}
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </section>
 
-                {/* SENT INVITATIONS */}
-                {sentInvitations.filter(inv => inv.status === 'pending').length > 0 && (
-                  <section>
-                    <h2 className="text-sm font-bold text-white/60 mb-3 px-1 uppercase tracking-wider">
-                      Pending Invites ({sentInvitations.filter(inv => inv.status === 'pending').length})
-                    </h2>
-                    
-                    <div className="space-y-2">
-                      {sentInvitations
-                        .filter(inv => inv.status === 'pending')
-                        .map((invitation) => (
-                          <div
-                            key={invitation.id}
-                            className="bg-[#151A25] border border-white/5 rounded-2xl p-3 flex items-center gap-3"
-                          >
-                            <div className="flex-1 min-w-0">
-                              <div className="font-bold text-white text-sm truncate">
-                                {invitation.recipient_email}
-                              </div>
-                              <div className="text-xs text-white/50">
-                                Sent {new Date(invitation.invited_at).toLocaleDateString()}
-                              </div>
+                              {assignment.message && (
+                                <p className="text-xs text-white/50 italic mt-3 bg-white/5 rounded-lg p-2">
+                                  "{assignment.message}"
+                                </p>
+                              )}
                             </div>
-                            <button
-                              onClick={() => handleCancelInvitation(invitation.id)}
-                              className="text-red-400 hover:text-red-300 text-xs font-bold"
+                          );
+                        })}
+                      </div>
+                    )}
+                  </section>
+                )}
+
+                {/* TAB: RECEIVED CHALLENGES */}
+                {activeTab === 'received' && (
+                  <section>
+                    {receivedChallengeHistory.length === 0 ? (
+                      <div className="text-center py-16">
+                        <div className="text-6xl mb-4">📥</div>
+                        <h3 className="text-xl font-bold text-white mb-2">No Received Challenges</h3>
+                        <p className="text-white/50 text-sm">
+                          You haven't received any challenges yet
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {receivedChallengeHistory.map((assignment) => {
+                          const progress = assignment.current_steps && assignment.challenge_goal_steps
+                            ? Math.round((assignment.current_steps / assignment.challenge_goal_steps) * 100)
+                            : 0;
+
+                          const handleStartChallenge = async () => {
+                            try {
+                              const { error } = await teamService.startChallengeAssignment(assignment.id);
+                              if (error) throw error;
+                              
+                              // Load fresh active challenge and update store
+                              const activeChallenge = await getActiveUserChallenge();
+                              if (activeChallenge) {
+                                useChallengeStore.getState().setActiveChallenge(activeChallenge);
+                              }
+                              
+                              // Refresh team data and redirect to dashboard
+                              await loadUserAndTeamData();
+                              setCurrentScreen('dashboard');
+                            } catch (err: any) {
+                              console.error('Failed to start challenge:', err);
+                              alert(err.message || 'Failed to start challenge. You might already have an active challenge.');
+                            }
+                          };
+
+                          return (
+                            <div
+                              key={assignment.id}
+                              className="bg-[#151A25] border border-white/5 rounded-2xl p-4"
                             >
-                              Cancel
-                            </button>
-                          </div>
-                        ))}
-                    </div>
+                              <div className="flex gap-3 mb-3">
+                                <div className="relative w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
+                                  <img
+                                    src={assignment.challenge_image_url}
+                                    alt={assignment.challenge_title}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <h3 className="font-bold text-white text-sm mb-1 truncate">
+                                    {assignment.challenge_title}
+                                  </h3>
+                                  <div className="flex items-center gap-2">
+                                    <div 
+                                      className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                                      style={{ backgroundColor: getColorFromName(assignment.sender_name) }}
+                                    >
+                                      {getInitials(assignment.sender_name)}
+                                    </div>
+                                    <span className="text-xs text-white/60">
+                                      from {assignment.sender_name || 'Unknown'}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div>
+                                  {assignment.status === 'pending' && (
+                                    <span className="bg-amber-500/20 text-amber-400 text-xs font-bold px-2 py-1 rounded">
+                                      Pending
+                                    </span>
+                                  )}
+                                  {assignment.status === 'accepted' && !assignment.user_challenge_id && (
+                                    <span className="bg-blue-500/20 text-blue-400 text-xs font-bold px-2 py-1 rounded">
+                                      Accepted
+                                    </span>
+                                  )}
+                                  {assignment.status === 'accepted' && assignment.user_challenge_id && (
+                                    <span className="bg-green-500/20 text-green-400 text-xs font-bold px-2 py-1 rounded">
+                                      {assignment.user_challenge_status === 'completed' ? 'Completed' : 'Active'}
+                                    </span>
+                                  )}
+                                  {assignment.status === 'rejected' && (
+                                    <span className="bg-red-500/20 text-red-400 text-xs font-bold px-2 py-1 rounded">
+                                      Declined
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* START BUTTON - dla zaakceptowanych ale nierozpoczętych */}
+                              {assignment.status === 'accepted' && !assignment.user_challenge_id && (
+                                <button
+                                  onClick={handleStartChallenge}
+                                  className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white py-2.5 rounded-xl font-bold text-sm transition-all mt-3"
+                                >
+                                  🚀 START Challenge
+                                </button>
+                              )}
+
+                              {/* PROGRESS BAR - dla aktywnych */}
+                              {assignment.status === 'accepted' && assignment.user_challenge_id && assignment.user_challenge_status === 'active' && (
+                                <div className="mt-3 pt-3 border-t border-white/5">
+                                  <div className="flex items-center justify-between text-xs mb-2">
+                                    <span className="text-white/60">Progress</span>
+                                    <span className="text-white font-bold">{progress}%</span>
+                                  </div>
+                                  <div className="bg-white/10 rounded-full h-2 overflow-hidden">
+                                    <div
+                                      className="bg-gradient-to-r from-green-500 to-emerald-500 h-full rounded-full transition-all"
+                                      style={{ width: `${progress}%` }}
+                                    />
+                                  </div>
+                                  <div className="text-xs text-white/50 mt-1">
+                                    {assignment.current_steps?.toLocaleString()} / {assignment.challenge_goal_steps.toLocaleString()} steps
+                                  </div>
+                                </div>
+                              )}
+
+                              {assignment.message && (
+                                <p className="text-xs text-white/50 italic mt-3 bg-white/5 rounded-lg p-2">
+                                  "{assignment.message}"
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </section>
                 )}
               </>

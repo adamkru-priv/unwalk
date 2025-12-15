@@ -85,7 +85,7 @@ export function BadgesScreen() {
             </div>
 
             <h2 className="text-2xl font-black text-white mb-3">
-              Rewards for PRO Users Only
+              Unlock Rewards
             </h2>
             
             <p className="text-white/60 text-sm leading-relaxed mb-6 max-w-sm">

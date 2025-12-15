@@ -43,13 +43,24 @@ export async function getActiveUserChallenge(): Promise<UserChallenge | null> {
     .from('user_challenges')
     .select(`
       *,
-      admin_challenge:admin_challenges(*)
+      admin_challenge:admin_challenges(*),
+      assigner:assigned_by(display_name, avatar_url)
     `)
     .eq('device_id', deviceId)
     .eq('status', 'active')
     .single();
 
   if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows
+  
+  // Transform data to include assigned_by info
+  if (data && data.assigner) {
+    return {
+      ...data,
+      assigned_by_name: data.assigner.display_name,
+      assigned_by_avatar: data.assigner.avatar_url,
+    };
+  }
+  
   return data || null;
 }
 
@@ -360,5 +371,27 @@ export async function getAllUserChallenges(): Promise<UserChallenge[]> {
     .order('started_at', { ascending: false });
 
   if (error) throw error;
+  return data || [];
+}
+
+// Get team members' active challenges (for social view on home screen)
+export async function getTeamActiveChallenges(): Promise<any[]> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+  
+  const { data, error } = await supabase
+    .from('challenge_assignments_with_progress')
+    .select('*')
+    .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
+    .eq('status', 'accepted')
+    .not('user_challenge_id', 'is', null)
+    .eq('user_challenge_status', 'active')
+    .order('sent_at', { ascending: false });
+
+  if (error) {
+    console.error('Failed to load team challenges:', error);
+    return [];
+  }
+  
   return data || [];
 }

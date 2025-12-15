@@ -33,7 +33,9 @@ export interface UserChallenge {
   claimed_at?: string;
   active_time_seconds?: number; // Total active time (excluding pauses)
   last_resumed_at?: string; // When challenge was last resumed (to calculate current session)
-  assigned_by?: string; // Device ID of person who assigned this
+  assigned_by?: string; // User ID of person who assigned this (social challenge)
+  assigned_by_name?: string; // Display name of person who assigned
+  assigned_by_avatar?: string; // Avatar URL of person who assigned
   is_group_challenge?: boolean; // Is this a group challenge
   group_members?: string[]; // Array of device IDs in the group
 }

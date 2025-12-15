@@ -158,12 +158,27 @@ export function BrowseChallenges() {
     }
   };
 
-  const handleAssignToMember = (memberId: string) => {
+  const handleAssignToMember = async (memberId: string) => {
     if (!selectedChallenge) return;
     
-    const member = teamMembers.find(m => m.member_id === memberId);
-    alert(`✅ Challenge "${selectedChallenge.title}" assigned to ${member?.display_name || member?.email}!`);
-    setSelectedChallenge(null);
+    try {
+      setError(null);
+      
+      // Assign challenge via TeamService
+      const { error: assignError } = await teamService.assignChallenge(
+        memberId,
+        selectedChallenge.id
+      );
+
+      if (assignError) throw assignError;
+
+      const member = teamMembers.find(m => m.member_id === memberId);
+      alert(`✅ Challenge "${selectedChallenge.title}" assigned to ${member?.display_name || member?.email}!`);
+      setSelectedChallenge(null);
+    } catch (err) {
+      console.error('Failed to assign challenge:', err);
+      setError('Failed to assign challenge. Please try again.');
+    }
   };
 
   return (
@@ -349,7 +364,7 @@ export function BrowseChallenges() {
                           {isChallengeCompleted(challenge.id) && (
                             <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1.5 shadow-lg">
                               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 01-1.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                               </svg>
                             </div>
                           )}
@@ -416,7 +431,7 @@ export function BrowseChallenges() {
                           {isChallengeCompleted(challenge.id) && (
                             <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1.5 shadow-lg">
                               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 01-1.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                               </svg>
                             </div>
                           )}
@@ -483,7 +498,7 @@ export function BrowseChallenges() {
                           {isChallengeCompleted(challenge.id) && (
                             <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1.5 shadow-lg">
                               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 01-1.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                               </svg>
                             </div>
                           )}
@@ -550,7 +565,7 @@ export function BrowseChallenges() {
                           {isChallengeCompleted(challenge.id) && (
                             <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1.5 shadow-lg">
                               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 01-1.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                               </svg>
                             </div>
                           )}
@@ -617,7 +632,7 @@ export function BrowseChallenges() {
                           {isChallengeCompleted(challenge.id) && (
                             <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1.5 shadow-lg">
                               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 01-1.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                               </svg>
                             </div>
                           )}

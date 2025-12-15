@@ -2,7 +2,7 @@ import { useChallengeStore } from '../../stores/useChallengeStore';
 import { useEffect, useState } from 'react';
 import { AppHeader } from '../common/AppHeader';
 import { BottomNavigation } from '../common/BottomNavigation';
-import { getUnclaimedChallenges } from '../../lib/api';
+import { getUnclaimedChallenges, getTeamActiveChallenges } from '../../lib/api';
 import type { UserChallenge } from '../../types';
 import { CelebrationModal } from './CelebrationModal';
 import { authService, type UserProfile } from '../../lib/auth';
@@ -14,6 +14,7 @@ export function HomeScreen() {
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [teamActiveChallenges, setTeamActiveChallenges] = useState<any[]>([]);
   
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
   const pausedChallenges = useChallengeStore((s) => s.pausedChallenges);
@@ -21,43 +22,6 @@ export function HomeScreen() {
   const resumeChallenge = useChallengeStore((s) => s.resumeChallenge);
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
   const dailyStepGoal = useChallengeStore((s) => s.dailyStepGoal);
-
-  // Mock family members with their challenges - TODO: Get from API
-  const [teamMembers] = useState([
-    { 
-      id: '1', 
-      name: 'Mama', 
-      avatar: '👩',
-      hasActiveChallenge: true,
-      challengeTitle: 'Walk to Paris',
-      progress: 65,
-      currentSteps: 6500,
-      goalSteps: 10000,
-      status: 'active' as const
-    },
-    { 
-      id: '2', 
-      name: 'Tata', 
-      avatar: '👨',
-      hasActiveChallenge: true,
-      challengeTitle: 'Mountain Trek',
-      progress: 32,
-      currentSteps: 8000,
-      goalSteps: 25000,
-      status: 'active' as const
-    },
-    { 
-      id: '3', 
-      name: 'Kasia', 
-      avatar: '👧',
-      hasActiveChallenge: true,
-      challengeTitle: 'Beach Walk',
-      progress: 100,
-      currentSteps: 5000,
-      goalSteps: 5000,
-      status: 'completed' as const
-    },
-  ]);
 
   // Mock today's stats - later from Health API
   const todaySteps = 7234;
@@ -69,6 +33,7 @@ export function HomeScreen() {
   useEffect(() => {
     loadUnclaimedChallenges();
     loadUserProfile();
+    loadTeamChallenges();
     checkChallengeCompletion();
   }, []);
 
@@ -89,6 +54,16 @@ export function HomeScreen() {
   const loadUserProfile = async () => {
     const profile = await authService.getUserProfile();
     setUserProfile(profile);
+  };
+
+  const loadTeamChallenges = async () => {
+    try {
+      const data = await getTeamActiveChallenges();
+      setTeamActiveChallenges(data);
+      console.log('✅ [HomeScreen] Loaded team challenges:', data.length);
+    } catch (err) {
+      console.error('Failed to load team challenges:', err);
+    }
   };
 
   const handleClaimSuccess = () => {
@@ -279,7 +254,9 @@ export function HomeScreen() {
                       <div className="absolute inset-0 p-6 flex flex-col justify-between">
                         {/* Top - Label & Badge */}
                         <div className="flex items-start justify-between">
-                          <div className="text-xs font-bold text-blue-400 uppercase tracking-wide">Solo</div>
+                          <div className="text-xs font-bold text-blue-400 uppercase tracking-wide">
+                            {activeUserChallenge.assigned_by ? 'Social' : 'Solo'}
+                          </div>
                           <span className="bg-blue-500 text-white text-xs font-black px-3 py-1.5 rounded-full animate-pulse">
                             ACTIVE
                           </span>
@@ -287,6 +264,19 @@ export function HomeScreen() {
                         
                         {/* Bottom - Info */}
                         <div>
+                          {/* Social Challenge - Show sender */}
+                          {activeUserChallenge.assigned_by && (
+                            <div className="flex items-center gap-2 mb-3 bg-emerald-500/20 backdrop-blur-sm border border-emerald-400/30 rounded-lg px-3 py-2">
+                              <div className="text-lg">🤝</div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs text-emerald-300 font-semibold">Challenge from</div>
+                                <div className="text-sm text-white font-bold truncate">
+                                  {activeUserChallenge.assigned_by_name || 'Team Member'}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          
                           <h3 className="text-2xl font-black text-white leading-tight mb-3 line-clamp-2">
                             {activeUserChallenge.admin_challenge?.title}
                           </h3>
@@ -363,9 +353,9 @@ export function HomeScreen() {
                     {/* Top - Label */}
                     <div className="flex items-start justify-between">
                       <div className="text-xs font-bold text-emerald-200 uppercase tracking-wide">Social</div>
-                      {teamMembers.filter(m => m.hasActiveChallenge).length > 0 && (
+                      {teamActiveChallenges.length > 0 && (
                         <div className="bg-emerald-500/90 backdrop-blur-sm text-white text-xs font-black px-3 py-1.5 rounded-full shadow-lg">
-                          {teamMembers.filter(m => m.hasActiveChallenge).length} ACTIVE
+                          {teamActiveChallenges.length} ACTIVE
                         </div>
                       )}
                     </div>
@@ -379,7 +369,7 @@ export function HomeScreen() {
                     
                     {/* Bottom - CTA */}
                     <div className="flex items-center justify-between text-white text-sm font-bold">
-                      <span>{teamMembers.filter(m => m.hasActiveChallenge).length > 0 ? 'View team' : 'Invite friends'}</span>
+                      <span>{teamActiveChallenges.length > 0 ? 'View team' : 'Invite friends'}</span>
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
