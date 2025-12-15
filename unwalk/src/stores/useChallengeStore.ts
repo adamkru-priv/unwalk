@@ -4,6 +4,7 @@ import type { Challenge, UserChallenge, UserTier } from '../types';
 import type { AdminChallenge } from '../types';
 
 type Screen = 'onboarding' | 'home' | 'dashboard' | 'library' | 'team' | 'stats' | 'profile' | 'badges';
+type Theme = 'light' | 'dark';
 
 interface ChallengeStore {
   challenge: Challenge | null;
@@ -17,6 +18,7 @@ interface ChallengeStore {
   exploreResetTrigger: number;
   dailyChallenge: AdminChallenge | null;
   dailyChallengeDate: string | null; // Format: YYYY-MM-DD
+  theme: Theme;
   
   // Actions
   setChallenge: (challenge: Challenge) => void;
@@ -24,6 +26,7 @@ interface ChallengeStore {
   setPausedChallenges: (challenges: UserChallenge[]) => void;
   pauseActiveChallenge: (userChallenge: UserChallenge) => void;
   resumeChallenge: (userChallenge: UserChallenge) => void;
+  clearPausedChallenges: () => void;
   setCurrentScreen: (screen: Screen) => void;
   updateChallengeProgress: (steps: number) => void;
   completeChallenge: () => void;
@@ -35,6 +38,7 @@ interface ChallengeStore {
   resetExploreView: () => void;
   setDailyChallenge: (challenge: AdminChallenge) => void;
   getDailyChallenge: () => AdminChallenge | null;
+  setTheme: (theme: Theme) => void;
 }
 
 export const useChallengeStore = create<ChallengeStore>()(
@@ -51,6 +55,7 @@ export const useChallengeStore = create<ChallengeStore>()(
       exploreResetTrigger: 0,
       dailyChallenge: null,
       dailyChallengeDate: null,
+      theme: 'dark',
 
       setChallenge: (challenge) => set({ challenge }),
       
@@ -105,6 +110,8 @@ export const useChallengeStore = create<ChallengeStore>()(
           pausedChallenges: state.pausedChallenges.filter(c => c.id !== userChallenge.id),
         }));
       },
+
+      clearPausedChallenges: () => set({ pausedChallenges: [] }),
       
       setCurrentScreen: (screen) => set({ currentScreen: screen }),
       
@@ -164,6 +171,8 @@ export const useChallengeStore = create<ChallengeStore>()(
         // Otherwise, it's expired or doesn't exist
         return null;
       },
+
+      setTheme: (theme) => set({ theme }),
     }),
     {
       name: 'unwalk-storage',

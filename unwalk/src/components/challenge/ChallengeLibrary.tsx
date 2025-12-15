@@ -9,12 +9,14 @@ import { CustomChallenge } from './CustomChallenge';
 type ExploreMode = 'menu' | 'browse' | 'custom';
 
 export function ChallengeLibrary() {
-  const [mode, setMode] = useState<ExploreMode>('menu');
+  const [mode, setMode] = useState<ExploreMode>('menu'); // Start with menu view
   const exploreResetTrigger = useChallengeStore((s) => s.exploreResetTrigger);
 
-  // Reset to menu whenever exploreResetTrigger changes (when user clicks Explore in bottom nav)
+  // Reset to menu whenever exploreResetTrigger changes
   useEffect(() => {
-    setMode('menu');
+    if (exploreResetTrigger > 0) {
+      setMode('menu'); // Reset to menu, not browse
+    }
   }, [exploreResetTrigger]);
 
   return (

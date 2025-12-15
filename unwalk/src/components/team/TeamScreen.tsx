@@ -20,7 +20,8 @@ interface Challenge {
 interface TeamMember {
   id: string;
   name: string;
-  avatar: string;
+  initials: string; // Zamiast emoji używamy inicjałów
+  color: string; // Kolor tła dla avatara
   streak: number;
   completedCount: number;
   weeklySteps: number;
@@ -141,10 +142,10 @@ function ChallengeDetailModal({ challenge, onClose }: { challenge: Challenge; on
 export function TeamScreen() {
   // Mock data - later from API
   const [familyMembers] = useState<TeamMember[]>([
-    { id: '1', name: 'You', avatar: '🙋‍♂️', streak: 7, completedCount: 3, weeklySteps: 12891, isOrganizer: true },
-    { id: '2', name: 'Ewa', avatar: '👩', streak: 2, completedCount: 5, weeklySteps: 15234, isOrganizer: false },
-    { id: '3', name: 'Szymon', avatar: '👦', streak: 0, completedCount: 2, weeklySteps: 10456, isOrganizer: false },
-    { id: '4', name: 'Natalia', avatar: '👧', streak: 1, completedCount: 1, weeklySteps: 8234, isOrganizer: false },
+    { id: '1', name: 'You', initials: 'Y', color: '#3B82F6', streak: 7, completedCount: 3, weeklySteps: 12891, isOrganizer: true },
+    { id: '2', name: 'Ewa', initials: 'E', color: '#F59E0B', streak: 2, completedCount: 5, weeklySteps: 15234, isOrganizer: false },
+    { id: '3', name: 'Szymon', initials: 'S', color: '#10B981', streak: 0, completedCount: 2, weeklySteps: 10456, isOrganizer: false },
+    { id: '4', name: 'Natalia', initials: 'N', color: '#EC4899', streak: 1, completedCount: 1, weeklySteps: 8234, isOrganizer: false },
   ]);
 
   // Mock pending invitations from friends
@@ -255,12 +256,22 @@ export function TeamScreen() {
           {/* Member Profile Header */}
           <section className="bg-[#151A25] border border-white/5 rounded-2xl p-5">
             <div className="flex items-center gap-4 mb-4">
-              <div className="text-4xl">{selectedMember.avatar}</div>
+              <div 
+                className="w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold"
+                style={{ backgroundColor: selectedMember.color }}
+              >
+                {selectedMember.initials}
+              </div>
               <div className="flex-1">
                 <h2 className="text-xl font-bold text-white mb-1">{selectedMember.name}</h2>
                 <div className="flex items-center gap-3 text-xs text-white/60">
                   {selectedMember.streak > 0 && (
-                    <span className="text-orange-400">🔥 {selectedMember.streak} days</span>
+                    <span className="flex items-center gap-1">
+                      <svg className="w-3 h-3 text-orange-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-orange-400">{selectedMember.streak} days</span>
+                    </span>
                   )}
                   <span>✓ {selectedMember.completedCount} completed</span>
                 </div>
@@ -485,15 +496,23 @@ export function TeamScreen() {
                   member.id === '1' ? 'opacity-50 cursor-default' : 'hover:bg-[#1A1F2E] hover:border-white/10 cursor-pointer'
                 }`}
               >
-                <div className="text-3xl mb-2 text-center">{member.avatar}</div>
+                <div 
+                  className="w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold mx-auto mb-2"
+                  style={{ backgroundColor: member.color }}
+                >
+                  {member.initials}
+                </div>
                 <div className="text-center">
                   <div className="font-bold text-white text-sm mb-2">{member.name}</div>
                   
                   {/* Stats */}
                   <div className="space-y-1">
                     {member.streak > 0 ? (
-                      <div className="text-xs text-orange-400 font-medium">
-                        🔥 {member.streak} days
+                      <div className="flex items-center justify-center gap-1 text-xs text-orange-400 font-medium">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clipRule="evenodd" />
+                        </svg>
+                        <span>{member.streak} days</span>
                       </div>
                     ) : (
                       <div className="text-xs text-white/30">No streak</div>
@@ -532,7 +551,12 @@ export function TeamScreen() {
                 </div>
 
                 {/* Avatar & Name */}
-                <div className="text-2xl flex-shrink-0">{member.avatar}</div>
+                <div 
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-white text-lg font-bold"
+                  style={{ backgroundColor: member.color }}
+                >
+                  {member.initials}
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-white text-sm">{member.name}</div>
                   <div className="text-xs text-white/50">
@@ -543,8 +567,11 @@ export function TeamScreen() {
                 {/* Streak */}
                 {member.streak > 0 && (
                   <div className="text-right flex-shrink-0">
-                    <div className="text-orange-400 text-xs font-medium">
-                      🔥 {member.streak}
+                    <div className="flex items-center gap-1 text-orange-400 text-xs font-medium">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clipRule="evenodd" />
+                      </svg>
+                      <span>{member.streak}</span>
                     </div>
                   </div>
                 )}

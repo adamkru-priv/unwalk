@@ -103,6 +103,25 @@ export function BrowseChallenges() {
     50000: challenges.filter(c => c.goal_steps >= 35000),
   };
 
+  // Sort each group so daily challenge is first
+  const sortWithDailyFirst = (challengeList: AdminChallenge[]) => {
+    return [...challengeList].sort((a, b) => {
+      const aIsDaily = dailyChallenge?.id === a.id;
+      const bIsDaily = dailyChallenge?.id === b.id;
+      if (aIsDaily) return -1;
+      if (bIsDaily) return 1;
+      return 0;
+    });
+  };
+
+  const sortedGroupedChallenges = {
+    5000: sortWithDailyFirst(groupedChallenges[5000]),
+    10000: sortWithDailyFirst(groupedChallenges[10000]),
+    15000: sortWithDailyFirst(groupedChallenges[15000]),
+    25000: sortWithDailyFirst(groupedChallenges[25000]),
+    50000: sortWithDailyFirst(groupedChallenges[50000]),
+  };
+
   const handleStartForMyself = async () => {
     if (!selectedChallenge) return;
     
@@ -236,346 +255,317 @@ export function BrowseChallenges() {
       {/* Challenge Carousels */}
       {!loading && (
         <div className="space-y-8">
-          {/* TODAY'S DAILY CHALLENGE - Featured Hero Section */}
-          {dailyChallenge && !isChallengeCompleted(dailyChallenge.id) && (
-            <section>
-              <div className="flex items-center justify-between mb-4 px-1">
-                <h3 className="text-lg font-bold text-white">Today's Challenge</h3>
-                <span className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-xs font-bold px-3 py-1 rounded-full animate-pulse">
-                  DAILY PICK
-                </span>
-              </div>
-              
-              {/* Large Featured Card */}
-              <button
-                onClick={() => setSelectedChallenge(dailyChallenge)}
-                className="group relative w-full"
-              >
-                <div className="relative aspect-[16/9] rounded-2xl overflow-hidden ring-2 ring-blue-500/50 group-hover:ring-blue-400/70 transition-all shadow-xl shadow-blue-500/20 group-hover:shadow-2xl group-hover:shadow-blue-500/30">
-                  <img
-                    src={dailyChallenge.image_url}
-                    alt={dailyChallenge.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    style={{ filter: 'blur(15px)' }}
-                  />
-                  
-                  {/* Gradient overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-600/60 via-cyan-600/40 to-transparent" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
-                  
-                  {/* Content */}
-                  <div className="absolute inset-0 p-6 flex flex-col justify-between">
-                    {/* Top badges */}
-                    <div className="flex items-center gap-2">
-                      {userTier === 'pro' && (
-                        <span className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-black px-3 py-1.5 rounded-lg uppercase tracking-wider shadow-lg">
-                          ✨ {calculateChallengePoints(dailyChallenge.goal_steps, true)} PTS
-                        </span>
-                      )}
-                      <span className="bg-white/20 backdrop-blur-md text-white text-xs font-bold px-3 py-1.5 rounded-lg uppercase tracking-wider border border-white/30">
-                        🎯 Quick Goal
-                      </span>
-                      <span className="bg-blue-500/30 backdrop-blur-md text-blue-100 text-xs font-bold px-3 py-1.5 rounded-lg">
-                        10k Steps
-                      </span>
-                    </div>
-
-                    {/* Bottom content */}
-                    <div>
-                      <h4 className="text-2xl font-bold text-white mb-2 leading-tight">
-                        {dailyChallenge.title}
-                      </h4>
-                      <p className="text-white/90 text-sm mb-4 line-clamp-2">
-                        {dailyChallenge.description}
-                      </p>
-                      
-                      {/* Call to action */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3 text-sm text-white/80">
-                          <span className="flex items-center gap-1">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                            </svg>
-                            10k steps
-                          </span>
-                          <span>•</span>
-                          <span>≈ 8 km</span>
-                        </div>
-                        
-                        <div className="bg-white text-blue-600 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 group-hover:bg-blue-50 transition-colors">
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M8 5v14l11-7z" />
-                          </svg>
-                          <span>START NOW</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </button>
-            </section>
-          )}
-
+          
           {/* 5k Challenges */}
-          {groupedChallenges[5000].length > 0 && (
+          {sortedGroupedChallenges[5000].length > 0 && (
             <section>
               <h3 className="text-lg font-bold text-white mb-3 px-1">5k Steps • Quick Walks</h3>
               <div className="overflow-x-auto pb-4 pt-2 -mx-5 px-5 scrollbar-hide">
                 <div className="flex gap-3" style={{ width: 'max-content' }}>
-                  {groupedChallenges[5000].map((challenge) => (
-                    <button
-                      key={challenge.id}
-                      onClick={() => setSelectedChallenge(challenge)}
-                      className="group relative w-40 flex-shrink-0"
-                    >
-                      <div className={`relative aspect-[3/4] rounded-xl overflow-hidden ring-1 ring-white/10 group-hover:ring-purple-500/50 transition-all ${isChallengeCompleted(challenge.id) ? 'opacity-75' : ''}`}>
-                        <img
-                          src={challenge.image_url}
-                          alt={challenge.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          style={{ filter: isChallengeCompleted(challenge.id) ? 'none' : 'blur(10px)' }}
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
-                        
-                        {/* Completed Badge */}
-                        {isChallengeCompleted(challenge.id) && (
-                          <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1.5 shadow-lg">
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                          </div>
-                        )}
+                  {sortedGroupedChallenges[5000].map((challenge) => {
+                    const isDaily = dailyChallenge?.id === challenge.id;
+                    return (
+                      <button
+                        key={challenge.id}
+                        onClick={() => setSelectedChallenge(challenge)}
+                        className="group relative w-40 flex-shrink-0"
+                      >
+                        <div className={`relative aspect-[3/4] rounded-xl overflow-hidden ring-1 ${isDaily ? 'ring-2 ring-blue-500' : 'ring-white/10'} group-hover:ring-purple-500/50 transition-all ${isChallengeCompleted(challenge.id) ? 'opacity-75' : ''}`}>
+                          <img
+                            src={challenge.image_url}
+                            alt={challenge.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            style={{ filter: isChallengeCompleted(challenge.id) ? 'none' : 'blur(10px)' }}
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+                          
+                          {/* Daily Pick Badge */}
+                          {isDaily && !isChallengeCompleted(challenge.id) && (
+                            <div className="absolute top-2 right-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-[10px] font-black px-2 py-1 rounded-full shadow-lg animate-pulse">
+                              DAILY
+                            </div>
+                          )}
+                          
+                          {/* Completed Badge */}
+                          {isChallengeCompleted(challenge.id) && (
+                            <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1.5 shadow-lg">
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            </div>
+                          )}
 
-                        {/* Points Badge - only for system challenges (not custom/family) and Pro users */}
-                        {!challenge.is_custom && !isChallengeCompleted(challenge.id) && userTier === 'pro' && (
-                          <div className="absolute top-2 left-2 bg-amber-500/90 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md shadow-lg">
-                            {calculateChallengePoints(challenge.goal_steps)} PT
-                          </div>
-                        )}
+                          {/* Points Badge - only for system challenges (not custom/family) and Pro users */}
+                          {!challenge.is_custom && !isChallengeCompleted(challenge.id) && !isDaily && userTier === 'pro' && (
+                            <div className="absolute top-2 left-2 bg-amber-500/90 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md shadow-lg">
+                              {calculateChallengePoints(challenge.goal_steps)} PT
+                            </div>
+                          )}
 
-                        <div className="absolute bottom-0 left-0 right-0 p-3">
-                          <h4 className="text-white text-sm font-semibold line-clamp-2 mb-1">
-                            {challenge.title}
-                          </h4>
-                          <div className="text-xs text-white/70">
-                            {(challenge.goal_steps / 1000).toFixed(0)}k steps
+                          <div className="absolute bottom-0 left-0 right-0 p-3">
+                            <h4 className="text-white text-sm font-semibold line-clamp-2 mb-1">
+                              {challenge.title}
+                            </h4>
+                            <div className="text-xs text-white/70">
+                              {(challenge.goal_steps / 1000).toFixed(0)}k steps
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </section>
           )}
 
           {/* 10k Challenges */}
-          {groupedChallenges[10000].length > 0 && (
+          {sortedGroupedChallenges[10000].length > 0 && (
             <section>
               <h3 className="text-lg font-bold text-white mb-3 px-1">10k Steps • Daily Goals</h3>
               <div className="overflow-x-auto pb-4 pt-2 -mx-5 px-5 scrollbar-hide">
                 <div className="flex gap-3" style={{ width: 'max-content' }}>
-                  {groupedChallenges[10000].map((challenge) => (
-                    <button
-                      key={challenge.id}
-                      onClick={() => setSelectedChallenge(challenge)}
-                      className="group relative w-40 flex-shrink-0"
-                    >
-                      <div className={`relative aspect-[3/4] rounded-xl overflow-hidden ring-1 ring-white/10 group-hover:ring-purple-500/50 transition-all ${isChallengeCompleted(challenge.id) ? 'opacity-75' : ''}`}>
-                        <img
-                          src={challenge.image_url}
-                          alt={challenge.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          style={{ filter: isChallengeCompleted(challenge.id) ? 'none' : 'blur(10px)' }}
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
-                        
-                        {/* Completed Badge */}
-                        {isChallengeCompleted(challenge.id) && (
-                          <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1.5 shadow-lg">
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                          </div>
-                        )}
+                  {sortedGroupedChallenges[10000].map((challenge) => {
+                    const isDaily = dailyChallenge?.id === challenge.id;
+                    return (
+                      <button
+                        key={challenge.id}
+                        onClick={() => setSelectedChallenge(challenge)}
+                        className="group relative w-40 flex-shrink-0"
+                      >
+                        <div className={`relative aspect-[3/4] rounded-xl overflow-hidden ring-1 ${isDaily ? 'ring-2 ring-blue-500' : 'ring-white/10'} group-hover:ring-purple-500/50 transition-all ${isChallengeCompleted(challenge.id) ? 'opacity-75' : ''}`}>
+                          <img
+                            src={challenge.image_url}
+                            alt={challenge.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            style={{ filter: isChallengeCompleted(challenge.id) ? 'none' : 'blur(10px)' }}
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+                          
+                          {/* Daily Pick Badge */}
+                          {isDaily && !isChallengeCompleted(challenge.id) && (
+                            <div className="absolute top-2 right-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-[10px] font-black px-2 py-1 rounded-full shadow-lg animate-pulse">
+                              DAILY
+                            </div>
+                          )}
+                          
+                          {/* Completed Badge */}
+                          {isChallengeCompleted(challenge.id) && (
+                            <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1.5 shadow-lg">
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            </div>
+                          )}
 
-                        {/* Points Badge - only for system challenges (not custom/family) and Pro users */}
-                        {!challenge.is_custom && !isChallengeCompleted(challenge.id) && userTier === 'pro' && (
-                          <div className="absolute top-2 left-2 bg-amber-500/90 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md shadow-lg">
-                            {calculateChallengePoints(challenge.goal_steps)} PT
-                          </div>
-                        )}
+                          {/* Points Badge - only for system challenges (not custom/family) and Pro users */}
+                          {!challenge.is_custom && !isChallengeCompleted(challenge.id) && !isDaily && userTier === 'pro' && (
+                            <div className="absolute top-2 left-2 bg-amber-500/90 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md shadow-lg">
+                              {calculateChallengePoints(challenge.goal_steps)} PT
+                            </div>
+                          )}
 
-                        <div className="absolute bottom-0 left-0 right-0 p-3">
-                          <h4 className="text-white text-sm font-semibold line-clamp-2 mb-1">
-                            {challenge.title}
-                          </h4>
-                          <div className="text-xs text-white/70">
-                            {(challenge.goal_steps / 1000).toFixed(0)}k steps
+                          <div className="absolute bottom-0 left-0 right-0 p-3">
+                            <h4 className="text-white text-sm font-semibold line-clamp-2 mb-1">
+                              {challenge.title}
+                            </h4>
+                            <div className="text-xs text-white/70">
+                              {(challenge.goal_steps / 1000).toFixed(0)}k steps
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </section>
           )}
 
           {/* 15k Challenges */}
-          {groupedChallenges[15000].length > 0 && (
+          {sortedGroupedChallenges[15000].length > 0 && (
             <section>
               <h3 className="text-lg font-bold text-white mb-3 px-1">15k Steps • Active Days</h3>
               <div className="overflow-x-auto pb-4 pt-2 -mx-5 px-5 scrollbar-hide">
                 <div className="flex gap-3" style={{ width: 'max-content' }}>
-                  {groupedChallenges[15000].map((challenge) => (
-                    <button
-                      key={challenge.id}
-                      onClick={() => setSelectedChallenge(challenge)}
-                      className="group relative w-40 flex-shrink-0"
-                    >
-                      <div className={`relative aspect-[3/4] rounded-xl overflow-hidden ring-1 ring-white/10 group-hover:ring-purple-500/50 transition-all ${isChallengeCompleted(challenge.id) ? 'opacity-75' : ''}`}>
-                        <img
-                          src={challenge.image_url}
-                          alt={challenge.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          style={{ filter: isChallengeCompleted(challenge.id) ? 'none' : 'blur(10px)' }}
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
-                        
-                        {/* Completed Badge */}
-                        {isChallengeCompleted(challenge.id) && (
-                          <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1.5 shadow-lg">
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                          </div>
-                        )}
+                  {sortedGroupedChallenges[15000].map((challenge) => {
+                    const isDaily = dailyChallenge?.id === challenge.id;
+                    return (
+                      <button
+                        key={challenge.id}
+                        onClick={() => setSelectedChallenge(challenge)}
+                        className="group relative w-40 flex-shrink-0"
+                      >
+                        <div className={`relative aspect-[3/4] rounded-xl overflow-hidden ring-1 ${isDaily ? 'ring-2 ring-blue-500' : 'ring-white/10'} group-hover:ring-purple-500/50 transition-all ${isChallengeCompleted(challenge.id) ? 'opacity-75' : ''}`}>
+                          <img
+                            src={challenge.image_url}
+                            alt={challenge.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            style={{ filter: isChallengeCompleted(challenge.id) ? 'none' : 'blur(10px)' }}
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+                          
+                          {/* Daily Pick Badge */}
+                          {isDaily && !isChallengeCompleted(challenge.id) && (
+                            <div className="absolute top-2 right-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-[10px] font-black px-2 py-1 rounded-full shadow-lg animate-pulse">
+                              DAILY
+                            </div>
+                          )}
+                          
+                          {/* Completed Badge */}
+                          {isChallengeCompleted(challenge.id) && (
+                            <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1.5 shadow-lg">
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            </div>
+                          )}
 
-                        {/* Points Badge - only for system challenges (not custom/family) and Pro users */}
-                        {!challenge.is_custom && !isChallengeCompleted(challenge.id) && userTier === 'pro' && (
-                          <div className="absolute top-2 left-2 bg-amber-500/90 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md shadow-lg">
-                            {calculateChallengePoints(challenge.goal_steps)} PT
-                          </div>
-                        )}
+                          {/* Points Badge */}
+                          {!challenge.is_custom && !isChallengeCompleted(challenge.id) && !isDaily && userTier === 'pro' && (
+                            <div className="absolute top-2 left-2 bg-amber-500/90 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md shadow-lg">
+                              {calculateChallengePoints(challenge.goal_steps)} PT
+                            </div>
+                          )}
 
-                        <div className="absolute bottom-0 left-0 right-0 p-3">
-                          <h4 className="text-white text-sm font-semibold line-clamp-2 mb-1">
-                            {challenge.title}
-                          </h4>
-                          <div className="text-xs text-white/70">
-                            {(challenge.goal_steps / 1000).toFixed(0)}k steps
+                          <div className="absolute bottom-0 left-0 right-0 p-3">
+                            <h4 className="text-white text-sm font-semibold line-clamp-2 mb-1">
+                              {challenge.title}
+                            </h4>
+                            <div className="text-xs text-white/70">
+                              {(challenge.goal_steps / 1000).toFixed(0)}k steps
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </section>
           )}
 
           {/* 25k Challenges */}
-          {groupedChallenges[25000].length > 0 && (
+          {sortedGroupedChallenges[25000].length > 0 && (
             <section>
               <h3 className="text-lg font-bold text-white mb-3 px-1">25k Steps • Intense</h3>
               <div className="overflow-x-auto pb-4 pt-2 -mx-5 px-5 scrollbar-hide">
                 <div className="flex gap-3" style={{ width: 'max-content' }}>
-                  {groupedChallenges[25000].map((challenge) => (
-                    <button
-                      key={challenge.id}
-                      onClick={() => setSelectedChallenge(challenge)}
-                      className="group relative w-40 flex-shrink-0"
-                    >
-                      <div className={`relative aspect-[3/4] rounded-xl overflow-hidden ring-1 ring-white/10 group-hover:ring-purple-500/50 transition-all ${isChallengeCompleted(challenge.id) ? 'opacity-75' : ''}`}>
-                        <img
-                          src={challenge.image_url}
-                          alt={challenge.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          style={{ filter: isChallengeCompleted(challenge.id) ? 'none' : 'blur(10px)' }}
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
-                        
-                        {/* Completed Badge */}
-                        {isChallengeCompleted(challenge.id) && (
-                          <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1.5 shadow-lg">
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                          </div>
-                        )}
+                  {sortedGroupedChallenges[25000].map((challenge) => {
+                    const isDaily = dailyChallenge?.id === challenge.id;
+                    return (
+                      <button
+                        key={challenge.id}
+                        onClick={() => setSelectedChallenge(challenge)}
+                        className="group relative w-40 flex-shrink-0"
+                      >
+                        <div className={`relative aspect-[3/4] rounded-xl overflow-hidden ring-1 ${isDaily ? 'ring-2 ring-blue-500' : 'ring-white/10'} group-hover:ring-purple-500/50 transition-all ${isChallengeCompleted(challenge.id) ? 'opacity-75' : ''}`}>
+                          <img
+                            src={challenge.image_url}
+                            alt={challenge.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            style={{ filter: isChallengeCompleted(challenge.id) ? 'none' : 'blur(10px)' }}
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+                          
+                          {/* Daily Pick Badge */}
+                          {isDaily && !isChallengeCompleted(challenge.id) && (
+                            <div className="absolute top-2 right-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-[10px] font-black px-2 py-1 rounded-full shadow-lg animate-pulse">
+                              DAILY
+                            </div>
+                          )}
+                          
+                          {/* Completed Badge */}
+                          {isChallengeCompleted(challenge.id) && (
+                            <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1.5 shadow-lg">
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            </div>
+                          )}
 
-                        {/* Points Badge - only for system challenges (not custom/family) and Pro users */}
-                        {!challenge.is_custom && !isChallengeCompleted(challenge.id) && userTier === 'pro' && (
-                          <div className="absolute top-2 left-2 bg-amber-500/90 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md shadow-lg">
-                            {calculateChallengePoints(challenge.goal_steps)} PT
-                          </div>
-                        )}
+                          {/* Points Badge */}
+                          {!challenge.is_custom && !isChallengeCompleted(challenge.id) && !isDaily && userTier === 'pro' && (
+                            <div className="absolute top-2 left-2 bg-amber-500/90 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md shadow-lg">
+                              {calculateChallengePoints(challenge.goal_steps)} PT
+                            </div>
+                          )}
 
-                        <div className="absolute bottom-0 left-0 right-0 p-3">
-                          <h4 className="text-white text-sm font-semibold line-clamp-2 mb-1">
-                            {challenge.title}
-                          </h4>
-                          <div className="text-xs text-white/70">
-                            {(challenge.goal_steps / 1000).toFixed(0)}k steps
+                          <div className="absolute bottom-0 left-0 right-0 p-3">
+                            <h4 className="text-white text-sm font-semibold line-clamp-2 mb-1">
+                              {challenge.title}
+                            </h4>
+                            <div className="text-xs text-white/70">
+                              {(challenge.goal_steps / 1000).toFixed(0)}k steps
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </section>
           )}
 
           {/* 50k+ Challenges */}
-          {groupedChallenges[50000].length > 0 && (
+          {sortedGroupedChallenges[50000].length > 0 && (
             <section>
               <h3 className="text-lg font-bold text-white mb-3 px-1">50k+ Steps • Epic Adventures</h3>
               <div className="overflow-x-auto pb-4 pt-2 -mx-5 px-5 scrollbar-hide">
                 <div className="flex gap-3" style={{ width: 'max-content' }}>
-                  {groupedChallenges[50000].map((challenge) => (
-                    <button
-                      key={challenge.id}
-                      onClick={() => setSelectedChallenge(challenge)}
-                      className="group relative w-40 flex-shrink-0"
-                    >
-                      <div className={`relative aspect-[3/4] rounded-xl overflow-hidden ring-1 ring-white/10 group-hover:ring-purple-500/50 transition-all ${isChallengeCompleted(challenge.id) ? 'opacity-75' : ''}`}>
-                        <img
-                          src={challenge.image_url}
-                          alt={challenge.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          style={{ filter: isChallengeCompleted(challenge.id) ? 'none' : 'blur(10px)' }}
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
-                        
-                        {/* Completed Badge */}
-                        {isChallengeCompleted(challenge.id) && (
-                          <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1.5 shadow-lg">
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                          </div>
-                        )}
+                  {sortedGroupedChallenges[50000].map((challenge) => {
+                    const isDaily = dailyChallenge?.id === challenge.id;
+                    return (
+                      <button
+                        key={challenge.id}
+                        onClick={() => setSelectedChallenge(challenge)}
+                        className="group relative w-40 flex-shrink-0"
+                      >
+                        <div className={`relative aspect-[3/4] rounded-xl overflow-hidden ring-1 ${isDaily ? 'ring-2 ring-blue-500' : 'ring-white/10'} group-hover:ring-purple-500/50 transition-all ${isChallengeCompleted(challenge.id) ? 'opacity-75' : ''}`}>
+                          <img
+                            src={challenge.image_url}
+                            alt={challenge.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            style={{ filter: isChallengeCompleted(challenge.id) ? 'none' : 'blur(10px)' }}
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+                          
+                          {/* Daily Pick Badge */}
+                          {isDaily && !isChallengeCompleted(challenge.id) && (
+                            <div className="absolute top-2 right-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-[10px] font-black px-2 py-1 rounded-full shadow-lg animate-pulse">
+                              DAILY
+                            </div>
+                          )}
+                          
+                          {/* Completed Badge */}
+                          {isChallengeCompleted(challenge.id) && (
+                            <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1.5 shadow-lg">
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            </div>
+                          )}
 
-                        {/* Points Badge - only for system challenges (not custom/family) and Pro users */}
-                        {!challenge.is_custom && !isChallengeCompleted(challenge.id) && userTier === 'pro' && (
-                          <div className="absolute top-2 left-2 bg-amber-500/90 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md shadow-lg">
-                            {calculateChallengePoints(challenge.goal_steps)} PT
-                          </div>
-                        )}
+                          {/* Points Badge */}
+                          {!challenge.is_custom && !isChallengeCompleted(challenge.id) && !isDaily && userTier === 'pro' && (
+                            <div className="absolute top-2 left-2 bg-amber-500/90 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md shadow-lg">
+                              {calculateChallengePoints(challenge.goal_steps)} PT
+                            </div>
+                          )}
 
-                        <div className="absolute bottom-0 left-0 right-0 p-3">
-                          <h4 className="text-white text-sm font-semibold line-clamp-2 mb-1">
-                            {challenge.title}
-                          </h4>
-                          <div className="text-xs text-white/70">
-                            {(challenge.goal_steps / 1000).toFixed(0)}k steps
+                          <div className="absolute bottom-0 left-0 right-0 p-3">
+                            <h4 className="text-white text-sm font-semibold line-clamp-2 mb-1">
+                              {challenge.title}
+                            </h4>
+                            <div className="text-xs text-white/70">
+                              {(challenge.goal_steps / 1000).toFixed(0)}k steps
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </section>

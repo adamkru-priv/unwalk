@@ -16,14 +16,14 @@ export function AppHeader({ title, showBackButton = false, subtitle }: AppHeader
   const pendingInvitations = 2; // Example: 2 friends sent you challenges
 
   return (
-    <header className="bg-[#0B101B]/80 backdrop-blur-md sticky top-0 z-20 px-6 py-4">
+    <header className="bg-gray-50/80 dark:bg-[#0B101B]/80 backdrop-blur-md sticky top-0 z-20 px-6 py-4 border-b border-gray-200 dark:border-transparent">
       <div className="flex items-center justify-between">
         {/* Left side - Back button or Logo */}
         <div className="flex items-center gap-3">
           {showBackButton && (
             <button
               onClick={() => setCurrentScreen('home')}
-              className="text-white/80 hover:text-white transition-colors"
+              className="text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white transition-colors"
               aria-label="Back to home"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -33,18 +33,18 @@ export function AppHeader({ title, showBackButton = false, subtitle }: AppHeader
           )}
           
           <div>
-            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-              <span className="text-blue-400 inline-block" style={{ transform: 'scaleX(-1)' }}>🚶</span>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              <span className="text-blue-600 dark:text-blue-400 inline-block" style={{ transform: 'scaleX(-1)' }}>🚶</span>
               MOVEE
               {userTier === 'pro' && (
-                <span className="text-amber-400 text-sm font-light italic tracking-wide" style={{ fontFamily: 'Georgia, serif' }}>
+                <span className="text-amber-600 dark:text-amber-400 text-sm font-light italic tracking-wide" style={{ fontFamily: 'Georgia, serif' }}>
                   Pro
                 </span>
               )}
-              {title && <span className="text-white/60 text-lg">• {title}</span>}
+              {title && <span className="text-gray-500 dark:text-white/60 text-lg">• {title}</span>}
             </h1>
             {subtitle && (
-              <p className="text-white/70 text-sm mt-0.5">{subtitle}</p>
+              <p className="text-gray-600 dark:text-white/70 text-sm mt-0.5">{subtitle}</p>
             )}
           </div>
         </div>
@@ -54,7 +54,7 @@ export function AppHeader({ title, showBackButton = false, subtitle }: AppHeader
           {/* Notifications Button - NEW */}
           <button
             onClick={() => setCurrentScreen('team')}
-            className="relative text-white/70 hover:text-white transition-colors"
+            className="relative text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white transition-colors"
             title="Challenge Invitations"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -72,7 +72,7 @@ export function AppHeader({ title, showBackButton = false, subtitle }: AppHeader
           {activeUserChallenge && (
             <button
               onClick={() => setCurrentScreen('dashboard')}
-              className="relative text-white/70 hover:text-white transition-colors group"
+              className="relative text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white transition-colors group"
               title="Active challenge in progress"
             >
               {/* Trophy/Achievement icon */}
@@ -87,7 +87,7 @@ export function AppHeader({ title, showBackButton = false, subtitle }: AppHeader
           {/* Settings Button - Navigate to profile/settings screen */}
           <button
             onClick={() => setCurrentScreen('profile')}
-            className="relative text-white/70 hover:text-white transition-colors"
+            className="relative text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white transition-colors"
             title="Settings"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
