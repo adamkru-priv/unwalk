@@ -8,12 +8,15 @@ export function Dashboard() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [showStats, setShowStats] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [earnedPoints, setEarnedPoints] = useState(0);
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
   const setActiveChallenge = useChallengeStore((s) => s.setActiveChallenge);
   const pauseActiveChallenge = useChallengeStore((s) => s.pauseActiveChallenge);
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
   const clearChallenge = useChallengeStore((s) => s.clearChallenge);
   const userTier = useChallengeStore((s) => s.userTier);
+  const dailyChallenge = useChallengeStore((s) => s.getDailyChallenge());
 
   const handleExitChallenge = () => {
     setShowMenu(false);
@@ -52,16 +55,17 @@ export function Dashboard() {
 
       // 🎉 AUTO-COMPLETE when reaching 100%
       if (newSteps >= goalSteps) {
-        console.log('🎉 Challenge completed! Auto-completing...');
-        const { completeChallenge } = await import('../../lib/api');
+        console.log('🎉 Challenge completed! Showing completion modal...');
+        const { completeChallenge, calculateChallengePoints } = await import('../../lib/api');
         const completedChallenge = await completeChallenge(activeUserChallenge.id);
         console.log('✅ Challenge marked as completed:', completedChallenge);
+
+        // Calculate points based on goal_steps and if it's daily challenge
+        const isDailyChallenge = dailyChallenge?.id === activeUserChallenge.admin_challenge_id;
+        const points = calculateChallengePoints(goalSteps, isDailyChallenge);
         
-        // Show celebration and redirect to home after 2 seconds
-        setTimeout(() => {
-          clearChallenge();
-          setCurrentScreen('home');
-        }, 2000);
+        setEarnedPoints(points);
+        setShowCompletionModal(true);
       }
     } catch (error) {
       console.error('❌ Failed to update steps:', error);
@@ -320,6 +324,78 @@ export function Dashboard() {
       <BottomNavigation 
         currentScreen="dashboard"
       />
+
+      {/* Completion Modal */}
+      {showCompletionModal && activeUserChallenge && (
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-5">
+          <div className="bg-gradient-to-br from-purple-900 via-gray-900 to-indigo-900 border-2 border-yellow-500/50 rounded-3xl p-8 max-w-md w-full text-center relative overflow-hidden">
+            {/* Confetti Animation */}
+            <div className="absolute inset-0 pointer-events-none">
+              <div className="absolute top-10 left-10 text-4xl animate-bounce">🎉</div>
+              <div className="absolute top-20 right-10 text-4xl animate-bounce delay-100">✨</div>
+              <div className="absolute bottom-20 left-20 text-4xl animate-bounce delay-200">🎊</div>
+              <div className="absolute bottom-10 right-20 text-4xl animate-bounce delay-300">⭐</div>
+            </div>
+
+            {/* Content */}
+            <div className="relative z-10">
+              <div className="text-6xl mb-4">🎉</div>
+              <h2 className="text-3xl font-black text-white mb-2">Congratulations!</h2>
+              <p className="text-white/80 text-lg mb-6">
+                You've completed the challenge!
+              </p>
+
+              {/* Unlocked Picture Preview */}
+              <div className="mb-6">
+                <div className="relative aspect-[4/3] rounded-xl overflow-hidden border-2 border-yellow-500/50 shadow-2xl">
+                  <img
+                    src={activeUserChallenge.admin_challenge?.image_url}
+                    alt={activeUserChallenge.admin_challenge?.title}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                  <div className="absolute bottom-3 left-3 right-3">
+                    <h3 className="text-white font-bold text-lg">{activeUserChallenge.admin_challenge?.title}</h3>
+                    <p className="text-white/80 text-sm">{(activeUserChallenge.admin_challenge?.goal_steps || 0).toLocaleString()} steps</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Rewards Section */}
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 mb-6">
+                <p className="text-white/70 text-sm mb-2">You unlocked:</p>
+                <div className="flex items-center justify-center gap-3">
+                  <div className="text-4xl">🖼️</div>
+                  <div className="text-left">
+                    <p className="text-white font-bold text-lg">Picture Revealed</p>
+                    {userTier === 'pro' && earnedPoints > 0 && (
+                      <p className="text-yellow-400 font-black text-2xl">+{earnedPoints} PTS</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* CTA Button */}
+              <button
+                onClick={() => {
+                  setShowCompletionModal(false);
+                  clearChallenge();
+                  setCurrentScreen('home');
+                }}
+                className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-black text-lg px-8 py-4 rounded-xl shadow-lg transition-all transform hover:scale-105"
+              >
+                {userTier === 'pro' ? '🎁 Claim Your Rewards' : '🖼️ Claim Your Picture'}
+              </button>
+
+              <p className="text-white/50 text-xs mt-4">
+                {userTier === 'pro' 
+                  ? 'Picture saved to your gallery • Points added to your score' 
+                  : 'Picture saved to your gallery'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

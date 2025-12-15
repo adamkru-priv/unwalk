@@ -17,3 +17,10 @@ export function getDeviceId(): string {
 export function clearDeviceId(): void {
   localStorage.removeItem(DEVICE_ID_KEY);
 }
+
+export function getGuestDisplayName(): string {
+  const deviceId = getDeviceId();
+  // Take last 4 characters of device ID for display name
+  const suffix = deviceId.slice(-4);
+  return `Guest_${suffix}`;
+}

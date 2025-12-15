@@ -19,6 +19,7 @@ interface ChallengeStore {
   dailyChallenge: AdminChallenge | null;
   dailyChallengeDate: string | null; // Format: YYYY-MM-DD
   theme: Theme;
+  assignTarget: { id: string; name: string; email: string } | null; // Member to assign challenge to
   
   // Actions
   setChallenge: (challenge: Challenge) => void;
@@ -39,6 +40,8 @@ interface ChallengeStore {
   setDailyChallenge: (challenge: AdminChallenge) => void;
   getDailyChallenge: () => AdminChallenge | null;
   setTheme: (theme: Theme) => void;
+  resetToInitialState: () => void;
+  setAssignTarget: (target: { id: string; name: string; email: string } | null) => void;
 }
 
 export const useChallengeStore = create<ChallengeStore>()(
@@ -56,6 +59,7 @@ export const useChallengeStore = create<ChallengeStore>()(
       dailyChallenge: null,
       dailyChallengeDate: null,
       theme: 'dark',
+      assignTarget: null,
 
       setChallenge: (challenge) => set({ challenge }),
       
@@ -173,6 +177,21 @@ export const useChallengeStore = create<ChallengeStore>()(
       },
 
       setTheme: (theme) => set({ theme }),
+
+      resetToInitialState: () => set({
+        challenge: null,
+        activeUserChallenge: null,
+        pausedChallenges: [],
+        currentScreen: 'onboarding',
+        isOnboardingComplete: false,
+        isHealthConnected: false,
+        userTier: 'basic',
+        dailyStepGoal: 0,
+        dailyChallenge: null,
+        dailyChallengeDate: null,
+      }),
+
+      setAssignTarget: (target) => set({ assignTarget: target }),
     }),
     {
       name: 'unwalk-storage',

@@ -7,7 +7,7 @@ const slides = [
     title: 'Move at Your Own Pace',
     subtitle: 'Challenge yourself or friends & family',
     description: 'Solo walks or team adventures - you decide how to stay active',
-    image: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&q=80', // People walking together
+    image: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&q=80',
     features: [
       { icon: '🎯', text: 'Personal challenges' },
       { icon: '👥', text: 'Family & friends' },
@@ -17,7 +17,7 @@ const slides = [
     title: 'Unlock Rewards & Badges',
     subtitle: 'Every step brings you closer',
     description: 'Reveal beautiful images, earn badges, and track your progress',
-    image: 'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&q=80', // Trophy/reward imagery
+    image: 'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&q=80',
     features: [
       { icon: '🖼️', text: 'Hidden images' },
       { icon: '🏆', text: 'Achievement badges' },
@@ -28,7 +28,7 @@ const slides = [
     title: 'Connect Apple Health',
     subtitle: 'Automatic step tracking',
     description: 'We sync with Apple Health to count your steps. Your data stays private and secure.',
-    image: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800&q=80', // Fitness/health tracking
+    image: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800&q=80',
     features: [
       { icon: '📱', text: 'Auto sync steps' },
       { icon: '🔒', text: 'Private & secure' },
@@ -39,39 +39,55 @@ const slides = [
 
 export function OnboardingScreen() {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [touchStart, setTouchStart] = useState(0);
+  const [touchEnd, setTouchEnd] = useState(0);
+  
   const setOnboardingComplete = useChallengeStore((s) => s.setOnboardingComplete);
-  const setHealthConnected = useChallengeStore((s) => s.setHealthConnected);
-
-  const handleNext = () => {
-    if (currentSlide < slides.length - 1) {
-      setCurrentSlide(currentSlide + 1);
-    } else {
-      // Last slide - connect health
-      handleConnectHealth();
-    }
-  };
 
   const handleSkip = () => {
     setOnboardingComplete(true);
   };
 
-  const handleConnectHealth = async () => {
-    // TODO: Implement Capacitor HealthKit integration
-    // For now, simulate connection
-    console.log('Connecting to Apple Health...');
-    setHealthConnected(true);
-    setOnboardingComplete(true);
+  // Touch handlers for swipe gestures
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.targetTouches[0].clientX);
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > 50;
+    const isRightSwipe = distance < -50;
+    
+    if (isLeftSwipe && currentSlide < slides.length - 1) {
+      setCurrentSlide(currentSlide + 1);
+    }
+    if (isRightSwipe && currentSlide > 0) {
+      setCurrentSlide(currentSlide - 1);
+    }
   };
 
   const slide = slides[currentSlide];
+  const isLastSlide = currentSlide === slides.length - 1;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#0B101B] to-[#151A25] flex flex-col relative overflow-hidden">
-      {/* Skip button */}
-      <div className="absolute top-8 right-6 z-20">
+    <div 
+      className="min-h-screen bg-gradient-to-b from-[#0B101B] to-[#151A25] flex flex-col relative overflow-hidden"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Skip button - Top Right - MAXIMUM VISIBILITY */}
+      <div className="absolute top-4 right-4 z-30">
         <button
           onClick={handleSkip}
-          className="text-white/60 hover:text-white font-medium text-sm transition-colors"
+          className="bg-gray-900/90 hover:bg-gray-900 backdrop-blur-lg text-white font-bold text-base px-7 py-3.5 rounded-full transition-all border-2 border-white/50 shadow-2xl"
         >
           Skip
         </button>
@@ -82,15 +98,14 @@ export function OnboardingScreen() {
         <AnimatePresence mode="wait">
           <motion.div
             key={currentSlide}
-            initial={{ opacity: 0, x: 50 }}
+            initial={{ opacity: 0, x: 100 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -50 }}
-            transition={{ duration: 0.4, ease: 'easeInOut' }}
+            exit={{ opacity: 0, x: -100 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
             className="flex-1 flex flex-col"
           >
             {/* Image Section */}
             <div className="relative h-[45vh] overflow-hidden">
-              {/* Gradient overlays */}
               <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#0B101B] z-10" />
               
               <motion.img
@@ -110,7 +125,7 @@ export function OnboardingScreen() {
                   className="text-3xl font-black text-white mb-3 leading-tight"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
+                  transition={{ delay: 0.1 }}
                 >
                   {slide.title}
                 </motion.h1>
@@ -119,7 +134,7 @@ export function OnboardingScreen() {
                   className="text-lg text-blue-400 font-semibold mb-3"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
+                  transition={{ delay: 0.2 }}
                 >
                   {slide.subtitle}
                 </motion.p>
@@ -128,7 +143,7 @@ export function OnboardingScreen() {
                   className="text-white/70 text-base mb-6 leading-relaxed"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 }}
+                  transition={{ delay: 0.3 }}
                 >
                   {slide.description}
                 </motion.p>
@@ -138,7 +153,7 @@ export function OnboardingScreen() {
                   className="space-y-3"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.5 }}
+                  transition={{ delay: 0.4 }}
                 >
                   {slide.features.map((feature, index) => (
                     <div
@@ -153,7 +168,7 @@ export function OnboardingScreen() {
               </div>
 
               {/* Pagination dots */}
-              <div className="flex justify-center gap-2 mt-8 mb-6">
+              <div className="flex justify-center gap-2 mt-8 mb-4">
                 {slides.map((_, index) => (
                   <button
                     key={index}
@@ -163,6 +178,7 @@ export function OnboardingScreen() {
                         ? 'w-8 bg-blue-500'
                         : 'w-2 bg-white/30'
                     }`}
+                    aria-label={`Go to slide ${index + 1}`}
                   />
                 ))}
               </div>
@@ -171,16 +187,21 @@ export function OnboardingScreen() {
         </AnimatePresence>
       </div>
 
-      {/* Bottom CTA */}
-      <div className="p-6 pb-10">
-        <motion.button
-          onClick={handleNext}
-          className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-blue-500/20 active:scale-98 transition-all"
-          whileTap={{ scale: 0.98 }}
-        >
-          {currentSlide === slides.length - 1 ? 'Connect Apple Health' : 'Continue'}
-        </motion.button>
-      </div>
+      {/* Bottom CTA - Start Walking button on last slide */}
+      {isLastSlide && (
+        <div className="p-6 pb-10">
+          <motion.button
+            onClick={handleSkip}
+            className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-blue-500/20 active:scale-98 transition-all"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            Start Walking
+          </motion.button>
+        </div>
+      )}
     </div>
   );
 }

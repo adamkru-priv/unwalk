@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import type { AdminChallenge } from '../../types';
 import { getAdminChallenges, startChallenge, getCompletedChallenges, calculateChallengePoints } from '../../lib/api';
 import { useChallengeStore } from '../../stores/useChallengeStore';
+import { teamService, authService, type TeamMember } from '../../lib/auth';
 
 type Category = 'animals' | 'sport' | 'nature' | 'surprise';
 
@@ -14,19 +15,35 @@ export function BrowseChallenges() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedChallenge, setSelectedChallenge] = useState<AdminChallenge | null>(null);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [isGuest, setIsGuest] = useState(false);
   const { activeUserChallenge, setActiveChallenge, setCurrentScreen, getDailyChallenge, setDailyChallenge: saveDailyChallenge, userTier } = useChallengeStore();
-
-  const familyMembers = [
-    { id: '1', name: 'Mama', avatar: '👩' },
-    { id: '2', name: 'Tata', avatar: '👨' },
-    { id: '3', name: 'Kasia', avatar: '👧' },
-  ];
 
   useEffect(() => {
     loadChallenges();
     loadCompletedChallenges();
     loadDailyChallenge();
+    loadTeamMembers();
+    checkIfGuest();
   }, [selectedCategory]);
+
+  const checkIfGuest = async () => {
+    try {
+      const profile = await authService.getUserProfile();
+      setIsGuest(profile?.is_guest || false);
+    } catch (err) {
+      console.error('Failed to check guest status:', err);
+    }
+  };
+
+  const loadTeamMembers = async () => {
+    try {
+      const members = await teamService.getTeamMembers();
+      setTeamMembers(members);
+    } catch (err) {
+      console.error('Failed to load team members:', err);
+    }
+  };
 
   const loadDailyChallenge = async () => {
     try {
@@ -144,8 +161,8 @@ export function BrowseChallenges() {
   const handleAssignToMember = (memberId: string) => {
     if (!selectedChallenge) return;
     
-    const member = familyMembers.find(m => m.id === memberId);
-    alert(`✅ Challenge "${selectedChallenge.title}" assigned to ${member?.name}!`);
+    const member = teamMembers.find(m => m.member_id === memberId);
+    alert(`✅ Challenge "${selectedChallenge.title}" assigned to ${member?.display_name || member?.email}!`);
     setSelectedChallenge(null);
   };
 
@@ -209,21 +226,63 @@ export function BrowseChallenges() {
                 🚶‍♂️ Start Now
               </button>
 
-              <div>
-                <div className="text-xs text-gray-400 mb-2 text-center">or assign to</div>
-                <div className="grid grid-cols-3 gap-2">
-                  {familyMembers.map((member) => (
-                    <button
-                      key={member.id}
-                      onClick={() => handleAssignToMember(member.id)}
-                      className="bg-[#0B101B] hover:bg-gray-800 border border-white/5 text-white px-2 py-2 rounded-lg text-xs font-medium transition-colors flex flex-col items-center gap-1"
-                    >
-                      <span className="text-xl">{member.avatar}</span>
-                      <span className="text-[10px]">{member.name}</span>
-                    </button>
-                  ))}
+              {/* Hide "assign to" section for Guest users or if no team members */}
+              {!isGuest && teamMembers.length > 0 && (
+                <div>
+                  <div className="text-xs text-gray-400 mb-2 text-center">or assign to</div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {teamMembers.map((member) => {
+                      // Get initials from name
+                      const getInitials = (name: string | null | undefined) => {
+                        if (!name) return '?';
+                        return name
+                          .split(' ')
+                          .map(word => word[0])
+                          .join('')
+                          .toUpperCase()
+                          .slice(0, 2);
+                      };
+
+                      // Generate color from name
+                      const getColorFromName = (name: string | null | undefined) => {
+                        if (!name) return '#3B82F6';
+                        
+                        const colors = [
+                          '#3B82F6', // blue
+                          '#F59E0B', // amber
+                          '#10B981', // green
+                          '#EC4899', // pink
+                          '#8B5CF6', // purple
+                          '#EF4444', // red
+                          '#06B6D4', // cyan
+                          '#F97316', // orange
+                        ];
+                        
+                        const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                        return colors[hash % colors.length];
+                      };
+
+                      return (
+                        <button
+                          key={member.id}
+                          onClick={() => handleAssignToMember(member.member_id)}
+                          className="bg-[#0B101B] hover:bg-gray-800 border border-white/5 text-white px-2 py-2 rounded-lg text-xs font-medium transition-colors flex flex-col items-center gap-1"
+                        >
+                          <div 
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                            style={{ backgroundColor: getColorFromName(member.display_name) }}
+                          >
+                            {getInitials(member.display_name)}
+                          </div>
+                          <span className="text-[10px] truncate w-full text-center">
+                            {member.display_name?.split(' ')[0] || member.email.split('@')[0]}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </motion.div>
         </motion.div>
@@ -295,10 +354,14 @@ export function BrowseChallenges() {
                             </div>
                           )}
 
-                          {/* Points Badge - only for system challenges (not custom/family) and Pro users */}
-                          {!challenge.is_custom && !isChallengeCompleted(challenge.id) && !isDaily && userTier === 'pro' && (
-                            <div className="absolute top-2 left-2 bg-amber-500/90 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md shadow-lg">
-                              {calculateChallengePoints(challenge.goal_steps)} PT
+                          {/* Points Badge - show for all challenges (including daily with 3x multiplier) - only for Pro users */}
+                          {!challenge.is_custom && !isChallengeCompleted(challenge.id) && userTier === 'pro' && (
+                            <div className={`absolute top-2 left-2 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md shadow-lg ${
+                              isDaily 
+                                ? 'bg-gradient-to-r from-amber-500 to-orange-500 animate-pulse' 
+                                : 'bg-amber-500/90'
+                            }`}>
+                              {calculateChallengePoints(challenge.goal_steps, isDaily)} PTS
                             </div>
                           )}
 
@@ -358,10 +421,14 @@ export function BrowseChallenges() {
                             </div>
                           )}
 
-                          {/* Points Badge - only for system challenges (not custom/family) and Pro users */}
-                          {!challenge.is_custom && !isChallengeCompleted(challenge.id) && !isDaily && userTier === 'pro' && (
-                            <div className="absolute top-2 left-2 bg-amber-500/90 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md shadow-lg">
-                              {calculateChallengePoints(challenge.goal_steps)} PT
+                          {/* Points Badge - show for all challenges (including daily with 3x multiplier) - only for Pro users */}
+                          {!challenge.is_custom && !isChallengeCompleted(challenge.id) && userTier === 'pro' && (
+                            <div className={`absolute top-2 left-2 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md shadow-lg ${
+                              isDaily 
+                                ? 'bg-gradient-to-r from-amber-500 to-orange-500 animate-pulse' 
+                                : 'bg-amber-500/90'
+                            }`}>
+                              {calculateChallengePoints(challenge.goal_steps, isDaily)} PTS
                             </div>
                           )}
 
@@ -421,10 +488,14 @@ export function BrowseChallenges() {
                             </div>
                           )}
 
-                          {/* Points Badge */}
-                          {!challenge.is_custom && !isChallengeCompleted(challenge.id) && !isDaily && userTier === 'pro' && (
-                            <div className="absolute top-2 left-2 bg-amber-500/90 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md shadow-lg">
-                              {calculateChallengePoints(challenge.goal_steps)} PT
+                          {/* Points Badge - show for all challenges (including daily with 3x multiplier) - only for Pro users */}
+                          {!challenge.is_custom && !isChallengeCompleted(challenge.id) && userTier === 'pro' && (
+                            <div className={`absolute top-2 left-2 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md shadow-lg ${
+                              isDaily 
+                                ? 'bg-gradient-to-r from-amber-500 to-orange-500 animate-pulse' 
+                                : 'bg-amber-500/90'
+                            }`}>
+                              {calculateChallengePoints(challenge.goal_steps, isDaily)} PTS
                             </div>
                           )}
 
@@ -484,10 +555,14 @@ export function BrowseChallenges() {
                             </div>
                           )}
 
-                          {/* Points Badge */}
-                          {!challenge.is_custom && !isChallengeCompleted(challenge.id) && !isDaily && userTier === 'pro' && (
-                            <div className="absolute top-2 left-2 bg-amber-500/90 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md shadow-lg">
-                              {calculateChallengePoints(challenge.goal_steps)} PT
+                          {/* Points Badge - show for all challenges (including daily with 3x multiplier) - only for Pro users */}
+                          {!challenge.is_custom && !isChallengeCompleted(challenge.id) && userTier === 'pro' && (
+                            <div className={`absolute top-2 left-2 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md shadow-lg ${
+                              isDaily 
+                                ? 'bg-gradient-to-r from-amber-500 to-orange-500 animate-pulse' 
+                                : 'bg-amber-500/90'
+                            }`}>
+                              {calculateChallengePoints(challenge.goal_steps, isDaily)} PTS
                             </div>
                           )}
 
@@ -547,10 +622,14 @@ export function BrowseChallenges() {
                             </div>
                           )}
 
-                          {/* Points Badge */}
-                          {!challenge.is_custom && !isChallengeCompleted(challenge.id) && !isDaily && userTier === 'pro' && (
-                            <div className="absolute top-2 left-2 bg-amber-500/90 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md shadow-lg">
-                              {calculateChallengePoints(challenge.goal_steps)} PT
+                          {/* Points Badge - show for all challenges (including daily with 3x multiplier) - only for Pro users */}
+                          {!challenge.is_custom && !isChallengeCompleted(challenge.id) && userTier === 'pro' && (
+                            <div className={`absolute top-2 left-2 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md shadow-lg ${
+                              isDaily 
+                                ? 'bg-gradient-to-r from-amber-500 to-orange-500 animate-pulse' 
+                                : 'bg-amber-500/90'
+                            }`}>
+                              {calculateChallengePoints(challenge.goal_steps, isDaily)} PTS
                             </div>
                           )}
 

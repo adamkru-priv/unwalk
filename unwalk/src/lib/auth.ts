@@ -1,0 +1,722 @@
+import { supabase } from './supabase';
+import type { User, Session } from '@supabase/supabase-js';
+import { getDeviceId } from './deviceId';
+
+export interface UserProfile {
+  id: string;
+  email: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  daily_step_goal: number;
+  tier: 'basic' | 'pro';
+  onboarding_completed: boolean;
+  is_guest: boolean;
+  device_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TeamInvitation {
+  id: string;
+  sender_id: string;
+  recipient_email: string;
+  recipient_id: string | null;
+  status: 'pending' | 'accepted' | 'rejected' | 'cancelled';
+  message: string | null;
+  invited_at: string;
+  responded_at: string | null;
+  expires_at: string;
+  // Joined data
+  sender_name?: string;
+  sender_email?: string;
+  sender_avatar?: string;
+  recipient_name?: string;
+  recipient_avatar?: string;
+}
+
+export interface TeamMember {
+  id: string;
+  member_id: string;
+  email: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  tier: 'basic' | 'pro';
+  added_at: string;
+  active_challenges_count: number;
+}
+
+export interface Badge {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  gradient: string;
+  points: number;
+  sort_order: number;
+  unlocked_at: string | null;
+  unlocked: boolean;
+}
+
+/**
+ * AuthService - Wrapper dla Supabase Auth
+ */
+class AuthService {
+  private static instance: AuthService;
+  private guestUserId: string | null = null;
+
+  static getInstance(): AuthService {
+    if (!AuthService.instance) {
+      AuthService.instance = new AuthService();
+    }
+    return AuthService.instance;
+  }
+
+  /**
+   * Initialize guest user (create in DB if not exists)
+   * Call this on app startup
+   */
+  async initGuestUser(): Promise<string | null> {
+    try {
+      // Check if already authenticated
+      const session = await this.getSession();
+      if (session) {
+        return null; // Already logged in
+      }
+
+      // Check if we have cached guest user ID
+      if (this.guestUserId) {
+        return this.guestUserId;
+      }
+
+      const deviceId = getDeviceId();
+      
+      // Call Supabase function to create/get guest user
+      const { data, error } = await supabase.rpc('create_guest_user', {
+        p_device_id: deviceId
+      });
+
+      if (error) throw error;
+
+      this.guestUserId = data as string;
+      console.log('✅ [Auth] Guest user initialized:', this.guestUserId);
+      
+      return this.guestUserId;
+    } catch (error) {
+      console.error('❌ [Auth] Init guest user error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get guest user ID (from cache or localStorage)
+   */
+  getGuestUserId(): string | null {
+    return this.guestUserId;
+  }
+
+  /**
+   * Clear guest user cache (on sign out)
+   */
+  clearGuestUser(): void {
+    this.guestUserId = null;
+  }
+
+  /**
+   * Sign in with Magic Link (email link)
+   */
+  async signInWithMagicLink(email: string): Promise<{ error: Error | null }> {
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+
+      if (error) throw error;
+
+      console.log('✉️ [Auth] Magic link sent to:', email);
+      return { error: null };
+    } catch (error) {
+      console.error('❌ [Auth] Magic link error:', error);
+      return { error: error as Error };
+    }
+  }
+
+  /**
+   * Sign in with OTP (6-digit code)
+   */
+  async signInWithOTP(email: string): Promise<{ error: Error | null }> {
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+      });
+
+      if (error) throw error;
+
+      console.log('🔢 [Auth] OTP sent to:', email);
+      return { error: null };
+    } catch (error) {
+      console.error('❌ [Auth] OTP error:', error);
+      return { error: error as Error };
+    }
+  }
+
+  /**
+   * Verify OTP code
+   */
+  async verifyOTP(email: string, token: string): Promise<{ session: Session | null; error: Error | null }> {
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: 'email',
+      });
+
+      if (error) throw error;
+
+      console.log('✅ [Auth] OTP verified for:', email);
+      return { session: data.session, error: null };
+    } catch (error) {
+      console.error('❌ [Auth] OTP verification error:', error);
+      return { session: null, error: error as Error };
+    }
+  }
+
+  /**
+   * Sign out
+   */
+  async signOut(): Promise<{ error: Error | null }> {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+
+      // Clear guest cache but keep device_id
+      this.clearGuestUser();
+
+      console.log('👋 [Auth] Signed out');
+      return { error: null };
+    } catch (error) {
+      console.error('❌ [Auth] Sign out error:', error);
+      return { error: error as Error };
+    }
+  }
+
+  /**
+   * Get current session
+   */
+  async getSession(): Promise<Session | null> {
+    const { data } = await supabase.auth.getSession();
+    return data.session;
+  }
+
+  /**
+   * Get current user (authenticated or guest)
+   */
+  async getUser(): Promise<User | null> {
+    const { data } = await supabase.auth.getUser();
+    return data.user;
+  }
+
+  /**
+   * Get current user profile (extended data)
+   * Returns guest profile if not authenticated
+   */
+  async getUserProfile(): Promise<UserProfile | null> {
+    try {
+      const user = await this.getUser();
+      
+      if (user) {
+        // Logged user - get from users table
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (error) throw error;
+        return data as UserProfile;
+      } else {
+        // Guest user - get by device_id
+        const deviceId = getDeviceId();
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('device_id', deviceId)
+          .eq('is_guest', true)
+          .single();
+
+        if (error) {
+          // Guest doesn't exist yet, create it
+          const guestId = await this.initGuestUser();
+          if (!guestId) return null;
+
+          // Fetch again
+          const { data: guestData, error: guestError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', guestId)
+            .single();
+
+          if (guestError) throw guestError;
+          return guestData as UserProfile;
+        }
+
+        return data as UserProfile;
+      }
+    } catch (error) {
+      console.error('❌ [Auth] Get profile error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Update user profile
+   */
+  async updateProfile(updates: Partial<UserProfile>): Promise<{ error: Error | null }> {
+    try {
+      const user = await this.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('users')
+        .update(updates)
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      console.log('✅ [Auth] Profile updated');
+      return { error: null };
+    } catch (error) {
+      console.error('❌ [Auth] Update profile error:', error);
+      return { error: error as Error };
+    }
+  }
+
+  /**
+   * Convert guest to logged user after signup
+   * Migrates all guest data to new authenticated account
+   */
+  async convertGuestToUser(): Promise<{ error: Error | null }> {
+    try {
+      const user = await this.getUser();
+      if (!user || !user.email) {
+        throw new Error('No authenticated user found');
+      }
+
+      const deviceId = getDeviceId();
+
+      // Call conversion function
+      const { error } = await supabase.rpc('convert_guest_to_user', {
+        p_device_id: deviceId,
+        p_auth_user_id: user.id,
+        p_email: user.email
+      });
+
+      if (error) throw error;
+
+      // Clear guest cache
+      this.clearGuestUser();
+
+      console.log('✅ [Auth] Guest converted to user');
+      return { error: null };
+    } catch (error) {
+      console.error('❌ [Auth] Convert guest error:', error);
+      return { error: error as Error };
+    }
+  }
+
+  /**
+   * Subscribe to auth state changes
+   */
+  onAuthStateChange(callback: (session: Session | null) => void) {
+    return supabase.auth.onAuthStateChange((_event, session) => {
+      callback(session);
+    });
+  }
+
+  /**
+   * Delete user account and all associated data
+   * This is a permanent action that cannot be undone
+   */
+  async deleteAccount(): Promise<{ error: Error | null }> {
+    try {
+      const user = await this.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Call RPC function to delete all user data
+      const { error: rpcError } = await supabase.rpc('delete_user_account', {
+        p_user_id: user.id
+      });
+
+      if (rpcError) throw rpcError;
+
+      // Sign out and clear session
+      await this.signOut();
+
+      console.log('🗑️ [Auth] Account deleted');
+      return { error: null };
+    } catch (error) {
+      console.error('❌ [Auth] Delete account error:', error);
+      return { error: error as Error };
+    }
+  }
+}
+
+/**
+ * TeamService - Zarządzanie teamem i zaproszeniami
+ */
+class TeamService {
+  private static instance: TeamService;
+
+  static getInstance(): TeamService {
+    if (!TeamService.instance) {
+      TeamService.instance = new TeamService();
+    }
+    return TeamService.instance;
+  }
+
+  /**
+   * Send team invitation
+   */
+  async sendInvitation(recipientEmail: string, message?: string): Promise<{ error: Error | null }> {
+    try {
+      // Get current user profile (works for both authenticated and guest users)
+      const profile = await authService.getUserProfile();
+      if (!profile) throw new Error('Not authenticated');
+
+      // Guest users cannot send invitations
+      if (profile.is_guest) {
+        throw new Error('Guest users cannot send team invitations. Please sign up first.');
+      }
+
+      // Check if user is inviting themselves
+      if (recipientEmail.toLowerCase() === profile.email?.toLowerCase()) {
+        throw new Error('You cannot invite yourself');
+      }
+
+      // Get recipient_id if they're already registered
+      const { data: recipient } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', recipientEmail)
+        .maybeSingle();
+
+      // Check if invitation already exists (by email OR recipient_id if known)
+      let existingQuery = supabase
+        .from('team_invitations')
+        .select('id, status')
+        .eq('sender_id', profile.id)
+        .eq('status', 'pending');
+
+      if (recipient?.id) {
+        // User is registered - check by recipient_id
+        existingQuery = existingQuery.eq('recipient_id', recipient.id);
+      } else {
+        // User not registered - check by email
+        existingQuery = existingQuery.eq('recipient_email', recipientEmail.toLowerCase());
+      }
+
+      const { data: existing } = await existingQuery.maybeSingle();
+
+      if (existing) {
+        throw new Error('Invitation already sent to this email');
+      }
+
+      // Check if recipient is already in team (if registered)
+      if (recipient?.id) {
+        const { data: existingMember } = await supabase
+          .from('team_members')
+          .select('id')
+          .eq('user_id', profile.id)
+          .eq('member_id', recipient.id)
+          .maybeSingle();
+
+        if (existingMember) {
+          throw new Error('This user is already in your team');
+        }
+      }
+
+      // Insert invitation
+      const { error } = await supabase
+        .from('team_invitations')
+        .insert({
+          sender_id: profile.id,
+          recipient_email: recipientEmail.toLowerCase(),
+          recipient_id: recipient?.id || null,
+          message: message || null,
+        });
+
+      if (error) throw error;
+
+      console.log('✉️ [Team] Invitation sent to:', recipientEmail);
+      
+      // TODO: Send email notification via Supabase Edge Function
+      
+      return { error: null };
+    } catch (error) {
+      console.error('❌ [Team] Send invitation error:', error);
+      return { error: error as Error };
+    }
+  }
+
+  /**
+   * Get my sent invitations
+   */
+  async getSentInvitations(): Promise<TeamInvitation[]> {
+    try {
+      const { data, error } = await supabase
+        .from('my_sent_invitations')
+        .select('*');
+
+      if (error) throw error;
+
+      return data as TeamInvitation[];
+    } catch (error) {
+      console.error('❌ [Team] Get sent invitations error:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get my received invitations
+   */
+  async getReceivedInvitations(): Promise<TeamInvitation[]> {
+    try {
+      const { data, error } = await supabase
+        .from('my_received_invitations')
+        .select('*');
+
+      if (error) throw error;
+
+      return data as TeamInvitation[];
+    } catch (error) {
+      console.error('❌ [Team] Get received invitations error:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Accept invitation
+   */
+  async acceptInvitation(invitationId: string): Promise<{ error: Error | null }> {
+    try {
+      const { error } = await supabase.rpc('accept_team_invitation', {
+        invitation_id: invitationId,
+      });
+
+      if (error) throw error;
+
+      console.log('✅ [Team] Invitation accepted');
+      return { error: null };
+    } catch (error) {
+      console.error('❌ [Team] Accept invitation error:', error);
+      return { error: error as Error };
+    }
+  }
+
+  /**
+   * Reject invitation
+   */
+  async rejectInvitation(invitationId: string): Promise<{ error: Error | null }> {
+    try {
+      const { error } = await supabase
+        .from('team_invitations')
+        .update({
+          status: 'rejected',
+          responded_at: new Date().toISOString(),
+        })
+        .eq('id', invitationId);
+
+      if (error) throw error;
+
+      console.log('❌ [Team] Invitation rejected');
+      return { error: null };
+    } catch (error) {
+      console.error('❌ [Team] Reject invitation error:', error);
+      return { error: error as Error };
+    }
+  }
+
+  /**
+   * Cancel invitation (sender)
+   * Deletes the invitation instead of updating status to avoid unique constraint issues
+   */
+  async cancelInvitation(invitationId: string): Promise<{ error: Error | null }> {
+    try {
+      const profile = await authService.getUserProfile();
+      if (!profile) throw new Error('Not authenticated');
+
+      // Delete invitation (better than updating status to 'cancelled')
+      const { error } = await supabase
+        .from('team_invitations')
+        .delete()
+        .eq('id', invitationId)
+        .eq('sender_id', profile.id); // Security: only sender can cancel
+
+      if (error) throw error;
+
+      console.log('🗑️ [Team] Invitation deleted');
+      return { error: null };
+    } catch (error) {
+      console.error('❌ [Team] Cancel invitation error:', error);
+      return { error: error as Error };
+    }
+  }
+
+  /**
+   * Get my team members
+   */
+  async getTeamMembers(): Promise<TeamMember[]> {
+    try {
+      const { data, error } = await supabase
+        .from('my_team')
+        .select('*');
+
+      if (error) throw error;
+
+      return data as TeamMember[];
+    } catch (error) {
+      console.error('❌ [Team] Get team members error:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Remove team member
+   */
+  async removeMember(memberId: string): Promise<{ error: Error | null }> {
+    try {
+      const user = await authService.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('team_members')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('member_id', memberId);
+
+      if (error) throw error;
+
+      console.log('🗑️ [Team] Member removed');
+      return { error: null };
+    } catch (error) {
+      console.error('❌ [Team] Remove member error:', error);
+      return { error: error as Error };
+    }
+  }
+
+  /**
+   * Assign challenge to team member
+   */
+  async assignChallenge(
+    recipientId: string,
+    challengeId: string,
+    message?: string
+  ): Promise<{ error: Error | null }> {
+    try {
+      const user = await authService.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('challenge_assignments')
+        .insert({
+          sender_id: user.id,
+          recipient_id: recipientId,
+          admin_challenge_id: challengeId,
+          message,
+        });
+
+      if (error) throw error;
+
+      console.log('🎯 [Team] Challenge assigned');
+      
+      // TODO: Send push notification
+      
+      return { error: null };
+    } catch (error) {
+      console.error('❌ [Team] Assign challenge error:', error);
+      return { error: error as Error };
+    }
+  }
+}
+
+/**
+ * BadgesService - Zarządzanie badges i achievements
+ */
+class BadgesService {
+  private static instance: BadgesService;
+
+  static getInstance(): BadgesService {
+    if (!BadgesService.instance) {
+      BadgesService.instance = new BadgesService();
+    }
+    return BadgesService.instance;
+  }
+
+  /**
+   * Get all badges with unlocked status for current user
+   */
+  async getBadges(): Promise<Badge[]> {
+    try {
+      const { data, error } = await supabase
+        .from('my_badges')
+        .select('*')
+        .order('sort_order');
+
+      if (error) throw error;
+
+      return data as Badge[];
+    } catch (error) {
+      console.error('❌ [Badges] Get badges error:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get total points from unlocked badges
+   */
+  async getTotalPoints(): Promise<number> {
+    try {
+      const badges = await this.getBadges();
+      const unlockedBadges = badges.filter(b => b.unlocked);
+      return unlockedBadges.reduce((sum, badge) => sum + badge.points, 0);
+    } catch (error) {
+      console.error('❌ [Badges] Get total points error:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Manually trigger achievement check
+   * Called after completing a challenge or updating progress
+   */
+  async checkAchievements(): Promise<{ newBadgesCount: number; error: Error | null }> {
+    try {
+      const profile = await authService.getUserProfile();
+      if (!profile) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase.rpc('check_and_unlock_achievements', {
+        p_user_id: profile.id
+      });
+
+      if (error) throw error;
+
+      const newBadgesCount = data as number;
+      
+      if (newBadgesCount > 0) {
+        console.log(`🎉 [Badges] Unlocked ${newBadgesCount} new badge(s)!`);
+      }
+
+      return { newBadgesCount, error: null };
+    } catch (error) {
+      console.error('❌ [Badges] Check achievements error:', error);
+      return { newBadgesCount: 0, error: error as Error };
+    }
+  }
+}
+
+// Export singletons
+export const authService = AuthService.getInstance();
+export const teamService = TeamService.getInstance();
+export const badgesService = BadgesService.getInstance();

@@ -1,4 +1,7 @@
 import { useChallengeStore } from '../../stores/useChallengeStore';
+import { useState, useEffect } from 'react';
+import { authService, teamService, type UserProfile, type TeamInvitation } from '../../lib/auth';
+import { getUnclaimedChallenges } from '../../lib/api';
 
 interface AppHeaderProps {
   title?: string;
@@ -8,12 +11,50 @@ interface AppHeaderProps {
 }
 
 export function AppHeader({ title, showBackButton = false, subtitle }: AppHeaderProps) {
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [receivedInvitations, setReceivedInvitations] = useState<TeamInvitation[]>([]);
+  const [unclaimedChallenges, setUnclaimedChallenges] = useState<any[]>([]);
+  const [notificationCount, setNotificationCount] = useState(0);
+  
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
   const userTier = useChallengeStore((s) => s.userTier);
 
-  // Mock - later from API: pending challenges sent by friends
-  const pendingInvitations = 2; // Example: 2 friends sent you challenges
+  useEffect(() => {
+    loadUserProfile();
+    loadNotifications();
+    
+    // Refresh notifications every 30 seconds
+    const interval = setInterval(loadNotifications, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const loadUserProfile = async () => {
+    const profile = await authService.getUserProfile();
+    setUserProfile(profile);
+  };
+
+  const loadNotifications = async () => {
+    try {
+      // Load pending team invitations
+      const invitations = await teamService.getReceivedInvitations();
+      const pending = invitations.filter(inv => inv.status === 'pending');
+      setReceivedInvitations(pending);
+
+      // Load unclaimed completed challenges
+      const unclaimed = await getUnclaimedChallenges();
+      setUnclaimedChallenges(unclaimed);
+
+      // Total notification count
+      const total = pending.length + unclaimed.length;
+      setNotificationCount(total);
+    } catch (err) {
+      console.error('Failed to load notifications:', err);
+    }
+  };
+
+  // Check if user is guest
+  const isGuest = userProfile?.is_guest || false;
 
   return (
     <header className="bg-gray-50/80 dark:bg-[#0B101B]/80 backdrop-blur-md sticky top-0 z-20 px-6 py-4 border-b border-gray-200 dark:border-transparent">
@@ -36,7 +77,8 @@ export function AppHeader({ title, showBackButton = false, subtitle }: AppHeader
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <span className="text-blue-600 dark:text-blue-400 inline-block" style={{ transform: 'scaleX(-1)' }}>🚶</span>
               MOVEE
-              {userTier === 'pro' && (
+              {/* Only show Pro badge if NOT guest and tier is pro */}
+              {!isGuest && userTier === 'pro' && (
                 <span className="text-amber-600 dark:text-amber-400 text-sm font-light italic tracking-wide" style={{ fontFamily: 'Georgia, serif' }}>
                   Pro
                 </span>
@@ -51,40 +93,45 @@ export function AppHeader({ title, showBackButton = false, subtitle }: AppHeader
 
         {/* Right side - Notifications, Active Challenge & Profile */}
         <div className="flex items-center gap-3">
-          {/* Notifications Button - NEW */}
-          <button
-            onClick={() => setCurrentScreen('team')}
-            className="relative text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white transition-colors"
-            title="Challenge Invitations"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-            </svg>
-            {/* Red badge if there are pending invitations */}
-            {pendingInvitations > 0 && (
-              <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-[10px] font-bold">{pendingInvitations}</span>
+          {/* Notifications Button - Real data */}
+          {!isGuest && notificationCount > 0 && (
+            <button
+              onClick={() => {
+                // Go to home if unclaimed challenges, else team
+                if (unclaimedChallenges.length > 0) {
+                  setCurrentScreen('home');
+                } else {
+                  setCurrentScreen('team');
+                }
+              }}
+              className="relative text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white transition-colors"
+              title={`${receivedInvitations.length} invitations, ${unclaimedChallenges.length} rewards`}
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              {/* Red badge with notification count */}
+              <div className="absolute -top-1 -right-1 min-w-[20px] h-5 bg-red-500 rounded-full flex items-center justify-center px-1 animate-pulse">
+                <span className="text-white text-[10px] font-bold">{notificationCount}</span>
               </div>
-            )}
-          </button>
+            </button>
+          )}
 
-          {/* Active Challenge Indicator - Fire/Achievement icon */}
+          {/* Active Challenge Indicator */}
           {activeUserChallenge && (
             <button
               onClick={() => setCurrentScreen('dashboard')}
               className="relative text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white transition-colors group"
               title="Active challenge in progress"
             >
-              {/* Trophy/Achievement icon */}
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
               </svg>
-              {/* Pulsing dot indicator */}
               <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></div>
             </button>
           )}
 
-          {/* Settings Button - Navigate to profile/settings screen */}
+          {/* Settings Button */}
           <button
             onClick={() => setCurrentScreen('profile')}
             className="relative text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white transition-colors"

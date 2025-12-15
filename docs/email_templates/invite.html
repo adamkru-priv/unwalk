@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>You're invited to Movee</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      background-color: #f3f4f6;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 40px;
+      text-align: center;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .logo {
+      font-size: 32px;
+      font-weight: 800;
+      color: #1f2937;
+      margin-bottom: 32px;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #1f2937;
+      margin: 0 0 16px 0;
+    }
+    p {
+      font-size: 16px;
+      color: #6b7280;
+      margin: 0 0 32px 0;
+      line-height: 1.5;
+    }
+    .button {
+      display: inline-block;
+      background: linear-gradient(to right, #2563eb, #3b82f6);
+      color: white;
+      text-decoration: none;
+      padding: 16px 32px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 24px;
+    }
+    .footer {
+      text-align: center;
+      color: #9ca3af;
+      font-size: 14px;
+      margin-top: 32px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="logo">🚶 MOVEE</div>
+      <h1>You're invited!</h1>
+      <p>Someone invited you to join their team on Movee</p>
+      <a href="{{ .ConfirmationURL }}" class="button">Accept Invitation →</a>
+      <p style="font-size: 14px; color: #9ca3af; margin: 0;">Start moving together</p>
+    </div>
+    <div class="footer">
+      Movee - Move at Your Own Pace
+    </div>
+  </div>
+</body>
+</html>
