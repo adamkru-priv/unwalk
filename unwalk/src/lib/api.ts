@@ -100,7 +100,7 @@ export async function completeChallenge(userChallengeId: string): Promise<UserCh
   const { data, error } = await supabase
     .from('user_challenges')
     .update({
-      status: 'completed',
+      status: 'completed_unclaimed',
       completed_at: new Date().toISOString(),
     })
     .eq('id', userChallengeId)

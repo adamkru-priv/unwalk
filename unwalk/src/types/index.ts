@@ -26,10 +26,11 @@ export interface UserChallenge {
   admin_challenge_id: string;
   admin_challenge?: AdminChallenge; // Populated via join
   current_steps: number;
-  status: 'active' | 'paused' | 'completed';
+  status: 'active' | 'paused' | 'completed' | 'completed_unclaimed' | 'claimed';
   started_at: string;
   paused_at?: string;
   completed_at?: string;
+  claimed_at?: string;
   active_time_seconds?: number; // Total active time (excluding pauses)
   last_resumed_at?: string; // When challenge was last resumed (to calculate current session)
   assigned_by?: string; // Device ID of person who assigned this

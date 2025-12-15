@@ -1,7 +1,7 @@
 import { useChallengeStore } from '../../stores/useChallengeStore';
 import { EmptyState } from './EmptyState';
-import { useState } from 'react';
-import { updateChallengeProgress } from '../../lib/api';
+import { useState, useEffect } from 'react';
+import { updateChallengeProgress, calculateChallengePoints } from '../../lib/api';
 import { BottomNavigation } from '../common/BottomNavigation';
 
 export function Dashboard() {
@@ -10,6 +10,7 @@ export function Dashboard() {
   const [showMenu, setShowMenu] = useState(false);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [earnedPoints, setEarnedPoints] = useState(0);
+  const [hasCheckedCompletion, setHasCheckedCompletion] = useState(false);
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
   const setActiveChallenge = useChallengeStore((s) => s.setActiveChallenge);
   const pauseActiveChallenge = useChallengeStore((s) => s.pauseActiveChallenge);
@@ -18,9 +19,62 @@ export function Dashboard() {
   const userTier = useChallengeStore((s) => s.userTier);
   const dailyChallenge = useChallengeStore((s) => s.getDailyChallenge());
 
+  // AUTO-DETECT COMPLETION - Check if challenge is at 100%
+  useEffect(() => {
+    const checkCompletion = async () => {
+      if (!activeUserChallenge || hasCheckedCompletion || showCompletionModal) return;
+      
+      const goalSteps = activeUserChallenge.admin_challenge?.goal_steps || 0;
+      const currentSteps = activeUserChallenge.current_steps;
+      
+      // Check if challenge is already marked as completed_unclaimed (from previous session)
+      if (activeUserChallenge.status === 'completed_unclaimed') {
+        console.log('Challenge already completed, showing finish button...');
+        setHasCheckedCompletion(true);
+        
+        // Calculate points
+        const isDailyChallenge = dailyChallenge?.id === activeUserChallenge.admin_challenge_id;
+        const points = calculateChallengePoints(goalSteps, isDailyChallenge);
+        
+        setEarnedPoints(points);
+        setShowCompletionModal(true);
+        return;
+      }
+      
+      // Check if challenge is completed (100% or more) but not yet marked
+      if (currentSteps >= goalSteps && goalSteps > 0 && activeUserChallenge.status === 'active') {
+        console.log('Challenge detected as complete! current:', currentSteps, 'goal:', goalSteps);
+        setHasCheckedCompletion(true);
+        
+        try {
+          // Mark challenge as completed in database
+          const { completeChallenge, calculateChallengePoints } = await import('../../lib/api');
+          const completedChallenge = await completeChallenge(activeUserChallenge.id);
+          console.log('Challenge marked as completed in DB:', completedChallenge);
+
+          // Calculate points
+          const isDailyChallenge = dailyChallenge?.id === activeUserChallenge.admin_challenge_id;
+          const points = calculateChallengePoints(goalSteps, isDailyChallenge);
+          
+          setEarnedPoints(points);
+          setShowCompletionModal(true);
+        } catch (error) {
+          console.error('Failed to complete challenge:', error);
+          // Even if API fails, show modal if we're at 100%
+          const isDailyChallenge = dailyChallenge?.id === activeUserChallenge.admin_challenge_id;
+          const points = calculateChallengePoints(goalSteps, isDailyChallenge);
+          setEarnedPoints(points);
+          setShowCompletionModal(true);
+        }
+      }
+    };
+
+    checkCompletion();
+  }, [activeUserChallenge, dailyChallenge, hasCheckedCompletion, showCompletionModal]);
+
   const handleExitChallenge = () => {
     setShowMenu(false);
-    if (confirm('⚠️ Exit this challenge?\n\nYour progress will be lost. This cannot be undone!')) {
+    if (confirm('Exit this challenge?\n\nYour progress will be lost. This cannot be undone!')) {
       clearChallenge();
       setCurrentScreen('home');
     }
@@ -29,15 +83,15 @@ export function Dashboard() {
   const handlePauseChallenge = () => {
     setShowMenu(false);
     if (userTier !== 'pro') {
-      alert('⭐ Pause feature is only available for Pro users!\n\nUpgrade to Pro to pause and resume challenges.');
+      alert('Pause feature is only available for Pro users!\n\nUpgrade to Pro to pause and resume challenges.');
       return;
     }
     if (!activeUserChallenge) return;
     
-    if (confirm('⏸️ Pause this challenge?\n\nYour progress will be saved and you can resume later.')) {
+    if (confirm('Pause this challenge?\n\nYour progress will be saved and you can resume later.')) {
       // Pauzuj wyzwanie (zapisuje do pausedChallenges i usuwa z activeUserChallenge)
       pauseActiveChallenge(activeUserChallenge);
-      alert('✅ Challenge paused! You can resume it anytime from the Home screen.');
+      alert('Challenge paused! You can resume it anytime from the Home screen.');
       setCurrentScreen('home');
     }
   };
@@ -53,12 +107,12 @@ export function Dashboard() {
       const updatedChallenge = await updateChallengeProgress(activeUserChallenge.id, newSteps);
       setActiveChallenge(updatedChallenge);
 
-      // 🎉 AUTO-COMPLETE when reaching 100%
+      // AUTO-COMPLETE when reaching 100%
       if (newSteps >= goalSteps) {
-        console.log('🎉 Challenge completed! Showing completion modal...');
+        console.log('Challenge completed! Showing finish button...');
         const { completeChallenge, calculateChallengePoints } = await import('../../lib/api');
         const completedChallenge = await completeChallenge(activeUserChallenge.id);
-        console.log('✅ Challenge marked as completed:', completedChallenge);
+        console.log('Challenge marked as completed:', completedChallenge);
 
         // Calculate points based on goal_steps and if it's daily challenge
         const isDailyChallenge = dailyChallenge?.id === activeUserChallenge.admin_challenge_id;
@@ -68,7 +122,7 @@ export function Dashboard() {
         setShowCompletionModal(true);
       }
     } catch (error) {
-      console.error('❌ Failed to update steps:', error);
+      console.error('Failed to update steps:', error);
     } finally {
       setIsUpdating(false);
     }
@@ -135,9 +189,6 @@ export function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white relative overflow-hidden">
-      {/* Profile Modal */}
-      {/* Removed ProfileModal component */}
-
       {/* BLURRED IMAGE AS BACKGROUND */}
       <div className="fixed inset-0 z-0">
         <img
@@ -175,70 +226,79 @@ export function Dashboard() {
               </svg>
             </button>
             
-            {/* Settings Menu Button */}
-            <div className="relative">
-              <button 
-                onClick={() => setShowMenu(!showMenu)} 
-                className="text-white/70 hover:text-white transition-colors"
-                title="Challenge options"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              </button>
+            {/* Settings Menu Button - hide when completed */}
+            {progress < 100 && (
+              <div className="relative">
+                <button 
+                  onClick={() => setShowMenu(!showMenu)} 
+                  className="text-white/70 hover:text-white transition-colors"
+                  title="Challenge options"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </button>
 
-              {/* Dropdown Menu */}
-              {showMenu && (
-                <>
-                  {/* Backdrop */}
-                  <div 
-                    className="fixed inset-0 z-20" 
-                    onClick={() => setShowMenu(false)}
-                  />
-                  
-                  {/* Menu */}
-                  <div className="absolute right-0 top-10 z-30 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl min-w-[200px] overflow-hidden">
-                    {/* Pause (Pro only) */}
-                    <button
-                      onClick={handlePauseChallenge}
-                      className="w-full px-4 py-3 text-left hover:bg-gray-700 transition-colors flex items-center gap-3 text-white"
-                    >
-                      <svg className="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <div className="flex-1">
-                        <div className="font-medium">Pause</div>
-                        {userTier !== 'pro' && (
-                          <div className="text-xs text-gray-400">Pro only</div>
-                        )}
-                      </div>
-                      {userTier !== 'pro' && <span className="text-amber-400">⭐</span>}
-                    </button>
+                {/* Dropdown Menu */}
+                {showMenu && (
+                  <>
+                    {/* Backdrop */}
+                    <div 
+                      className="fixed inset-0 z-20" 
+                      onClick={() => setShowMenu(false)}
+                    />
+                    
+                    {/* Menu */}
+                    <div className="absolute right-0 top-10 z-30 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl min-w-[200px] overflow-hidden">
+                      {/* Pause (Pro only) */}
+                      <button
+                        onClick={handlePauseChallenge}
+                        className="w-full px-4 py-3 text-left hover:bg-gray-700 transition-colors flex items-center gap-3 text-white"
+                      >
+                        <svg className="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div className="flex-1">
+                          <div className="font-medium">Pause</div>
+                          {userTier !== 'pro' && (
+                            <div className="text-xs text-gray-400">Pro only</div>
+                          )}
+                        </div>
+                      </button>
 
-                    {/* Exit */}
-                    <button
-                      onClick={handleExitChallenge}
-                      className="w-full px-4 py-3 text-left hover:bg-gray-700 transition-colors flex items-center gap-3 text-red-400 border-t border-gray-700"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                      </svg>
-                      <div className="font-medium">Exit Challenge</div>
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
+                      {/* Exit */}
+                      <button
+                        onClick={handleExitChallenge}
+                        className="w-full px-4 py-3 text-left hover:bg-gray-700 transition-colors flex items-center gap-3 text-red-400 border-t border-gray-700"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                        <div className="font-medium">Exit Challenge</div>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </header>
 
         {/* EMPTY SPACE - Let the image breathe */}
         <div className="flex-1 flex items-center justify-center">
-          {!showStats && (
+          {!showStats && progress < 100 && (
             <div className="text-center">
               <div className="text-6xl font-bold mb-2">{Math.round(progress)}%</div>
               <div className="text-sm text-white/60">revealed</div>
+            </div>
+          )}
+          
+          {/* Success message when completed */}
+          {progress >= 100 && !showStats && (
+            <div className="text-center animate-fade-in">
+              <div className="text-4xl font-black mb-2">Complete!</div>
+              <div className="text-lg text-white/70">{activeUserChallenge.admin_challenge?.title}</div>
             </div>
           )}
         </div>
@@ -282,120 +342,72 @@ export function Dashboard() {
           </div>
         )}
 
-        {/* TEST Simulator - Always visible for testing */}
-        <div className="px-6 pb-3 flex-shrink-0">
-          <div className="bg-blue-900/80 backdrop-blur-sm rounded-lg p-3 border border-blue-700/50">
-            <p className="text-xs font-semibold text-blue-200 mb-2">🛠️ Step Simulator (TEST MODE)</p>
-            <div className="grid grid-cols-4 gap-2">
-              <button
-                onClick={() => handleAddSteps(100)}
-                disabled={isUpdating}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50"
-              >
-                +100
-              </button>
-              <button
-                onClick={() => handleAddSteps(500)}
-                disabled={isUpdating}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50"
-              >
-                +500
-              </button>
-              <button
-                onClick={() => handleAddSteps(1000)}
-                disabled={isUpdating}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50"
-              >
-                +1K
-              </button>
-              <button
-                onClick={() => handleAddSteps(5000)}
-                disabled={isUpdating}
-                className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50"
-              >
-                +5K
-              </button>
+        {/* FINISH CHALLENGE Button - Shows when completed */}
+        {progress >= 100 && showCompletionModal && (
+          <div className="px-6 pb-3 flex-shrink-0">
+            <button
+              onClick={() => {
+                setShowCompletionModal(false);
+                clearChallenge();
+                setCurrentScreen('home');
+              }}
+              className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-4 rounded-2xl font-bold text-lg transition-all shadow-2xl shadow-green-500/30 flex items-center justify-center gap-3 group"
+            >
+              <span className="text-2xl group-hover:scale-110 transition-transform">✓</span>
+              <span>Finish Challenge</span>
+            </button>
+            {userTier === 'pro' && earnedPoints > 0 && (
+              <p className="text-center text-sm text-yellow-400 font-bold mt-2">
+                +{earnedPoints} points earned
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* TEST Simulator - Only visible when not completed */}
+        {progress < 100 && (
+          <div className="px-6 pb-3 flex-shrink-0">
+            <div className="bg-blue-900/80 backdrop-blur-sm rounded-lg p-3 border border-blue-700/50">
+              <p className="text-xs font-semibold text-blue-200 mb-2">Step Simulator (TEST MODE)</p>
+              <div className="grid grid-cols-4 gap-2">
+                <button
+                  onClick={() => handleAddSteps(100)}
+                  disabled={isUpdating}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50"
+                >
+                  +100
+                </button>
+                <button
+                  onClick={() => handleAddSteps(500)}
+                  disabled={isUpdating}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50"
+                >
+                  +500
+                </button>
+                <button
+                  onClick={() => handleAddSteps(1000)}
+                  disabled={isUpdating}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50"
+                >
+                  +1K
+                </button>
+                <button
+                  onClick={() => handleAddSteps(5000)}
+                  disabled={isUpdating}
+                  className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50"
+                >
+                  +5K
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Bottom Navigation */}
       <BottomNavigation 
         currentScreen="dashboard"
       />
-
-      {/* Completion Modal */}
-      {showCompletionModal && activeUserChallenge && (
-        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-5">
-          <div className="bg-gradient-to-br from-purple-900 via-gray-900 to-indigo-900 border-2 border-yellow-500/50 rounded-3xl p-8 max-w-md w-full text-center relative overflow-hidden">
-            {/* Confetti Animation */}
-            <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute top-10 left-10 text-4xl animate-bounce">🎉</div>
-              <div className="absolute top-20 right-10 text-4xl animate-bounce delay-100">✨</div>
-              <div className="absolute bottom-20 left-20 text-4xl animate-bounce delay-200">🎊</div>
-              <div className="absolute bottom-10 right-20 text-4xl animate-bounce delay-300">⭐</div>
-            </div>
-
-            {/* Content */}
-            <div className="relative z-10">
-              <div className="text-6xl mb-4">🎉</div>
-              <h2 className="text-3xl font-black text-white mb-2">Congratulations!</h2>
-              <p className="text-white/80 text-lg mb-6">
-                You've completed the challenge!
-              </p>
-
-              {/* Unlocked Picture Preview */}
-              <div className="mb-6">
-                <div className="relative aspect-[4/3] rounded-xl overflow-hidden border-2 border-yellow-500/50 shadow-2xl">
-                  <img
-                    src={activeUserChallenge.admin_challenge?.image_url}
-                    alt={activeUserChallenge.admin_challenge?.title}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                  <div className="absolute bottom-3 left-3 right-3">
-                    <h3 className="text-white font-bold text-lg">{activeUserChallenge.admin_challenge?.title}</h3>
-                    <p className="text-white/80 text-sm">{(activeUserChallenge.admin_challenge?.goal_steps || 0).toLocaleString()} steps</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Rewards Section */}
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 mb-6">
-                <p className="text-white/70 text-sm mb-2">You unlocked:</p>
-                <div className="flex items-center justify-center gap-3">
-                  <div className="text-4xl">🖼️</div>
-                  <div className="text-left">
-                    <p className="text-white font-bold text-lg">Picture Revealed</p>
-                    {userTier === 'pro' && earnedPoints > 0 && (
-                      <p className="text-yellow-400 font-black text-2xl">+{earnedPoints} PTS</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* CTA Button */}
-              <button
-                onClick={() => {
-                  setShowCompletionModal(false);
-                  clearChallenge();
-                  setCurrentScreen('home');
-                }}
-                className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-black text-lg px-8 py-4 rounded-xl shadow-lg transition-all transform hover:scale-105"
-              >
-                {userTier === 'pro' ? '🎁 Claim Your Rewards' : '🖼️ Claim Your Picture'}
-              </button>
-
-              <p className="text-white/50 text-xs mt-4">
-                {userTier === 'pro' 
-                  ? 'Picture saved to your gallery • Points added to your score' 
-                  : 'Picture saved to your gallery'}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

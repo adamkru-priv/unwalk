@@ -5,6 +5,7 @@ import { BottomNavigation } from '../common/BottomNavigation';
 import { getUnclaimedChallenges } from '../../lib/api';
 import type { UserChallenge } from '../../types';
 import { CelebrationModal } from './CelebrationModal';
+import { authService, type UserProfile } from '../../lib/auth';
 
 export function HomeScreen() {
   const [unclaimedChallenges, setUnclaimedChallenges] = useState<UserChallenge[]>([]);
@@ -12,6 +13,7 @@ export function HomeScreen() {
   const [currentSlide, setCurrentSlide] = useState(0); // 0 = SOLO, 1 = SOCIAL
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
   const pausedChallenges = useChallengeStore((s) => s.pausedChallenges);
@@ -66,7 +68,14 @@ export function HomeScreen() {
 
   useEffect(() => {
     loadUnclaimedChallenges();
+    loadUserProfile();
+    checkChallengeCompletion();
   }, []);
+
+  // Check if active challenge is at 100% - auto-redirect to Dashboard
+  useEffect(() => {
+    checkChallengeCompletion();
+  }, [activeUserChallenge]);
 
   const loadUnclaimedChallenges = async () => {
     try {
@@ -77,10 +86,28 @@ export function HomeScreen() {
     }
   };
 
+  const loadUserProfile = async () => {
+    const profile = await authService.getUserProfile();
+    setUserProfile(profile);
+  };
+
   const handleClaimSuccess = () => {
     setSelectedCompletedChallenge(null);
     loadUnclaimedChallenges(); // Refresh list
     setCurrentScreen('badges'); // Go to badges to see the new addition
+  };
+
+  const checkChallengeCompletion = () => {
+    if (!activeUserChallenge) return;
+    
+    const goalSteps = activeUserChallenge.admin_challenge?.goal_steps || 0;
+    const currentSteps = activeUserChallenge.current_steps;
+    
+    // If challenge is at 100%, redirect to Dashboard to show completion modal
+    if (currentSteps >= goalSteps && goalSteps > 0) {
+      console.log('🎉 Challenge at 100%! Redirecting to Dashboard...');
+      setCurrentScreen('dashboard');
+    }
   };
 
   const calculateProgress = () => {
@@ -386,29 +413,31 @@ export function HomeScreen() {
           </div>
         </section>
 
-        {/* TODAY'S ACTIVITY - Minimized & Compact */}
-        <section className="px-5">
-          <div className="bg-white dark:bg-[#151A25] border border-gray-200 dark:border-white/10 rounded-xl p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-baseline gap-2">
-                <div className="text-2xl font-black text-gray-900 dark:text-white">{todaySteps.toLocaleString()}</div>
-                <div className="text-xs text-gray-500 dark:text-white/60 uppercase tracking-wide font-bold">steps</div>
+        {/* TODAY'S ACTIVITY - Minimized & Compact - HIDDEN FOR GUEST USERS */}
+        {!userProfile?.is_guest && (
+          <section className="px-5">
+            <div className="bg-white dark:bg-[#151A25] border border-gray-200 dark:border-white/10 rounded-xl p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-baseline gap-2">
+                  <div className="text-2xl font-black text-gray-900 dark:text-white">{todaySteps.toLocaleString()}</div>
+                  <div className="text-xs text-gray-500 dark:text-white/60 uppercase tracking-wide font-bold">steps</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs text-gray-500 dark:text-white/50">Daily Goal</div>
+                  <div className="text-lg font-bold text-gray-900 dark:text-white">{dailyGoalProgress}%</div>
+                </div>
               </div>
-              <div className="text-right">
-                <div className="text-xs text-gray-500 dark:text-white/50">Daily Goal</div>
-                <div className="text-lg font-bold text-gray-900 dark:text-white">{dailyGoalProgress}%</div>
+              <div className="mt-3">
+                <div className="bg-gray-200 dark:bg-white/10 rounded-full h-1.5 overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-500" 
+                    style={{ width: `${dailyGoalProgress}%` }}
+                  />
+                </div>
               </div>
             </div>
-            <div className="mt-3">
-              <div className="bg-gray-200 dark:bg-white/10 rounded-full h-1.5 overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-500" 
-                  style={{ width: `${dailyGoalProgress}%` }}
-                />
-              </div>
-            </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* PAUSED CHALLENGES - Modern grid - ONLY FOR PRO USERS */}
         {userTier === 'pro' && pausedChallenges.length > 0 && (

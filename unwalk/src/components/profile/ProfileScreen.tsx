@@ -182,7 +182,7 @@ export function ProfileScreen() {
     return num.toLocaleString('en-US');
   };
 
-  const handleTierChange = (tier: 'basic' | 'pro') => {
+  const handleTierChange = async (tier: 'basic' | 'pro') => {
     // Guest can't go Pro
     if (isGuest && tier === 'pro') {
       alert('Sign in to upgrade to Pro');
@@ -194,12 +194,39 @@ export function ProfileScreen() {
       setShowPausedWarning(true);
       return;
     }
+
+    // Update in local store
     setUserTier(tier);
+
+    // Save to database
+    try {
+      const { error } = await authService.updateProfile({ tier });
+      if (error) {
+        console.error('Failed to update tier:', error);
+        alert('Failed to update account type. Please try again.');
+        return;
+      }
+      console.log('✅ Tier updated in database:', tier);
+    } catch (err) {
+      console.error('Failed to update tier:', err);
+      alert('Failed to update account type. Please try again.');
+    }
   };
 
-  const handleConfirmDowngrade = () => {
+  const handleConfirmDowngrade = async () => {
     clearPausedChallenges();
     setUserTier('basic');
+
+    // Save to database
+    try {
+      const { error } = await authService.updateProfile({ tier: 'basic' });
+      if (error) {
+        console.error('Failed to downgrade tier:', error);
+      }
+    } catch (err) {
+      console.error('Failed to downgrade tier:', err);
+    }
+
     setShowPausedWarning(false);
   };
 

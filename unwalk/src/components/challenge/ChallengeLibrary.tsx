@@ -5,11 +5,13 @@ import { BottomNavigation } from '../common/BottomNavigation';
 import { AppHeader } from '../common/AppHeader';
 import { BrowseChallenges } from './BrowseChallenges';
 import { CustomChallenge } from './CustomChallenge';
+import { authService } from '../../lib/auth';
 
 type ExploreMode = 'menu' | 'browse' | 'custom';
 
 export function ChallengeLibrary() {
   const [mode, setMode] = useState<ExploreMode>('menu'); // Start with menu view
+  const [isGuest, setIsGuest] = useState(false);
   const exploreResetTrigger = useChallengeStore((s) => s.exploreResetTrigger);
 
   // Reset to menu whenever exploreResetTrigger changes
@@ -18,6 +20,24 @@ export function ChallengeLibrary() {
       setMode('menu'); // Reset to menu, not browse
     }
   }, [exploreResetTrigger]);
+
+  // Check if user is guest
+  useEffect(() => {
+    checkGuestStatus();
+  }, []);
+
+  const checkGuestStatus = async () => {
+    const profile = await authService.getUserProfile();
+    setIsGuest(profile?.is_guest ?? false);
+  };
+
+  const handleCustomClick = () => {
+    if (isGuest) {
+      // Don't navigate - show that it's locked
+      return;
+    }
+    setMode('custom');
+  };
 
   return (
     <div className="min-h-screen bg-[#0B101B] text-white pb-20 font-sans">
@@ -84,11 +104,28 @@ export function ChallengeLibrary() {
 
             {/* Card 2: Create Custom */}
             <motion.button
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
-              onClick={() => setMode('custom')}
-              className="relative w-full bg-gradient-to-br from-[#1A1F2E] to-[#151A25] border-2 border-white/10 rounded-3xl p-8 text-left transition-all hover:border-amber-500/30 group overflow-hidden"
+              whileHover={{ scale: isGuest ? 1 : 1.01 }}
+              whileTap={{ scale: isGuest ? 1 : 0.99 }}
+              onClick={handleCustomClick}
+              disabled={isGuest}
+              className={`relative w-full bg-gradient-to-br from-[#1A1F2E] to-[#151A25] border-2 rounded-3xl p-8 text-left transition-all overflow-hidden ${
+                isGuest 
+                  ? 'border-white/5 opacity-40 cursor-not-allowed' 
+                  : 'border-white/10 hover:border-amber-500/30 group'
+              }`}
             >
+              {/* Small badge for guests - top right corner */}
+              {isGuest && (
+                <div className="absolute top-4 right-4 z-10">
+                  <div className="bg-gray-900/95 backdrop-blur-sm border border-yellow-500/50 rounded-lg px-3 py-1.5 flex items-center gap-2">
+                    <svg className="w-3.5 h-3.5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-yellow-400 font-bold text-xs">Sign up required</span>
+                  </div>
+                </div>
+              )}
+
               {/* Accent line */}
               <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-orange-500"></div>
               
@@ -133,7 +170,7 @@ export function ChallengeLibrary() {
         )}
 
         {/* CUSTOM MODE */}
-        {mode === 'custom' && (
+        {mode === 'custom' && !isGuest && (
           <CustomChallenge />
         )}
       </main>
