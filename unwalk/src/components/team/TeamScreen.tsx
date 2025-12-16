@@ -32,8 +32,28 @@ export function TeamScreen() {
     try {
       console.log('🔄 [TeamScreen] Loading team data...');
       
-      const [profile, members, received, sent, challenges, sentHistory, receivedHistory] = await Promise.all([
-        authService.getUserProfile(),
+      // First load profile to check if guest
+      const profile = await authService.getUserProfile();
+      console.log('✅ [TeamScreen] User profile loaded:', profile);
+      console.log('✅ [TeamScreen] Is guest?', profile?.is_guest);
+      
+      setUserProfile(profile);
+      
+      // ✅ FIX: If guest, skip loading team data
+      if (profile?.is_guest) {
+        console.log('👤 [TeamScreen] Guest user detected - skipping team data load');
+        setTeamMembers([]);
+        setReceivedInvitations([]);
+        setSentInvitations([]);
+        setReceivedChallenges([]);
+        setSentChallengeHistory([]);
+        setReceivedChallengeHistory([]);
+        setLoading(false);
+        return;
+      }
+      
+      // Load team data only for authenticated users
+      const [members, received, sent, challenges, sentHistory, receivedHistory] = await Promise.all([
         teamService.getTeamMembers(),
         teamService.getReceivedInvitations(),
         teamService.getSentInvitations(),
@@ -42,11 +62,8 @@ export function TeamScreen() {
         teamService.getReceivedChallengeHistory(),
       ]);
 
-      console.log('✅ [TeamScreen] User profile loaded:', profile);
       console.log('✅ [TeamScreen] Team members:', members.length);
-      console.log('✅ [TeamScreen] Is guest?', profile?.is_guest);
 
-      setUserProfile(profile);
       setTeamMembers(members);
       setReceivedInvitations(received.filter(inv => inv.status === 'pending'));
       setSentInvitations(sent);
