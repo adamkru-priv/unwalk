@@ -1,4 +1,5 @@
 import { BottomNavigation } from '../common/BottomNavigation';
+import { AppHeader } from '../common/AppHeader';
 import { useChallengeStore } from '../../stores/useChallengeStore';
 import { useState, useEffect } from 'react';
 import { authService, type UserProfile } from '../../lib/auth';
@@ -224,20 +225,7 @@ export function ProfileScreen() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0B101B] text-gray-900 dark:text-white pb-20 font-sans">
-      <div className="bg-gray-50/80 dark:bg-[#0B101B]/80 backdrop-blur-md sticky top-0 z-20 px-6 py-4 border-b border-gray-200 dark:border-white/10">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Settings</h1>
-          <button
-            onClick={() => setCurrentScreen('home')}
-            className="text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white transition-colors p-1"
-            aria-label="Close settings"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      </div>
+      <AppHeader title="Settings" showBackButton={true} />
 
       <AuthModal
         isOpen={showAuthModal}

@@ -4,11 +4,13 @@ import { useState, useEffect } from 'react';
 import { updateChallengeProgress, getActiveUserChallenge, deleteUserChallenge } from '../../lib/api';
 import { BottomNavigation } from '../common/BottomNavigation';
 import { useToastStore } from '../../stores/useToastStore';
+import { authService } from '../../lib/auth';
 
 export function Dashboard() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [showStats, setShowStats] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
+  const [isGuest, setIsGuest] = useState(false);
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
   const setActiveChallenge = useChallengeStore((s) => s.setActiveChallenge);
   const pauseActiveChallenge = useChallengeStore((s) => s.pauseActiveChallenge);
@@ -34,7 +36,13 @@ export function Dashboard() {
       }
     };
 
+    const loadProfile = async () => {
+      const profile = await authService.getUserProfile();
+      setIsGuest(profile?.is_guest || false);
+    };
+
     loadActiveChallenge();
+    loadProfile();
   }, []);
 
   const handleExitChallenge = async () => {
@@ -180,9 +188,23 @@ export function Dashboard() {
         <header className="flex items-center justify-between px-6 py-4 flex-shrink-0">
           <button 
             onClick={() => setCurrentScreen('home')}
-            className="text-2xl font-bold"
+            className="text-2xl font-bold flex items-center gap-2"
           >
             MOVEE
+            {/* Account type badge */}
+            {isGuest ? (
+              <span className="text-gray-400 text-sm font-light tracking-wide" style={{ fontFamily: 'Georgia, serif' }}>
+                Guest
+              </span>
+            ) : userTier === 'pro' ? (
+              <span className="text-amber-400 text-sm font-light tracking-wide" style={{ fontFamily: 'Georgia, serif' }}>
+                Pro
+              </span>
+            ) : (
+              <span className="text-blue-400 text-sm font-light tracking-wide" style={{ fontFamily: 'Georgia, serif' }}>
+                Basic
+              </span>
+            )}
           </button>
           <div className="flex items-center gap-3">
             <button

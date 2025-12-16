@@ -134,17 +134,18 @@ export function TeamSlots({ teamMembers, userProfile, onInviteClick, onMemberCli
                 </div>
               </div>
             ) : (
-              // Empty slot
+              // Empty slot - same structure as filled slot but more compact
               <button
                 onClick={onInviteClick}
                 disabled={isAtLimit}
-                className={`border-2 border-dashed rounded-2xl p-3 transition-all ${
+                className={`w-full border-2 border-dashed rounded-2xl p-3 transition-all ${
                   isAtLimit
                     ? 'border-white/10 bg-white/5 cursor-not-allowed opacity-50'
                     : 'border-white/20 bg-white/5 hover:bg-white/10 hover:border-blue-500/50 cursor-pointer group'
                 }`}
               >
                 <div className="flex flex-col items-center text-center">
+                  {/* Avatar circle - same size as filled */}
                   <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-2 transition-all ${
                     isAtLimit
                       ? 'bg-white/5'
@@ -156,10 +157,16 @@ export function TeamSlots({ teamMembers, userProfile, onInviteClick, onMemberCli
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
                   </div>
-                  <div className={`text-xs font-bold transition-colors ${
+                  
+                  {/* Text line - same spacing as name */}
+                  <div className={`text-xs font-bold transition-colors mb-0.5 ${
                     isAtLimit ? 'text-white/30' : 'text-white/50 group-hover:text-blue-400'
                   }`}>
                     {isAtLimit ? 'No slots' : 'Invite'}
+                  </div>
+                  
+                  {/* Smaller spacer to match relationship line */}
+                  <div className="text-xs h-[16px]">
                   </div>
                 </div>
               </button>

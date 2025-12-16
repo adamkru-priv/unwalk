@@ -1,0 +1,18 @@
+{
+  "name": "MOVEE - Step Challenges",
+  "short_name": "MOVEE",
+  "description": "Gamified step challenges to motivate your daily activity",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0B101B",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -103,6 +103,29 @@ export function AppHeader({ title, showBackButton = false, subtitle }: AppHeader
   const isGuest = userProfile?.is_guest || false;
   const userTier = userProfile?.tier || 'basic';
 
+  // Determine account type display
+  const getAccountTypeBadge = () => {
+    if (isGuest) {
+      return (
+        <span className="text-gray-400 dark:text-gray-500 text-sm font-light tracking-wide" style={{ fontFamily: 'Georgia, serif' }}>
+          Guest
+        </span>
+      );
+    } else if (userTier === 'pro') {
+      return (
+        <span className="text-amber-500 dark:text-amber-400 text-sm font-light tracking-wide" style={{ fontFamily: 'Georgia, serif' }}>
+          Pro
+        </span>
+      );
+    } else {
+      return (
+        <span className="text-blue-500 dark:text-blue-400 text-sm font-light tracking-wide" style={{ fontFamily: 'Georgia, serif' }}>
+          Basic
+        </span>
+      );
+    }
+  };
+
   return (
     <header className="bg-gray-50/80 dark:bg-[#0B101B]/80 backdrop-blur-md sticky top-0 z-20 px-6 py-4 border-b border-gray-200 dark:border-transparent">
       <div className="flex items-center justify-between">
@@ -124,12 +147,8 @@ export function AppHeader({ title, showBackButton = false, subtitle }: AppHeader
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <span className="text-blue-600 dark:text-blue-400 inline-block" style={{ transform: 'scaleX(-1)' }}>🚶</span>
               MOVEE
-              {/* Only show Pro badge if NOT guest and tier is pro */}
-              {!isGuest && userTier === 'pro' && (
-                <span className="text-amber-600 dark:text-amber-400 text-sm font-light italic tracking-wide" style={{ fontFamily: 'Georgia, serif' }}>
-                  Pro
-                </span>
-              )}
+              {/* Show account type badge for all users */}
+              {getAccountTypeBadge()}
               {title && <span className="text-gray-500 dark:text-white/60 text-lg">• {title}</span>}
             </h1>
             {subtitle && (

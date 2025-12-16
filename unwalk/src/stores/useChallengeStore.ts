@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { Challenge, UserChallenge, UserTier } from '../types';
 import type { AdminChallenge } from '../types';
 
-type Screen = 'onboarding' | 'whoToChallenge' | 'auth' | 'home' | 'dashboard' | 'library' | 'team' | 'stats' | 'profile' | 'badges';
+type Screen = 'onboarding' | 'whoToChallenge' | 'auth' | 'home' | 'dashboard' | 'library' | 'team' | 'stats' | 'profile' | 'badges' | 'challengeSelection';
 type Theme = 'light' | 'dark';
 
 interface ChallengeStore {

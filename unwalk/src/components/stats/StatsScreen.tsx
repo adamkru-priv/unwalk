@@ -1,4 +1,5 @@
 import { BottomNavigation } from '../common/BottomNavigation';
+import { AppHeader } from '../common/AppHeader';
 import { useEffect, useState } from 'react';
 import { getCompletedChallenges } from '../../lib/api';
 import type { UserChallenge } from '../../types';
@@ -8,7 +9,6 @@ export function StatsScreen() {
   const [completedChallenges, setCompletedChallenges] = useState<UserChallenge[]>([]);
   const [loading, setLoading] = useState(true);
   const userTier = useChallengeStore((s) => s.userTier);
-  const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
 
   useEffect(() => {
     loadCompletedChallenges();
@@ -72,29 +72,7 @@ export function StatsScreen() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0B101B] text-gray-900 dark:text-white pb-20 font-sans">
-      {/* Header with Close Button */}
-      <header className="bg-gray-50/80 dark:bg-[#0B101B]/80 backdrop-blur-md sticky top-0 z-20 px-6 py-4 border-b border-gray-200 dark:border-transparent">
-        <div className="flex items-center justify-between">
-          {/* Title */}
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              <span>📊</span>
-              Statistics
-            </h1>
-          </div>
-
-          {/* Close Button */}
-          <button
-            onClick={() => setCurrentScreen('home')}
-            className="text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white transition-colors"
-            aria-label="Close statistics"
-          >
-            <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      </header>
+      <AppHeader title="Statistics" showBackButton={true} />
 
       <main className="px-5 py-6 max-w-4xl mx-auto space-y-6">
         {/* Overall Summary */}

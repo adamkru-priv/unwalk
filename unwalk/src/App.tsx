@@ -193,6 +193,7 @@ function App() {
       case 'home':
         return <HomeScreen />;
       case 'library':
+      case 'challengeSelection':
         return <ChallengeLibrary />;
       case 'dashboard':
         return <Dashboard />;
