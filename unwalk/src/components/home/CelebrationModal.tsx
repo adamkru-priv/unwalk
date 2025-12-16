@@ -4,6 +4,7 @@ import type { UserChallenge } from '../../types';
 import { calculateChallengePoints } from '../../lib/api';
 import { useChallengeStore } from '../../stores/useChallengeStore';
 import { supabase } from '../../lib/supabase';
+import { badgesService, authService } from '../../lib/auth';
 
 interface CelebrationModalProps {
   challenge: UserChallenge;
@@ -13,6 +14,7 @@ interface CelebrationModalProps {
 export function CelebrationModal({ challenge, onClaim }: CelebrationModalProps) {
   const [claiming, setClaiming] = useState(false);
   const userTier = useChallengeStore((s) => s.userTier);
+  const setUserProfile = useChallengeStore((s) => s.setUserProfile);
 
   const handleClaim = async () => {
     try {
@@ -42,6 +44,26 @@ export function CelebrationModal({ challenge, onClaim }: CelebrationModalProps) 
       }
       
       console.log('✅ [Claim] Challenge claimed successfully:', data);
+      
+      // ✅ Refresh user profile to update points in UI
+      const updatedProfile = await authService.getUserProfile();
+      if (updatedProfile) {
+        setUserProfile(updatedProfile);
+        console.log('✅ [Claim] User profile refreshed, new points:', updatedProfile.total_points);
+      }
+      
+      // ✅ Manually trigger achievement check (double-check)
+      if (userTier === 'pro') {
+        try {
+          const { newBadgesCount } = await badgesService.checkAchievements();
+          if (newBadgesCount > 0) {
+            console.log(`🎉 [Claim] Unlocked ${newBadgesCount} new badge(s)!`);
+          }
+        } catch (err) {
+          console.error('⚠️ [Claim] Failed to check achievements:', err);
+          // Don't fail the whole claim if badge check fails
+        }
+      }
       
       // No more localStorage - everything is in Supabase!
       onClaim();
@@ -178,27 +200,27 @@ export function CelebrationModal({ challenge, onClaim }: CelebrationModalProps) 
                 <div className="text-3xl font-black text-gray-900 dark:text-white mb-1">
                   {totalDistance}km
                 </div>
-                <div className="text-xs text-gray-600 dark:text-white/60 uppercase tracking-wide font-semibold">
+                <div className="text-xs text-gray-600 dark:text.white/60 uppercase tracking-wide font-semibold">
                   Distance
                 </div>
               </div>
 
               {/* Calories */}
-              <div className="bg-gray-50 dark:bg-white/5 rounded-2xl p-4 border border-gray-200 dark:border-white/10">
-                <div className="text-3xl font-black text-gray-900 dark:text-white mb-1">
+              <div className="bg-gray-50 dark:bg.white/5 rounded-2xl p-4 border border-gray-200 dark:border-white/10">
+                <div className="text-3xl font-black text-gray-900 dark:text.white mb-1">
                   {totalCalories}
                 </div>
-                <div className="text-xs text-gray-600 dark:text-white/60 uppercase tracking-wide font-semibold">
+                <div className="text-xs text-gray-600 dark:text.white/60 uppercase tracking-wide font-semibold">
                   Calories
                 </div>
               </div>
 
               {/* Active Days */}
-              <div className="bg-gray-50 dark:bg-white/5 rounded-2xl p-4 border border-gray-200 dark:border-white/10">
-                <div className="text-3xl font-black text-gray-900 dark:text-white mb-1">
+              <div className="bg-gray-50 dark:bg.white/5 rounded-2xl p-4 border border-gray-200 dark:border-white/10">
+                <div className="text-3xl font-black text-gray-900 dark:text.white mb-1">
                   {activeDays}
                 </div>
-                <div className="text-xs text-gray-600 dark:text-white/60 uppercase tracking-wide font-semibold">
+                <div className="text-xs text-gray-600 dark:text.white/60 uppercase tracking-wide font-semibold">
                   {activeDays === 1 ? 'Day' : 'Days'}
                 </div>
               </div>

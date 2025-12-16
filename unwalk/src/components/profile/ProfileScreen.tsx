@@ -204,7 +204,7 @@ export function ProfileScreen() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0B101B] text-gray-900 dark:text-white pb-20 font-sans">
-      <AppHeader title="Settings" showBackButton={true} />
+      <AppHeader showBackButton={true} />
 
       <AuthModal
         isOpen={showAuthModal}
