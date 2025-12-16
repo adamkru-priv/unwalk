@@ -202,6 +202,60 @@ class AuthService {
       if (error) throw error;
 
       console.log('✅ [Auth] OTP verified for:', email);
+      
+      // ✅ FIX: After successful OTP verification, update user profile if they were a guest
+      if (data.user) {
+        const { data: profile, error: profileError } = await supabase
+          .from('users')
+          .select('id, is_guest')
+          .eq('id', data.user.id)
+          .single();
+
+        // If user exists and is marked as guest, update to real user
+        if (!profileError && profile?.is_guest) {
+          console.log('🔄 [Auth] Converting guest to authenticated user...');
+          
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({
+              is_guest: false,
+              email: email,
+              display_name: email.split('@')[0],
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', data.user.id);
+
+          if (updateError) {
+            console.error('❌ [Auth] Failed to update guest flag:', updateError);
+          } else {
+            console.log('✅ [Auth] Guest successfully converted to authenticated user');
+          }
+        }
+        
+        // If user doesn't exist in users table yet, create profile
+        if (profileError && profileError.code === 'PGRST116') {
+          console.log('⚠️ [Auth] Creating user profile after OTP verification...');
+          
+          const { error: insertError } = await supabase
+            .from('users')
+            .insert({
+              id: data.user.id,
+              email: email,
+              display_name: email.split('@')[0],
+              is_guest: false,
+              tier: 'pro', // New authenticated users get pro
+              daily_step_goal: 10000,
+              onboarding_completed: true,
+            });
+
+          if (insertError) {
+            console.error('❌ [Auth] Failed to create user profile:', insertError);
+          } else {
+            console.log('✅ [Auth] User profile created successfully');
+          }
+        }
+      }
+      
       return { session: data.session, error: null };
     } catch (error) {
       console.error('❌ [Auth] OTP verification error:', error);
