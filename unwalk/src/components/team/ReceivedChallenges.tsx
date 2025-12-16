@@ -2,6 +2,7 @@ import { teamService, type ChallengeAssignment } from '../../lib/auth';
 import { useChallengeStore } from '../../stores/useChallengeStore';
 import { getActiveUserChallenge } from '../../lib/api';
 import { getInitials, getColorFromName, formatDuration } from './utils';
+import { useToastStore } from '../../stores/useToastStore';
 
 interface ReceivedChallengesProps {
   challenges: ChallengeAssignment[];
@@ -10,6 +11,7 @@ interface ReceivedChallengesProps {
 
 export function ReceivedChallenges({ challenges, onRefresh }: ReceivedChallengesProps) {
   const setCurrentScreen = useChallengeStore((state) => state.setCurrentScreen);
+  const toast = useToastStore();
 
   const handleStartChallenge = async (assignmentId: string) => {
     try {
@@ -28,6 +30,23 @@ export function ReceivedChallenges({ challenges, onRefresh }: ReceivedChallenges
     } catch (err: any) {
       console.error('Failed to start challenge:', err);
       alert(err.message || 'Failed to start challenge. You might already have an active challenge.');
+    }
+  };
+
+  const handleDeclineChallenge = async (assignmentId: string, challengeTitle: string) => {
+    if (!confirm(`Decline "${challengeTitle}"?\n\nThis challenge will be removed from your list.`)) {
+      return;
+    }
+
+    try {
+      const { error } = await teamService.declineChallenge(assignmentId);
+      if (error) throw error;
+      
+      toast.addToast({ message: 'Challenge declined', type: 'success' });
+      onRefresh();
+    } catch (err: any) {
+      console.error('Failed to decline challenge:', err);
+      toast.addToast({ message: err.message || 'Failed to decline challenge', type: 'error' });
     }
   };
 
@@ -152,14 +171,22 @@ export function ReceivedChallenges({ challenges, onRefresh }: ReceivedChallenges
                 )}
               </div>
 
-              {/* START BUTTON - dla zaakceptowanych ale nierozpoczętych */}
+              {/* START & DECLINE BUTTONS - dla zaakceptowanych ale nierozpoczętych */}
               {assignment.status === 'accepted' && !assignment.user_challenge_id && (
-                <button
-                  onClick={() => handleStartChallenge(assignment.id)}
-                  className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white py-2.5 rounded-xl font-bold text-sm transition-all mb-3"
-                >
-                  🚀 START Challenge
-                </button>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => handleStartChallenge(assignment.id)}
+                    className="w-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-600 hover:via-teal-600 hover:to-cyan-600 text-white py-3.5 rounded-xl font-bold text-base transition-all shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 hover:scale-[1.02] active:scale-[0.98]"
+                  >
+                    START Challenge
+                  </button>
+                  <button
+                    onClick={() => handleDeclineChallenge(assignment.id, assignment.challenge_title)}
+                    className="w-full text-xs text-white/40 hover:text-red-400 transition-colors py-1"
+                  >
+                    Decline
+                  </button>
+                </div>
               )}
 
               {/* PROGRESS BAR - dla aktywnych */}

@@ -25,12 +25,12 @@ export function EditMemberModal({ member, onClose, onSaved }: EditMemberModalPro
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
-    setSaving(true);
     try {
+      setSaving(true);
       const { error } = await teamService.updateMemberPersonalization(member.id, {
-        custom_name: customName.trim() || null,
-        relationship: relationship.trim() || null,
-        notes: notes.trim() || null,
+        custom_name: customName.trim() || undefined,
+        relationship: relationship.trim() || undefined,
+        notes: notes.trim() || undefined,
       });
 
       if (error) throw error;

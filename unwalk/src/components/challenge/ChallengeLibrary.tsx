@@ -33,7 +33,7 @@ export function ChallengeLibrary() {
 
   const handleCustomClick = () => {
     if (isGuest) {
-      // Don't navigate - show that it's locked
+      alert('Sign up to create custom challenges!\n\nCustom challenges are available for registered users.');
       return;
     }
     setMode('custom');

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import type { AdminChallenge } from '../../types';
+import type { AdminChallenge, UserChallenge } from '../../types';
 import { getAdminChallenges, startChallenge, getCompletedChallenges, calculateChallengePoints } from '../../lib/api';
 import { useChallengeStore } from '../../stores/useChallengeStore';
 import { teamService, authService, type TeamMember } from '../../lib/auth';
@@ -10,7 +10,9 @@ type Category = 'animals' | 'sport' | 'nature' | 'surprise';
 export function BrowseChallenges() {
   const [selectedCategory] = useState<Category | null>(null);
   const [challenges, setChallenges] = useState<AdminChallenge[]>([]);
+  const [completedChallenges, setCompletedChallenges] = useState<UserChallenge[]>([]);
   const [completedChallengeIds, setCompletedChallengeIds] = useState<Set<string>>(new Set());
+  const [showHistory, setShowHistory] = useState(false);
   const [dailyChallenge, setDailyChallenge] = useState<AdminChallenge | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +32,9 @@ export function BrowseChallenges() {
   const checkIfGuest = async () => {
     try {
       const profile = await authService.getUserProfile();
-      setIsGuest(profile?.is_guest || false);
+      const guestStatus = profile?.is_guest || false;
+      setIsGuest(guestStatus);
+      console.log('🔐 [BrowseChallenges] Guest status:', guestStatus, 'Profile:', profile);
     } catch (err) {
       console.error('Failed to check guest status:', err);
     }
@@ -95,13 +99,17 @@ export function BrowseChallenges() {
 
   const loadCompletedChallenges = async () => {
     try {
+      console.log('🔍 [BrowseChallenges] Loading completed challenges...');
       const completed = await getCompletedChallenges();
+      console.log('✅ [BrowseChallenges] Completed challenges:', completed.length, completed);
       const completedIds = new Set(
         completed
           .map(uc => uc.admin_challenge_id)
           .filter((id): id is string => id !== null && id !== undefined)
       );
       setCompletedChallengeIds(completedIds);
+      setCompletedChallenges(completed);
+      console.log('📊 [BrowseChallenges] State updated - completedChallenges.length:', completed.length);
     } catch (err) {
       console.error('Failed to load completed challenges:', err);
     }
@@ -111,13 +119,11 @@ export function BrowseChallenges() {
     return completedChallengeIds.has(challengeId);
   };
 
-  // Group challenges by goal_steps
+  // Group challenges by difficulty level
   const groupedChallenges = {
-    5000: challenges.filter(c => c.goal_steps >= 3000 && c.goal_steps < 7500),
-    10000: challenges.filter(c => c.goal_steps >= 7500 && c.goal_steps < 12500),
-    15000: challenges.filter(c => c.goal_steps >= 12500 && c.goal_steps < 20000),
-    25000: challenges.filter(c => c.goal_steps >= 20000 && c.goal_steps < 35000),
-    50000: challenges.filter(c => c.goal_steps >= 35000),
+    beginner: challenges.filter(c => c.goal_steps <= 5000),
+    advanced: challenges.filter(c => c.goal_steps > 5000 && c.goal_steps <= 15000),
+    expert: challenges.filter(c => c.goal_steps > 15000),
   };
 
   // Sort each group so daily challenge is first
@@ -132,11 +138,9 @@ export function BrowseChallenges() {
   };
 
   const sortedGroupedChallenges = {
-    5000: sortWithDailyFirst(groupedChallenges[5000]),
-    10000: sortWithDailyFirst(groupedChallenges[10000]),
-    15000: sortWithDailyFirst(groupedChallenges[15000]),
-    25000: sortWithDailyFirst(groupedChallenges[25000]),
-    50000: sortWithDailyFirst(groupedChallenges[50000]),
+    beginner: sortWithDailyFirst(groupedChallenges.beginner),
+    advanced: sortWithDailyFirst(groupedChallenges.advanced),
+    expert: sortWithDailyFirst(groupedChallenges.expert),
   };
 
   const handleStartForMyself = async () => {
@@ -338,13 +342,13 @@ export function BrowseChallenges() {
       {!loading && (
         <div className="space-y-8">
           
-          {/* 5k Challenges */}
-          {sortedGroupedChallenges[5000].length > 0 && (
+          {/* Beginner Challenges */}
+          {sortedGroupedChallenges.beginner.length > 0 && (
             <section>
-              <h3 className="text-lg font-bold text-white mb-3 px-1">5k Steps • Quick Walks</h3>
+              <h3 className="text-lg font-bold text-white mb-3 px-1">Beginner • Up to 5k Steps</h3>
               <div className="overflow-x-auto pb-4 pt-2 -mx-5 px-5 scrollbar-hide">
                 <div className="flex gap-3" style={{ width: 'max-content' }}>
-                  {sortedGroupedChallenges[5000].map((challenge) => {
+                  {sortedGroupedChallenges.beginner.map((challenge) => {
                     const isDaily = dailyChallenge?.id === challenge.id;
                     return (
                       <button
@@ -352,12 +356,12 @@ export function BrowseChallenges() {
                         onClick={() => setSelectedChallenge(challenge)}
                         className="group relative w-40 flex-shrink-0"
                       >
-                        <div className={`relative aspect-[3/4] rounded-xl overflow-hidden ring-1 ${isDaily ? 'ring-2 ring-blue-500' : 'ring-white/10'} group-hover:ring-purple-500/50 transition-all ${isChallengeCompleted(challenge.id) ? 'opacity-75' : ''}`}>
+                        <div className={`relative aspect-[3/4] rounded-xl overflow-hidden ring-1 ${isDaily ? 'ring-2 ring-blue-500' : 'ring-white/10'} group-hover:ring-purple-500/50 transition-all`}>
                           <img
                             src={challenge.image_url}
                             alt={challenge.title}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            style={{ filter: isChallengeCompleted(challenge.id) ? 'none' : 'blur(10px)' }}
+                            style={{ filter: isChallengeCompleted(challenge.id) ? 'brightness(0.7)' : 'blur(10px)' }}
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
                           
@@ -405,13 +409,13 @@ export function BrowseChallenges() {
             </section>
           )}
 
-          {/* 10k Challenges */}
-          {sortedGroupedChallenges[10000].length > 0 && (
+          {/* Advanced Challenges */}
+          {sortedGroupedChallenges.advanced.length > 0 && (
             <section>
-              <h3 className="text-lg font-bold text-white mb-3 px-1">10k Steps • Daily Goals</h3>
+              <h3 className="text-lg font-bold text-white mb-3 px-1">Advanced • 5k to 15k Steps</h3>
               <div className="overflow-x-auto pb-4 pt-2 -mx-5 px-5 scrollbar-hide">
                 <div className="flex gap-3" style={{ width: 'max-content' }}>
-                  {sortedGroupedChallenges[10000].map((challenge) => {
+                  {sortedGroupedChallenges.advanced.map((challenge) => {
                     const isDaily = dailyChallenge?.id === challenge.id;
                     return (
                       <button
@@ -419,12 +423,12 @@ export function BrowseChallenges() {
                         onClick={() => setSelectedChallenge(challenge)}
                         className="group relative w-40 flex-shrink-0"
                       >
-                        <div className={`relative aspect-[3/4] rounded-xl overflow-hidden ring-1 ${isDaily ? 'ring-2 ring-blue-500' : 'ring-white/10'} group-hover:ring-purple-500/50 transition-all ${isChallengeCompleted(challenge.id) ? 'opacity-75' : ''}`}>
+                        <div className={`relative aspect-[3/4] rounded-xl overflow-hidden ring-1 ${isDaily ? 'ring-2 ring-blue-500' : 'ring-white/10'} group-hover:ring-purple-500/50 transition-all`}>
                           <img
                             src={challenge.image_url}
                             alt={challenge.title}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            style={{ filter: isChallengeCompleted(challenge.id) ? 'none' : 'blur(10px)' }}
+                            style={{ filter: isChallengeCompleted(challenge.id) ? 'brightness(0.7)' : 'blur(10px)' }}
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
                           
@@ -472,13 +476,13 @@ export function BrowseChallenges() {
             </section>
           )}
 
-          {/* 15k Challenges */}
-          {sortedGroupedChallenges[15000].length > 0 && (
+          {/* Expert Challenges */}
+          {sortedGroupedChallenges.expert.length > 0 && (
             <section>
-              <h3 className="text-lg font-bold text-white mb-3 px-1">15k Steps • Active Days</h3>
+              <h3 className="text-lg font-bold text-white mb-3 px-1">Expert • 15k+ Steps</h3>
               <div className="overflow-x-auto pb-4 pt-2 -mx-5 px-5 scrollbar-hide">
                 <div className="flex gap-3" style={{ width: 'max-content' }}>
-                  {sortedGroupedChallenges[15000].map((challenge) => {
+                  {sortedGroupedChallenges.expert.map((challenge) => {
                     const isDaily = dailyChallenge?.id === challenge.id;
                     return (
                       <button
@@ -486,146 +490,12 @@ export function BrowseChallenges() {
                         onClick={() => setSelectedChallenge(challenge)}
                         className="group relative w-40 flex-shrink-0"
                       >
-                        <div className={`relative aspect-[3/4] rounded-xl overflow-hidden ring-1 ${isDaily ? 'ring-2 ring-blue-500' : 'ring-white/10'} group-hover:ring-purple-500/50 transition-all ${isChallengeCompleted(challenge.id) ? 'opacity-75' : ''}`}>
+                        <div className={`relative aspect-[3/4] rounded-xl overflow-hidden ring-1 ${isDaily ? 'ring-2 ring-blue-500' : 'ring-white/10'} group-hover:ring-purple-500/50 transition-all`}>
                           <img
                             src={challenge.image_url}
                             alt={challenge.title}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            style={{ filter: isChallengeCompleted(challenge.id) ? 'none' : 'blur(10px)' }}
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
-                          
-                          {/* Daily Pick Badge */}
-                          {isDaily && !isChallengeCompleted(challenge.id) && (
-                            <div className="absolute top-2 right-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-[10px] font-black px-2 py-1 rounded-full shadow-lg animate-pulse">
-                              DAILY
-                            </div>
-                          )}
-                          
-                          {/* Completed Badge */}
-                          {isChallengeCompleted(challenge.id) && (
-                            <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1.5 shadow-lg">
-                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 01-1.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                            </div>
-                          )}
-
-                          {/* Points Badge - show for all challenges (including daily with 3x multiplier) - only for Pro users */}
-                          {!challenge.is_custom && !isChallengeCompleted(challenge.id) && userTier === 'pro' && (
-                            <div className={`absolute top-2 left-2 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md shadow-lg ${
-                              isDaily 
-                                ? 'bg-gradient-to-r from-amber-500 to-orange-500 animate-pulse' 
-                                : 'bg-amber-500/90'
-                            }`}>
-                              {calculateChallengePoints(challenge.goal_steps, isDaily)} PTS
-                            </div>
-                          )}
-
-                          <div className="absolute bottom-0 left-0 right-0 p-3">
-                            <h4 className="text-white text-sm font-semibold line-clamp-2 mb-1">
-                              {challenge.title}
-                            </h4>
-                            <div className="text-xs text-white/70">
-                              {(challenge.goal_steps / 1000).toFixed(0)}k steps
-                            </div>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* 25k Challenges */}
-          {sortedGroupedChallenges[25000].length > 0 && (
-            <section>
-              <h3 className="text-lg font-bold text-white mb-3 px-1">25k Steps • Intense</h3>
-              <div className="overflow-x-auto pb-4 pt-2 -mx-5 px-5 scrollbar-hide">
-                <div className="flex gap-3" style={{ width: 'max-content' }}>
-                  {sortedGroupedChallenges[25000].map((challenge) => {
-                    const isDaily = dailyChallenge?.id === challenge.id;
-                    return (
-                      <button
-                        key={challenge.id}
-                        onClick={() => setSelectedChallenge(challenge)}
-                        className="group relative w-40 flex-shrink-0"
-                      >
-                        <div className={`relative aspect-[3/4] rounded-xl overflow-hidden ring-1 ${isDaily ? 'ring-2 ring-blue-500' : 'ring-white/10'} group-hover:ring-purple-500/50 transition-all ${isChallengeCompleted(challenge.id) ? 'opacity-75' : ''}`}>
-                          <img
-                            src={challenge.image_url}
-                            alt={challenge.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            style={{ filter: isChallengeCompleted(challenge.id) ? 'none' : 'blur(10px)' }}
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
-                          
-                          {/* Daily Pick Badge */}
-                          {isDaily && !isChallengeCompleted(challenge.id) && (
-                            <div className="absolute top-2 right-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-[10px] font-black px-2 py-1 rounded-full shadow-lg animate-pulse">
-                              DAILY
-                            </div>
-                          )}
-                          
-                          {/* Completed Badge */}
-                          {isChallengeCompleted(challenge.id) && (
-                            <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1.5 shadow-lg">
-                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 01-1.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                            </div>
-                          )}
-
-                          {/* Points Badge - show for all challenges (including daily with 3x multiplier) - only for Pro users */}
-                          {!challenge.is_custom && !isChallengeCompleted(challenge.id) && userTier === 'pro' && (
-                            <div className={`absolute top-2 left-2 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md shadow-lg ${
-                              isDaily 
-                                ? 'bg-gradient-to-r from-amber-500 to-orange-500 animate-pulse' 
-                                : 'bg-amber-500/90'
-                            }`}>
-                              {calculateChallengePoints(challenge.goal_steps, isDaily)} PTS
-                            </div>
-                          )}
-
-                          <div className="absolute bottom-0 left-0 right-0 p-3">
-                            <h4 className="text-white text-sm font-semibold line-clamp-2 mb-1">
-                              {challenge.title}
-                            </h4>
-                            <div className="text-xs text-white/70">
-                              {(challenge.goal_steps / 1000).toFixed(0)}k steps
-                            </div>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* 50k+ Challenges */}
-          {sortedGroupedChallenges[50000].length > 0 && (
-            <section>
-              <h3 className="text-lg font-bold text-white mb-3 px-1">50k+ Steps • Epic Adventures</h3>
-              <div className="overflow-x-auto pb-4 pt-2 -mx-5 px-5 scrollbar-hide">
-                <div className="flex gap-3" style={{ width: 'max-content' }}>
-                  {sortedGroupedChallenges[50000].map((challenge) => {
-                    const isDaily = dailyChallenge?.id === challenge.id;
-                    return (
-                      <button
-                        key={challenge.id}
-                        onClick={() => setSelectedChallenge(challenge)}
-                        className="group relative w-40 flex-shrink-0"
-                      >
-                        <div className={`relative aspect-[3/4] rounded-xl overflow-hidden ring-1 ${isDaily ? 'ring-2 ring-blue-500' : 'ring-white/10'} group-hover:ring-purple-500/50 transition-all ${isChallengeCompleted(challenge.id) ? 'opacity-75' : ''}`}>
-                          <img
-                            src={challenge.image_url}
-                            alt={challenge.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            style={{ filter: isChallengeCompleted(challenge.id) ? 'none' : 'blur(10px)' }}
+                            style={{ filter: isChallengeCompleted(challenge.id) ? 'brightness(0.7)' : 'blur(10px)' }}
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
                           
@@ -684,6 +554,99 @@ export function BrowseChallenges() {
                 Check back later for new challenges
               </p>
             </div>
+          )}
+
+          {/* Challenge History - Collapsible Section - Only for authenticated users */}
+          {!isGuest && completedChallenges.length > 0 && (
+            <section className="pt-4 border-t border-white/5">
+              <button
+                onClick={() => setShowHistory(!showHistory)}
+                className="w-full flex items-center justify-between px-1 py-3 text-left group"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-gray-400 group-hover:text-white transition-colors">
+                    Challenge History
+                  </span>
+                  <span className="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">
+                    {completedChallenges.length}
+                  </span>
+                </div>
+                <svg
+                  className={`w-4 h-4 text-gray-400 group-hover:text-white transition-all ${showHistory ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {showHistory && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="space-y-2 mt-2"
+                >
+                  {completedChallenges.map((uc) => {
+                    const challenge = uc.admin_challenge;
+                    if (!challenge) return null;
+
+                    const completedDate = uc.completed_at ? new Date(uc.completed_at) : null;
+                    const formattedDate = completedDate 
+                      ? completedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                      : 'Unknown date';
+
+                    return (
+                      <div
+                        key={uc.id}
+                        className="bg-[#151A25] border border-white/5 rounded-xl p-3 flex items-center gap-3"
+                      >
+                        {/* Challenge Image */}
+                        <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
+                          <img
+                            src={challenge.image_url}
+                            alt={challenge.title}
+                            className="w-full h-full object-cover"
+                            style={{ filter: 'brightness(0.7)' }}
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="bg-green-500 text-white rounded-full p-1">
+                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 01-1.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Challenge Info */}
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-semibold text-white truncate">
+                            {challenge.title}
+                          </h4>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs text-gray-400">
+                              {uc.current_steps.toLocaleString()} steps
+                            </span>
+                            <span className="text-xs text-gray-500">•</span>
+                            <span className="text-xs text-gray-500">
+                              {formattedDate}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Points Badge (if Pro user and system challenge) */}
+                        {!challenge.is_custom && userTier === 'pro' && (
+                          <div className="bg-amber-500/20 text-amber-400 text-xs font-bold px-2 py-1 rounded-md flex-shrink-0">
+                            +{calculateChallengePoints(challenge.goal_steps)} PTS
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </motion.div>
+              )}
+            </section>
           )}
         </div>
       )}

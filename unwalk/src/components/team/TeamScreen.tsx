@@ -30,6 +30,8 @@ export function TeamScreen() {
   const loadUserAndTeamData = async () => {
     setLoading(true);
     try {
+      console.log('🔄 [TeamScreen] Loading team data...');
+      
       const [profile, members, received, sent, challenges, sentHistory, receivedHistory] = await Promise.all([
         authService.getUserProfile(),
         teamService.getTeamMembers(),
@@ -40,8 +42,9 @@ export function TeamScreen() {
         teamService.getReceivedChallengeHistory(),
       ]);
 
-      console.log('🔍 [TeamScreen] User profile loaded:', profile);
-      console.log('🔍 [TeamScreen] Is guest?', profile?.is_guest);
+      console.log('✅ [TeamScreen] User profile loaded:', profile);
+      console.log('✅ [TeamScreen] Team members:', members.length);
+      console.log('✅ [TeamScreen] Is guest?', profile?.is_guest);
 
       setUserProfile(profile);
       setTeamMembers(members);
@@ -50,10 +53,21 @@ export function TeamScreen() {
       setReceivedChallenges(challenges);
       setSentChallengeHistory(sentHistory);
       setReceivedChallengeHistory(receivedHistory);
+      
+      console.log('✅ [TeamScreen] All team data loaded successfully');
     } catch (error) {
-      console.error('Failed to load team data:', error);
+      console.error('❌ [TeamScreen] Failed to load team data:', error);
+      // Set empty data to unblock UI
+      setUserProfile(null);
+      setTeamMembers([]);
+      setReceivedInvitations([]);
+      setSentInvitations([]);
+      setReceivedChallenges([]);
+      setSentChallengeHistory([]);
+      setReceivedChallengeHistory([]);
     } finally {
       setLoading(false);
+      console.log('✅ [TeamScreen] Loading complete');
     }
   };
 
@@ -72,6 +86,22 @@ export function TeamScreen() {
           loadUserAndTeamData();
         }}
       />
+    );
+  }
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0B101B] text-white pb-24 font-sans">
+        <AppHeader />
+        <main className="px-5 pt-6 pb-6 max-w-md mx-auto">
+          <div className="text-center py-12">
+            <div className="inline-block w-8 h-8 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
+            <p className="text-white/50 text-sm mt-3">Loading team...</p>
+          </div>
+        </main>
+        <BottomNavigation currentScreen="team" />
+      </div>
     );
   }
 
@@ -149,85 +179,76 @@ export function TeamScreen() {
           </div>
         ) : (
           <>
-            {loading ? (
-              <div className="text-center py-12">
-                <div className="inline-block w-8 h-8 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
-                <p className="text-white/50 text-sm mt-3">Loading team...</p>
-              </div>
-            ) : (
-              <>
-                {/* TABS NAVIGATION */}
-                <div className="bg-[#151A25] border border-white/10 rounded-2xl p-1 grid grid-cols-3 gap-1">
-                  <button
-                    onClick={() => setActiveTab('team')}
-                    className={`py-2.5 px-3 rounded-xl text-sm font-bold transition-all ${
-                      activeTab === 'team'
-                        ? 'bg-blue-600 text-white'
-                        : 'text-white/50 hover:text-white/80'
-                    }`}
-                  >
-                    Team
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('sent')}
-                    className={`py-2.5 px-3 rounded-xl text-sm font-bold transition-all relative ${
-                      activeTab === 'sent'
-                        ? 'bg-blue-600 text-white'
-                        : 'text-white/50 hover:text-white/80'
-                    }`}
-                  >
-                    Sent
-                    {sentChallengeHistory.filter(c => c.status === 'pending').length > 0 && (
-                      <span className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 rounded-full text-xs flex items-center justify-center">
-                        {sentChallengeHistory.filter(c => c.status === 'pending').length}
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('received')}
-                    className={`py-2.5 px-3 rounded-xl text-sm font-bold transition-all relative ${
-                      activeTab === 'received'
-                        ? 'bg-blue-600 text-white'
-                        : 'text-white/50 hover:text-white/80'
-                    }`}
-                  >
-                    Received
-                    {receivedChallengeHistory.filter(c => c.status === 'pending').length > 0 && (
-                      <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-xs flex items-center justify-center">
-                        {receivedChallengeHistory.filter(c => c.status === 'pending').length}
-                      </span>
-                    )}
-                  </button>
-                </div>
-
-                {/* TAB CONTENT */}
-                {activeTab === 'team' && (
-                  <TeamMembers
-                    teamMembers={teamMembers}
-                    receivedInvitations={receivedInvitations}
-                    receivedChallenges={receivedChallenges}
-                    sentInvitations={sentInvitations}
-                    userProfile={userProfile}
-                    onMemberSelect={setSelectedMember}
-                    onInviteClick={handleInviteClick}
-                    onRefresh={loadUserAndTeamData}
-                  />
+            {/* TABS NAVIGATION */}
+            <div className="bg-[#151A25] border border-white/10 rounded-2xl p-1 grid grid-cols-3 gap-1">
+              <button
+                onClick={() => setActiveTab('team')}
+                className={`py-2.5 px-3 rounded-xl text-sm font-bold transition-all ${
+                  activeTab === 'team'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-white/50 hover:text-white/80'
+                }`}
+              >
+                Team
+              </button>
+              <button
+                onClick={() => setActiveTab('sent')}
+                className={`py-2.5 px-3 rounded-xl text-sm font-bold transition-all relative ${
+                  activeTab === 'sent'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-white/50 hover:text-white/80'
+                }`}
+              >
+                Sent
+                {sentChallengeHistory.filter(c => c.status === 'pending').length > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 rounded-full text-xs flex items-center justify-center">
+                    {sentChallengeHistory.filter(c => c.status === 'pending').length}
+                  </span>
                 )}
-
-                {activeTab === 'sent' && (
-                  <SentChallenges
-                    challenges={sentChallengeHistory}
-                    onRefresh={loadUserAndTeamData}
-                  />
+              </button>
+              <button
+                onClick={() => setActiveTab('received')}
+                className={`py-2.5 px-3 rounded-xl text-sm font-bold transition-all relative ${
+                  activeTab === 'received'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-white/50 hover:text-white/80'
+                }`}
+              >
+                Received
+                {receivedChallengeHistory.filter(c => c.status === 'pending').length > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-xs flex items-center justify-center">
+                    {receivedChallengeHistory.filter(c => c.status === 'pending').length}
+                  </span>
                 )}
+              </button>
+            </div>
 
-                {activeTab === 'received' && (
-                  <ReceivedChallenges
-                    challenges={receivedChallengeHistory}
-                    onRefresh={loadUserAndTeamData}
-                  />
-                )}
-              </>
+            {/* TAB CONTENT */}
+            {activeTab === 'team' && (
+              <TeamMembers
+                teamMembers={teamMembers}
+                receivedInvitations={receivedInvitations}
+                receivedChallenges={receivedChallenges}
+                sentInvitations={sentInvitations}
+                userProfile={userProfile}
+                onMemberSelect={setSelectedMember}
+                onInviteClick={handleInviteClick}
+                onRefresh={loadUserAndTeamData}
+              />
+            )}
+
+            {activeTab === 'sent' && (
+              <SentChallenges
+                challenges={sentChallengeHistory}
+                onRefresh={loadUserAndTeamData}
+              />
+            )}
+
+            {activeTab === 'received' && (
+              <ReceivedChallenges
+                challenges={receivedChallengeHistory}
+                onRefresh={loadUserAndTeamData}
+              />
             )}
           </>
         )}

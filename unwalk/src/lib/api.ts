@@ -71,14 +71,40 @@ export async function getActiveUserChallenge(): Promise<UserChallenge | null> {
   return data || null;
 }
 
+// Get user's paused challenges (for Pro users)
+export async function getPausedChallenges(): Promise<UserChallenge[]> {
+  const deviceId = getDeviceId();
+  
+  const { data, error } = await supabase
+    .from('user_challenges')
+    .select(`
+      *,
+      admin_challenge:admin_challenges(*)
+    `)
+    .eq('device_id', deviceId)
+    .eq('status', 'paused')
+    .order('updated_at', { ascending: false }); // ✅ Changed from 'paused_at' to 'updated_at'
+
+  if (error) {
+    console.error('❌ [API] Failed to load paused challenges:', error);
+    return [];
+  }
+  
+  return data || [];
+}
+
 // Start a new challenge (accept from library)
 export async function startChallenge(adminChallengeId: string): Promise<UserChallenge> {
   const deviceId = getDeviceId();
+  
+  // Get current user (for Pro users to track badges/achievements)
+  const { data: { user } } = await supabase.auth.getUser();
   
   const { data, error } = await supabase
     .from('user_challenges')
     .insert({
       device_id: deviceId,
+      user_id: user?.id, // Add user_id for authenticated Pro users (needed for badges)
       admin_challenge_id: adminChallengeId,
       current_steps: 0,
       status: 'active',
@@ -118,7 +144,7 @@ export async function completeChallenge(userChallengeId: string): Promise<UserCh
   const { data, error } = await supabase
     .from('user_challenges')
     .update({
-      status: 'completed_unclaimed',
+      status: 'completed',
       completed_at: new Date().toISOString(),
     })
     .eq('id', userChallengeId)
@@ -136,22 +162,50 @@ export async function completeChallenge(userChallengeId: string): Promise<UserCh
 export async function getCompletedChallenges(): Promise<UserChallenge[]> {
   const deviceId = getDeviceId();
   
-  const { data, error } = await supabase
+  // Get current user (for authenticated users)
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  // For authenticated users, query by user_id OR device_id
+  // For guests, only query by device_id
+  let query = supabase
     .from('user_challenges')
     .select(`
       *,
       admin_challenge:admin_challenges(*)
     `)
-    .eq('device_id', deviceId)
-    .eq('status', 'completed')
+    .in('status', ['completed', 'claimed']) // Include both completed and claimed challenges
     .order('completed_at', { ascending: false });
+  
+  if (user) {
+    // Authenticated user - match by user_id OR device_id
+    query = query.or(`user_id.eq.${user.id},device_id.eq.${deviceId}`);
+  } else {
+    // Guest - only match by device_id
+    query = query.eq('device_id', deviceId);
+  }
+  
+  const { data, error } = await query;
 
-  if (error) throw error;
+  if (error) {
+    console.error('❌ [API] Failed to load completed challenges:', error);
+    throw error;
+  }
+  
+  console.log('✅ [API] Completed challenges loaded:', data?.length || 0);
   return data || [];
 }
 
 // Get completed but unclaimed challenges
+// NOTE: In Stage 1, we use status 'completed' (no separate unclaimed state)
+// This function returns empty array for now - will be used in Stage 2
 export async function getUnclaimedChallenges(): Promise<UserChallenge[]> {
+  // TEMPORARILY DISABLED - Status 'completed_unclaimed' doesn't exist in DB
+  // In Stage 1, challenges are deleted immediately after completion (no claiming flow)
+  // TODO: Implement claiming flow in Stage 2 with proper status
+  console.log('👤 [API] Unclaimed challenges disabled (Stage 2 feature)');
+  return [];
+  
+  /* ORIGINAL CODE - Re-enable in Stage 2:
   const deviceId = getDeviceId();
   
   const { data, error } = await supabase
@@ -166,6 +220,7 @@ export async function getUnclaimedChallenges(): Promise<UserChallenge[]> {
 
   if (error) throw error;
   return data || [];
+  */
 }
 
 // Claim completed challenge reward
@@ -213,6 +268,17 @@ export async function updateChallengeStatus(
 
   if (error) throw error;
   return data;
+}
+
+// Delete user challenge (exit challenge)
+export async function deleteUserChallenge(userChallengeId: string): Promise<void> {
+  const { error } = await supabase
+    .from('user_challenges')
+    .delete()
+    .eq('id', userChallengeId);
+
+  if (error) throw error;
+  console.log('✅ [API] User challenge deleted:', userChallengeId);
 }
 
 // ========== CUSTOM CHALLENGES API ==========
@@ -383,22 +449,30 @@ export async function getAllUserChallenges(): Promise<UserChallenge[]> {
 
 // Get team members' active challenges (for social view on home screen)
 export async function getTeamActiveChallenges(): Promise<any[]> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return [];
-  
-  const { data, error } = await supabase
-    .from('challenge_assignments_with_progress')
-    .select('*')
-    .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
-    .eq('status', 'accepted')
-    .not('user_challenge_id', 'is', null)
-    .eq('user_challenge_status', 'active')
-    .order('sent_at', { ascending: false });
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.log('👤 [API] No authenticated user - skipping team challenges');
+      return [];
+    }
+    
+    const { data, error } = await supabase
+      .from('challenge_assignments_with_progress')
+      .select('*')
+      .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
+      .eq('status', 'accepted')
+      .not('user_challenge_id', 'is', null)
+      .eq('user_challenge_status', 'active')
+      .order('sent_at', { ascending: false });
 
-  if (error) {
-    console.error('Failed to load team challenges:', error);
+    if (error) {
+      console.error('❌ [API] Failed to load team challenges:', error);
+      return [];
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('❌ [API] Team challenges error:', error);
     return [];
   }
-  
-  return data || [];
 }

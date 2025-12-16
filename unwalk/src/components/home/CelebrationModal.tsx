@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
 import type { UserChallenge } from '../../types';
-import { claimCompletedChallenge, calculateChallengePoints } from '../../lib/api';
+import { calculateChallengePoints, claimCompletedChallenge } from '../../lib/api';
 import { useChallengeStore } from '../../stores/useChallengeStore';
+import { supabase } from '../../lib/supabase';
 
 interface CelebrationModalProps {
   challenge: UserChallenge;
@@ -12,24 +12,33 @@ interface CelebrationModalProps {
 
 export function CelebrationModal({ challenge, onClaim }: CelebrationModalProps) {
   const [claiming, setClaiming] = useState(false);
-  const [showQR, setShowQR] = useState(false);
-  const navigate = useNavigate();
   const userTier = useChallengeStore((s) => s.userTier);
 
-  // Mock QR code - replace with real QR generation if needed
-  const hasQRCode = Math.random() > 0.5; // 50% mają QR code
-  const qrCodeUrl = hasQRCode ? `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=REWARD_${challenge.id}` : null;
-
   const handleClaim = async () => {
-    if (hasQRCode && !showQR) {
-      // Jeśli ma QR code, najpierw pokaż QR
-      setShowQR(true);
-      return;
-    }
-
     try {
       setClaiming(true);
-      await claimCompletedChallenge(challenge.id);
+      
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+      
+      // Use database function to claim challenge (bypasses RLS issues)
+      const { data, error } = await supabase.rpc('claim_user_challenge', {
+        p_challenge_id: challenge.id,
+        p_user_id: user.id
+      });
+      
+      if (error) {
+        console.error('Failed to claim challenge:', error);
+        throw error;
+      }
+      
+      console.log('✅ Challenge claimed successfully:', data);
+      
+      // No more localStorage - everything is in Supabase!
       onClaim();
     } catch (error) {
       console.error('Failed to claim reward:', error);
@@ -38,199 +47,190 @@ export function CelebrationModal({ challenge, onClaim }: CelebrationModalProps) 
     }
   };
 
-  const handleStatsClick = () => {
-    navigate('/stats');
-    onClaim();
-  };
+  // Calculate stats
+  const totalSteps = challenge.current_steps;
+  const totalDistance = ((totalSteps * 0.8) / 1000).toFixed(1);
+  const totalCalories = Math.round(totalSteps * 0.04);
+  const activeDays = Math.ceil((challenge.active_time_seconds || 0) / 86400) || 1;
+  const points = !challenge.admin_challenge?.is_custom && userTier === 'pro' 
+    ? calculateChallengePoints(challenge.admin_challenge?.goal_steps || 0) 
+    : null;
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="fixed inset-0 bg-gradient-to-br from-purple-900/95 via-blue-900/95 to-indigo-900/95 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto"
+      className="fixed inset-0 bg-gradient-to-br from-emerald-900/95 via-teal-900/95 to-cyan-900/95 backdrop-blur-sm z-50 flex items-center justify-center p-5 overflow-y-auto"
     >
       <motion.div
-        initial={{ scale: 0.8, opacity: 0, y: 50 }}
+        initial={{ scale: 0.9, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
-        transition={{ type: "spring", duration: 0.5 }}
+        transition={{ type: "spring", duration: 0.5, bounce: 0.3 }}
         className="max-w-md w-full"
       >
-        {/* Animated Confetti/Stars Background */}
+        {/* Animated Stars/Sparkles Background */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {[...Array(20)].map((_, i) => (
+          {[...Array(15)].map((_, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, scale: 0 }}
               animate={{ 
                 opacity: [0, 1, 0],
-                scale: [0, 1, 0],
-                y: [0, -100],
+                scale: [0, 1.5, 0],
+                y: [0, -150],
                 x: [0, (Math.random() - 0.5) * 200]
               }}
               transition={{
-                duration: 2,
-                delay: i * 0.1,
+                duration: 2.5,
+                delay: i * 0.15,
                 repeat: Infinity,
-                repeatDelay: 3
+                repeatDelay: 4
               }}
-              className="absolute text-2xl"
+              className="absolute text-3xl"
               style={{
                 left: `${Math.random() * 100}%`,
                 top: '50%'
               }}
             >
-              {['⭐', '✨', '🎉', '🎊'][Math.floor(Math.random() * 4)]}
+              ✨
             </motion.div>
           ))}
         </div>
 
-        {/* Main Content Card */}
+        {/* Main Content Card - Onboarding Style */}
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.2 }}
-          className="bg-white/10 backdrop-blur-xl rounded-3xl overflow-hidden shadow-2xl border border-white/20"
+          transition={{ delay: 0.1 }}
+          className="bg-white dark:bg-[#151A25] rounded-3xl overflow-hidden shadow-2xl relative"
         >
-          {/* Header */}
-          <div className="text-center pt-8 pb-4 px-6">
-            <motion.div
-              animate={{ 
-                rotate: [0, -10, 10, -10, 10, 0],
-                scale: [1, 1.1, 1.1, 1.1, 1.1, 1]
-              }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-              className="text-7xl mb-4"
-            >
-              🏆
-            </motion.div>
-            <motion.h1
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              className="text-3xl font-black text-white mb-2 tracking-tight"
-            >
-              Challenge Complete!
-            </motion.h1>
-            <motion.p
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.5 }}
-              className="text-white/80 text-sm"
-            >
-              You've unlocked a new destination
-            </motion.p>
-          </div>
-
-          {/* Revealed Image */}
-          <motion.div
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 0.6 }}
-            className="relative mx-4 rounded-2xl overflow-hidden shadow-xl"
-          >
+          {/* Hero Image Section */}
+          <div className="relative h-64 overflow-hidden">
             <img
               src={challenge.admin_challenge?.image_url}
               alt={challenge.admin_challenge?.title}
-              className="w-full aspect-[4/3] object-cover"
+              className="w-full h-full object-cover"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-            <div className="absolute bottom-0 left-0 right-0 p-4">
-              <h2 className="text-xl font-bold text-white mb-1">
-                {challenge.admin_challenge?.title}
-              </h2>
-            </div>
-          </motion.div>
-
-          {/* Stats Section - Clickable */}
-          <motion.button
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.7 }}
-            onClick={handleStatsClick}
-            className="w-full px-4 py-4 hover:bg-white/5 transition-colors group"
-          >
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <div className="bg-white/5 rounded-xl p-3 backdrop-blur-sm border border-white/10 group-hover:border-white/30 transition-colors">
-                <div className="text-2xl font-bold text-white mb-1">
-                  {challenge.current_steps.toLocaleString()}
-                </div>
-                <div className="text-xs text-white/60 uppercase tracking-wide">Steps</div>
-              </div>
-              <div className="bg-white/5 rounded-xl p-3 backdrop-blur-sm border border-white/10 group-hover:border-white/30 transition-colors">
-                <div className="text-2xl font-bold text-white mb-1">
-                  {((challenge.current_steps * 0.8) / 1000).toFixed(1)}km
-                </div>
-                <div className="text-xs text-white/60 uppercase tracking-wide">Distance</div>
-              </div>
-              {/* Points earned - only for system challenges and Pro users */}
-              {!challenge.admin_challenge?.is_custom && userTier === 'pro' && (
-                <div className="bg-gradient-to-br from-amber-500/20 to-orange-500/20 rounded-xl p-3 backdrop-blur-sm border border-amber-500/30 group-hover:border-amber-500/50 transition-colors">
-                  <div className="text-2xl font-bold text-amber-300 mb-1">
-                    +{calculateChallengePoints(challenge.admin_challenge?.goal_steps || 0)}
-                  </div>
-                  <div className="text-xs text-amber-200/80 uppercase tracking-wide">Points</div>
-                </div>
-              )}
-            </div>
-            <p className="text-center text-white/40 text-xs mt-2 group-hover:text-white/60 transition-colors">
-              Tap to view detailed stats →
-            </p>
-          </motion.button>
-
-          {/* QR Code Section */}
-          {showQR && qrCodeUrl && (
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+            
+            {/* Trophy Badge */}
             <motion.div
-              initial={{ scale: 0.9, opacity: 0, height: 0 }}
-              animate={{ scale: 1, opacity: 1, height: "auto" }}
-              className="mx-4 mb-4 bg-white rounded-2xl p-6 text-center shadow-xl"
+              initial={{ scale: 0, rotate: -180 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ delay: 0.3, type: "spring", bounce: 0.5 }}
+              className="absolute top-4 right-4 w-16 h-16 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center shadow-2xl ring-4 ring-white/30"
             >
-              <div className="text-4xl mb-3">🎁</div>
-              <h3 className="text-lg font-bold text-gray-900 mb-3">Your Reward</h3>
-              <div className="bg-gray-50 rounded-xl p-4 inline-block">
-                <img
-                  src={qrCodeUrl}
-                  alt="Reward QR Code"
-                  className="w-48 h-48"
-                />
-              </div>
-              <p className="text-sm text-gray-600 mt-3">
-                Show this code to claim your reward
-              </p>
+              <span className="text-3xl">🏆</span>
             </motion.div>
-          )}
 
-          {/* Claim Button */}
+            {/* Title at bottom */}
+            <div className="absolute bottom-0 left-0 right-0 p-6">
+              <motion.h1
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.4 }}
+                className="text-3xl font-black text-white leading-tight mb-2"
+              >
+                {challenge.admin_challenge?.title}
+              </motion.h1>
+              <motion.p
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.5 }}
+                className="text-white/80 text-sm font-medium"
+              >
+                Challenge completed! 🎉
+              </motion.p>
+            </div>
+          </div>
+
+          {/* Stats Grid - Onboarding Style */}
           <motion.div
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.8 }}
-            className="p-4"
+            transition={{ delay: 0.6 }}
+            className="p-6"
           >
+            <h2 className="text-xs font-bold text-gray-500 dark:text-white/60 uppercase tracking-wider mb-4">
+              Your Achievement
+            </h2>
+
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              {/* Steps */}
+              <div className="bg-gray-50 dark:bg-white/5 rounded-2xl p-4 border border-gray-200 dark:border-white/10">
+                <div className="text-3xl font-black text-gray-900 dark:text-white mb-1">
+                  {totalSteps.toLocaleString()}
+                </div>
+                <div className="text-xs text-gray-600 dark:text-white/60 uppercase tracking-wide font-semibold">
+                  Steps Taken
+                </div>
+              </div>
+
+              {/* Distance */}
+              <div className="bg-gray-50 dark:bg-white/5 rounded-2xl p-4 border border-gray-200 dark:border-white/10">
+                <div className="text-3xl font-black text-gray-900 dark:text-white mb-1">
+                  {totalDistance}km
+                </div>
+                <div className="text-xs text-gray-600 dark:text-white/60 uppercase tracking-wide font-semibold">
+                  Distance
+                </div>
+              </div>
+
+              {/* Calories */}
+              <div className="bg-gray-50 dark:bg-white/5 rounded-2xl p-4 border border-gray-200 dark:border-white/10">
+                <div className="text-3xl font-black text-gray-900 dark:text-white mb-1">
+                  {totalCalories}
+                </div>
+                <div className="text-xs text-gray-600 dark:text-white/60 uppercase tracking-wide font-semibold">
+                  Calories
+                </div>
+              </div>
+
+              {/* Active Days */}
+              <div className="bg-gray-50 dark:bg-white/5 rounded-2xl p-4 border border-gray-200 dark:border-white/10">
+                <div className="text-3xl font-black text-gray-900 dark:text-white mb-1">
+                  {activeDays}
+                </div>
+                <div className="text-xs text-gray-600 dark:text-white/60 uppercase tracking-wide font-semibold">
+                  {activeDays === 1 ? 'Day' : 'Days'}
+                </div>
+              </div>
+            </div>
+
+            {/* Points Badge - Only for Pro users with system challenges */}
+            {points && (
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.8 }}
+                className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border-2 border-amber-300 dark:border-amber-500/30 rounded-2xl p-4 mb-6 text-center"
+              >
+                <div className="text-4xl mb-2">🎁</div>
+                <div className="text-2xl font-black text-amber-900 dark:text-amber-400 mb-1">
+                  +{points} Points
+                </div>
+                <div className="text-xs text-amber-700 dark:text-amber-500 font-semibold">
+                  Added to your collection
+                </div>
+              </motion.div>
+            )}
+
+            {/* CTA Button - Single button */}
             <button
               onClick={handleClaim}
               disabled={claiming}
-              className="w-full bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 hover:from-emerald-600 hover:via-green-600 hover:to-teal-600 text-white px-6 py-4 rounded-2xl font-bold text-base transition-all shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 relative overflow-hidden group"
+              className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-6 py-4 rounded-2xl font-bold text-base transition-all shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 relative overflow-hidden group"
             >
               <span className="relative z-10 flex items-center justify-center gap-2">
                 {claiming ? (
                   <>
                     <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Claiming...
-                  </>
-                ) : showQR ? (
-                  <>
-                    <span className="text-xl">✓</span>
-                    I Claimed My Reward
-                  </>
-                ) : hasQRCode ? (
-                  <>
-                    <span className="text-xl">🎁</span>
-                    Show My Reward
+                    Processing...
                   </>
                 ) : (
                   <>
-                    <span className="text-xl">🎉</span>
-                    Claim Reward
+                    <span className="text-xl">✓</span>
+                    {points ? 'Claim Reward' : 'Mark as Complete'}
                   </>
                 )}
               </span>

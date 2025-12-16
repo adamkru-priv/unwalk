@@ -2,10 +2,12 @@ import { useChallengeStore } from '../../stores/useChallengeStore';
 import { useEffect, useState } from 'react';
 import { AppHeader } from '../common/AppHeader';
 import { BottomNavigation } from '../common/BottomNavigation';
-import { getUnclaimedChallenges, getTeamActiveChallenges, getActiveUserChallenge } from '../../lib/api';
+import { getActiveUserChallenge } from '../../lib/api';
 import type { UserChallenge } from '../../types';
 import { CelebrationModal } from './CelebrationModal';
 import { authService, type UserProfile } from '../../lib/auth';
+import { supabase } from '../../lib/supabase';
+import { getDeviceId } from '../../lib/deviceId';
 
 export function HomeScreen() {
   const [unclaimedChallenges, setUnclaimedChallenges] = useState<UserChallenge[]>([]);
@@ -36,13 +38,8 @@ export function HomeScreen() {
     loadUnclaimedChallenges();
     loadUserProfile();
     loadTeamChallenges();
-    checkChallengeCompletion();
+    // REMOVED: checkChallengeCompletion() - no auto-redirect from Home
   }, []);
-
-  // Check if active challenge is at 100% - auto-redirect to Dashboard
-  useEffect(() => {
-    checkChallengeCompletion();
-  }, [activeUserChallenge]);
 
   const loadActiveChallenge = async () => {
     try {
@@ -58,8 +55,40 @@ export function HomeScreen() {
 
   const loadUnclaimedChallenges = async () => {
     try {
-      const data = await getUnclaimedChallenges();
-      setUnclaimedChallenges(data);
+      // Load active challenges that are at 100% (current_steps >= goal_steps)
+      const { data: { user } } = await supabase.auth.getUser();
+      const deviceId = getDeviceId();
+      
+      if (!user) {
+        console.log('No authenticated user');
+        return;
+      }
+      
+      // Get all active challenges for this user
+      const { data, error } = await supabase
+        .from('user_challenges')
+        .select(`
+          *,
+          admin_challenge:admin_challenges(*)
+        `)
+        .eq('status', 'active')
+        .or(`user_id.eq.${user.id},device_id.eq.${deviceId}`)
+        .order('started_at', { ascending: false });
+      
+      if (error) {
+        console.error('Failed to load challenges:', error);
+        return;
+      }
+      
+      // Filter to only those at 100% or more
+      const completed = (data || []).filter(challenge => {
+        const goalSteps = challenge.admin_challenge?.goal_steps || 0;
+        const currentSteps = challenge.current_steps || 0;
+        return currentSteps >= goalSteps && goalSteps > 0;
+      });
+      
+      setUnclaimedChallenges(completed);
+      console.log('✅ [HomeScreen] Loaded unclaimed challenges (at 100%):', completed.length);
     } catch (err) {
       console.error('Failed to load unclaimed challenges:', err);
     }
@@ -71,6 +100,14 @@ export function HomeScreen() {
   };
 
   const loadTeamChallenges = async () => {
+    // TEMPORARILY DISABLED - view has issues in database
+    // This is a Stage 2 feature, not needed for MVP
+    // TODO: Fix challenge_assignments_with_progress view and re-enable
+    console.log('👤 [HomeScreen] Team challenges disabled (Stage 2 feature)');
+    setTeamActiveChallenges([]);
+    return;
+    
+    /* ORIGINAL CODE - Re-enable when view is fixed:
     try {
       const data = await getTeamActiveChallenges();
       setTeamActiveChallenges(data);
@@ -78,25 +115,13 @@ export function HomeScreen() {
     } catch (err) {
       console.error('Failed to load team challenges:', err);
     }
+    */
   };
 
   const handleClaimSuccess = () => {
     setSelectedCompletedChallenge(null);
-    loadUnclaimedChallenges(); // Refresh list
+    loadUnclaimedChallenges(); // Refresh from Supabase
     setCurrentScreen('badges'); // Go to badges to see the new addition
-  };
-
-  const checkChallengeCompletion = () => {
-    if (!activeUserChallenge) return;
-    
-    const goalSteps = activeUserChallenge.admin_challenge?.goal_steps || 0;
-    const currentSteps = activeUserChallenge.current_steps;
-    
-    // If challenge is at 100%, redirect to Dashboard to show completion modal
-    if (currentSteps >= goalSteps && goalSteps > 0) {
-      console.log('🎉 Challenge at 100%! Redirecting to Dashboard...');
-      setCurrentScreen('dashboard');
-    }
   };
 
   const calculateProgress = () => {
@@ -120,8 +145,6 @@ export function HomeScreen() {
     } else if (hours > 0) {
       return `${hours}h ${minutes}m`;
     } else if (minutes > 0) {
-      return `${minutes}m`;
-    } else {
       return '< 1m';
     }
   };
@@ -199,35 +222,35 @@ export function HomeScreen() {
         
         {/* COMPLETED CHALLENGES TO CLAIM - Top priority! */}
         {unclaimedChallenges.length > 0 && (
-          <section>
-            <div className="bg-gradient-to-r from-emerald-100 to-teal-100 dark:from-emerald-900/40 dark:to-teal-900/40 border-y border-emerald-300 dark:border-emerald-500/30 py-4 px-5 relative overflow-hidden">
-              <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-emerald-500/20 rounded-full blur-2xl"></div>
-              
-              <h2 className="text-base font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2 relative z-10">
-                <span className="animate-bounce">🎁</span>
-                <span>Reward Waiting!</span>
+          <section className="px-5">
+            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 border border-emerald-200 dark:border-emerald-500/30 rounded-2xl p-5 shadow-sm">
+              <h2 className="text-sm font-bold text-emerald-900 dark:text-emerald-400 mb-3 uppercase tracking-wide">
+                {userTier === 'pro' ? '🎁 Rewards Ready' : '✓ Ready to Claim'}
               </h2>
               
-              <div className="space-y-2 relative z-10">
+              <div className="space-y-2.5">
                 {unclaimedChallenges.map((challenge) => (
                   <button
                     key={challenge.id}
                     onClick={() => setSelectedCompletedChallenge(challenge)}
-                    className="w-full bg-white dark:bg-white/5 hover:bg-gray-50 dark:hover:bg-white/10 border border-gray-200 dark:border-white/10 rounded-xl p-3 transition-all group flex items-center gap-3 text-left"
+                    className="w-full bg-white dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-white/10 border border-emerald-200/50 dark:border-white/10 rounded-xl p-3.5 transition-all group flex items-center gap-3.5 text-left shadow-sm hover:shadow-md"
                   >
-                    <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 ring-2 ring-emerald-500/50">
+                    <div className="relative w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 ring-2 ring-emerald-400/50 group-hover:ring-emerald-500 transition-all">
                       <img
                         src={challenge.admin_challenge?.image_url}
                         alt={challenge.admin_challenge?.title}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                       />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-gray-900 dark:text-white text-sm truncate">
+                      <h3 className="font-bold text-gray-900 dark:text-white text-sm mb-0.5 truncate">
                         {challenge.admin_challenge?.title}
                       </h3>
-                      <div className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-                        Tap to claim →
+                      <div className="text-xs text-gray-600 dark:text-white/60 mb-1">
+                        {challenge.current_steps.toLocaleString()} steps · {((challenge.current_steps * 0.8) / 1000).toFixed(1)}km
+                      </div>
+                      <div className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">
+                        {userTier === 'pro' ? 'Tap to claim reward →' : 'Tap to view completion →'}
                       </div>
                     </div>
                   </button>
@@ -376,7 +399,7 @@ export function HomeScreen() {
                     {/* Middle - Title */}
                     <div className="flex-1 flex items-center justify-center">
                       <h3 className="text-4xl font-black text-white text-center leading-tight uppercase drop-shadow-2xl">
-                        Move Your<br />Loved Ones
+                        Move a<br />friend
                       </h3>
                     </div>
                     

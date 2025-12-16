@@ -220,6 +220,10 @@ class AuthService {
       // Clear guest cache but keep device_id
       this.clearGuestUser();
 
+      // Clear localStorage (remove old unclaimed challenges and other app data)
+      localStorage.removeItem('unclaimedChallenges');
+      // Note: We keep device_id for guest user re-identification
+
       console.log('👋 [Auth] Signed out');
       return { error: null };
     } catch (error) {
@@ -260,7 +264,37 @@ class AuthService {
           .eq('id', user.id)
           .single();
 
-        if (error) throw error;
+        if (error) {
+          // User doesn't exist in users table - create it!
+          if (error.code === 'PGRST116') { // No rows returned
+            console.log('⚠️ [Auth] Authenticated user not in users table, creating profile...');
+            
+            // Create new user profile
+            const { data: newUser, error: insertError } = await supabase
+              .from('users')
+              .insert({
+                id: user.id,
+                email: user.email,
+                display_name: user.email?.split('@')[0] || 'User',
+                is_guest: false,
+                tier: 'basic',
+                daily_step_goal: 10000,
+                onboarding_completed: true,
+              })
+              .select()
+              .single();
+
+            if (insertError) {
+              console.error('❌ [Auth] Failed to create user profile:', insertError);
+              throw insertError;
+            }
+
+            console.log('✅ [Auth] Created user profile:', newUser);
+            return newUser as UserProfile;
+          }
+          throw error;
+        }
+        
         return data as UserProfile;
       } else {
         // Guest user - get by device_id
@@ -930,6 +964,36 @@ class TeamService {
       return { error: null };
     } catch (error) {
       console.error('❌ [Team] Reject challenge assignment error:', error);
+      return { error: error as Error };
+    }
+  }
+
+  /**
+   * Decline an already accepted challenge (before starting it)
+   * Changes status back to 'rejected'
+   */
+  async declineChallenge(assignmentId: string): Promise<{ error: Error | null }> {
+    try {
+      const user = await authService.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('challenge_assignments')
+        .update({
+          status: 'rejected',
+          responded_at: new Date().toISOString(),
+        })
+        .eq('id', assignmentId)
+        .eq('recipient_id', user.id)
+        .eq('status', 'accepted')
+        .is('user_challenge_id', null); // Only if not started yet
+
+      if (error) throw error;
+
+      console.log('🗑️ [Team] Accepted challenge declined');
+      return { error: null };
+    } catch (error) {
+      console.error('❌ [Team] Decline challenge error:', error);
       return { error: error as Error };
     }
   }

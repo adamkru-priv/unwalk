@@ -1,23 +1,21 @@
 import { useChallengeStore } from '../../stores/useChallengeStore';
 import { EmptyState } from './EmptyState';
 import { useState, useEffect } from 'react';
-import { updateChallengeProgress, calculateChallengePoints, getActiveUserChallenge } from '../../lib/api';
+import { updateChallengeProgress, getActiveUserChallenge, deleteUserChallenge } from '../../lib/api';
 import { BottomNavigation } from '../common/BottomNavigation';
+import { useToastStore } from '../../stores/useToastStore';
 
 export function Dashboard() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [showStats, setShowStats] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
-  const [showCompletionModal, setShowCompletionModal] = useState(false);
-  const [earnedPoints, setEarnedPoints] = useState(0);
-  const [hasCheckedCompletion, setHasCheckedCompletion] = useState(false);
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
   const setActiveChallenge = useChallengeStore((s) => s.setActiveChallenge);
   const pauseActiveChallenge = useChallengeStore((s) => s.pauseActiveChallenge);
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
   const clearChallenge = useChallengeStore((s) => s.clearChallenge);
   const userTier = useChallengeStore((s) => s.userTier);
-  const dailyChallenge = useChallengeStore((s) => s.getDailyChallenge());
+  const toast = useToastStore((s) => s);
 
   // LOAD ACTIVE CHALLENGE on mount if not in store
   useEffect(() => {
@@ -39,64 +37,23 @@ export function Dashboard() {
     loadActiveChallenge();
   }, []);
 
-  // AUTO-DETECT COMPLETION - Check if challenge is at 100%
-  useEffect(() => {
-    const checkCompletion = async () => {
-      if (!activeUserChallenge || hasCheckedCompletion || showCompletionModal) return;
-      
-      const goalSteps = activeUserChallenge.admin_challenge?.goal_steps || 0;
-      const currentSteps = activeUserChallenge.current_steps;
-      
-      // Check if challenge is already marked as completed_unclaimed (from previous session)
-      if (activeUserChallenge.status === 'completed_unclaimed') {
-        console.log('Challenge already completed, showing finish button...');
-        setHasCheckedCompletion(true);
-        
-        // Calculate points
-        const isDailyChallenge = dailyChallenge?.id === activeUserChallenge.admin_challenge_id;
-        const points = calculateChallengePoints(goalSteps, isDailyChallenge);
-        
-        setEarnedPoints(points);
-        setShowCompletionModal(true);
-        return;
-      }
-      
-      // Check if challenge is completed (100% or more) but not yet marked
-      if (currentSteps >= goalSteps && goalSteps > 0 && activeUserChallenge.status === 'active') {
-        console.log('Challenge detected as complete! current:', currentSteps, 'goal:', goalSteps);
-        setHasCheckedCompletion(true);
-        
-        try {
-          // Mark challenge as completed in database
-          const { completeChallenge, calculateChallengePoints } = await import('../../lib/api');
-          const completedChallenge = await completeChallenge(activeUserChallenge.id);
-          console.log('Challenge marked as completed in DB:', completedChallenge);
-
-          // Calculate points
-          const isDailyChallenge = dailyChallenge?.id === activeUserChallenge.admin_challenge_id;
-          const points = calculateChallengePoints(goalSteps, isDailyChallenge);
-          
-          setEarnedPoints(points);
-          setShowCompletionModal(true);
-        } catch (error) {
-          console.error('Failed to complete challenge:', error);
-          // Even if API fails, show modal if we're at 100%
-          const isDailyChallenge = dailyChallenge?.id === activeUserChallenge.admin_challenge_id;
-          const points = calculateChallengePoints(goalSteps, isDailyChallenge);
-          setEarnedPoints(points);
-          setShowCompletionModal(true);
-        }
-      }
-    };
-
-    checkCompletion();
-  }, [activeUserChallenge, dailyChallenge, hasCheckedCompletion, showCompletionModal]);
-
-  const handleExitChallenge = () => {
+  const handleExitChallenge = async () => {
     setShowMenu(false);
+    if (!activeUserChallenge) return;
+    
     if (confirm('Exit this challenge?\n\nYour progress will be lost. This cannot be undone!')) {
-      clearChallenge();
-      setCurrentScreen('home');
+      try {
+        // Delete challenge from database first
+        await deleteUserChallenge(activeUserChallenge.id);
+        
+        // Then clear from store
+        clearChallenge();
+        toast.addToast({ message: 'Challenge exited successfully', type: 'success' });
+        setCurrentScreen('home');
+      } catch (error: any) {
+        console.error('Failed to exit challenge:', error);
+        toast.addToast({ message: error.message || 'Failed to exit challenge', type: 'error' });
+      }
     }
   };
 
@@ -127,22 +84,24 @@ export function Dashboard() {
       const updatedChallenge = await updateChallengeProgress(activeUserChallenge.id, newSteps);
       setActiveChallenge(updatedChallenge);
 
-      // AUTO-COMPLETE when reaching 100%
-      if (newSteps >= goalSteps) {
-        console.log('Challenge completed! Showing finish button...');
-        const { completeChallenge, calculateChallengePoints } = await import('../../lib/api');
-        const completedChallenge = await completeChallenge(activeUserChallenge.id);
-        console.log('Challenge marked as completed:', completedChallenge);
-
-        // Calculate points based on goal_steps and if it's daily challenge
-        const isDailyChallenge = dailyChallenge?.id === activeUserChallenge.admin_challenge_id;
-        const points = calculateChallengePoints(goalSteps, isDailyChallenge);
+      // AUTO-REDIRECT to Home when reaching 100%
+      if (newSteps >= goalSteps && goalSteps > 0) {
+        console.log('✅ Challenge completed at 100%! Redirecting to Home for claim...');
         
-        setEarnedPoints(points);
-        setShowCompletionModal(true);
+        // Show success toast
+        toast.addToast({ 
+          message: '🎉 Challenge completed! Go claim your reward', 
+          type: 'success' 
+        });
+        
+        // Redirect to home where claim UI will show
+        setTimeout(() => {
+          setCurrentScreen('home');
+        }, 500);
       }
     } catch (error) {
       console.error('Failed to update steps:', error);
+      toast.addToast({ message: 'Failed to update progress', type: 'error' });
     } finally {
       setIsUpdating(false);
     }
@@ -210,7 +169,7 @@ export function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-900 text-white relative overflow-hidden">
       {/* BLURRED IMAGE AS BACKGROUND */}
-      <div className="fixed inset-0 z-0">
+      <div className="absolute inset-0 z-0 pointer-events-none">
         <img
           src={activeUserChallenge.admin_challenge?.image_url}
           alt="Challenge"
@@ -359,28 +318,6 @@ export function Dashboard() {
                 />
               </div>
             </div>
-          </div>
-        )}
-
-        {/* FINISH CHALLENGE Button - Shows when completed */}
-        {progress >= 100 && showCompletionModal && (
-          <div className="px-6 pb-3 flex-shrink-0">
-            <button
-              onClick={() => {
-                setShowCompletionModal(false);
-                clearChallenge();
-                setCurrentScreen('home');
-              }}
-              className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-4 rounded-2xl font-bold text-lg transition-all shadow-2xl shadow-green-500/30 flex items-center justify-center gap-3 group"
-            >
-              <span className="text-2xl group-hover:scale-110 transition-transform">✓</span>
-              <span>Finish Challenge</span>
-            </button>
-            {userTier === 'pro' && earnedPoints > 0 && (
-              <p className="text-center text-sm text-yellow-400 font-bold mt-2">
-                +{earnedPoints} points earned
-              </p>
-            )}
           </div>
         )}
 

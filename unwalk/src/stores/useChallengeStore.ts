@@ -23,7 +23,7 @@ interface ChallengeStore {
   
   // Actions
   setChallenge: (challenge: Challenge) => void;
-  setActiveChallenge: (userChallenge: UserChallenge) => void;
+  setActiveChallenge: (userChallenge: UserChallenge | null) => void;
   setPausedChallenges: (challenges: UserChallenge[]) => void;
   pauseActiveChallenge: (userChallenge: UserChallenge) => void;
   resumeChallenge: (userChallenge: UserChallenge) => void;
@@ -64,6 +64,10 @@ export const useChallengeStore = create<ChallengeStore>()(
       setChallenge: (challenge) => set({ challenge }),
       
       setActiveChallenge: (userChallenge) => {
+        if (userChallenge === null) {
+          set({ activeUserChallenge: null });
+          return;
+        }
         // Set last_resumed_at to now when challenge becomes active
         const challengeWithTime = {
           ...userChallenge,
