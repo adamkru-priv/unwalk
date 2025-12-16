@@ -1,6 +1,7 @@
 import { AppHeader } from '../common/AppHeader';
 import { BottomNavigation } from '../common/BottomNavigation';
 import { badgesService, authService, type Badge } from '../../lib/auth';
+import { useChallengeStore } from '../../stores/useChallengeStore';
 import { useState, useEffect } from 'react';
 
 export function BadgesScreen() {
@@ -10,6 +11,9 @@ export function BadgesScreen() {
   const [isGuest, setIsGuest] = useState(false);
   const [userTier, setUserTier] = useState<'basic' | 'pro'>('basic');
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // Get setUserTier from store to sync
+  const setUserTierInStore = useChallengeStore((s) => s.setUserTier);
 
   // Refresh data every time component is rendered (when navigating back to Rewards)
   useEffect(() => {
@@ -38,6 +42,10 @@ export function BadgesScreen() {
       
       setIsGuest(guestStatus);
       setUserTier(tier);
+
+      // 🔄 SYNC: Update Zustand store with fresh tier from database
+      setUserTierInStore(tier);
+      console.log('✅ [BadgesScreen] Synced tier to store:', tier);
 
       // Only load badges if PRO user
       if (!guestStatus && tier === 'pro') {

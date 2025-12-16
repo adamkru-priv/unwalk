@@ -1,0 +1,126 @@
+import { teamService, type ChallengeAssignment } from '../../lib/auth';
+import { getInitials, getColorFromName } from './utils';
+
+interface SentChallengesProps {
+  challenges: ChallengeAssignment[];
+  onRefresh: () => void;
+}
+
+export function SentChallenges({ challenges, onRefresh }: SentChallengesProps) {
+  const handleCancelChallenge = async (assignmentId: string) => {
+    if (!confirm('Cancel this challenge assignment?')) return;
+    
+    try {
+      const { error } = await teamService.cancelChallengeAssignment(assignmentId);
+      if (error) throw error;
+      onRefresh();
+    } catch (err) {
+      console.error('Failed to cancel challenge:', err);
+      alert('Failed to cancel challenge. It may have been already accepted.');
+    }
+  };
+
+  if (challenges.length === 0) {
+    return (
+      <div className="text-center py-16">
+        <div className="text-6xl mb-4">📤</div>
+        <h3 className="text-xl font-bold text-white mb-2">No Sent Challenges</h3>
+        <p className="text-white/50 text-sm">
+          Send your first challenge to a team member!
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {challenges.map((assignment) => {
+        const progress = assignment.current_steps && assignment.challenge_goal_steps
+          ? Math.round((assignment.current_steps / assignment.challenge_goal_steps) * 100)
+          : 0;
+
+        return (
+          <div
+            key={assignment.id}
+            className="bg-[#151A25] border border-white/5 rounded-2xl p-4"
+          >
+            <div className="flex gap-3 mb-3">
+              <div className="relative w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
+                <img
+                  src={assignment.challenge_image_url}
+                  alt={assignment.challenge_title}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-bold text-white text-sm mb-1 truncate">
+                  {assignment.challenge_title}
+                </h3>
+                <div className="flex items-center gap-2">
+                  <div 
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                    style={{ backgroundColor: getColorFromName(assignment.recipient_name) }}
+                  >
+                    {getInitials(assignment.recipient_name)}
+                  </div>
+                  <span className="text-xs text-white/60">
+                    {assignment.recipient_name || 'Unknown'}
+                  </span>
+                </div>
+              </div>
+              <div className="flex flex-col items-end gap-1">
+                {assignment.status === 'pending' && (
+                  <>
+                    <span className="bg-amber-500/20 text-amber-400 text-xs font-bold px-2 py-1 rounded whitespace-nowrap">
+                      Pending
+                    </span>
+                    <button
+                      onClick={() => handleCancelChallenge(assignment.id)}
+                      className="text-red-400 hover:text-red-300 text-xs font-bold"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                )}
+                {assignment.status === 'accepted' && (
+                  <span className="bg-green-500/20 text-green-400 text-xs font-bold px-2 py-1 rounded whitespace-nowrap">
+                    {assignment.user_challenge_status === 'completed' ? 'Completed' : assignment.user_challenge_id ? 'Active' : 'Accepted'}
+                  </span>
+                )}
+                {assignment.status === 'rejected' && (
+                  <span className="bg-red-500/20 text-red-400 text-xs font-bold px-2 py-1 rounded whitespace-nowrap">
+                    Declined
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {assignment.status === 'accepted' && assignment.user_challenge_id && assignment.user_challenge_status === 'active' && (
+              <div className="mt-3 pt-3 border-t border-white/5">
+                <div className="flex items-center justify-between text-xs mb-2">
+                  <span className="text-white/60">Progress</span>
+                  <span className="text-white font-bold">{progress}%</span>
+                </div>
+                <div className="bg-white/10 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-blue-500 to-purple-500 h-full rounded-full transition-all"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <div className="text-xs text-white/50 mt-1">
+                  {assignment.current_steps?.toLocaleString()} / {assignment.challenge_goal_steps.toLocaleString()} steps
+                </div>
+              </div>
+            )}
+
+            {assignment.message && (
+              <p className="text-xs text-white/50 italic mt-3 bg-white/5 rounded-lg p-2">
+                "{assignment.message}"
+              </p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}

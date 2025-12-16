@@ -76,6 +76,8 @@ export interface ChallengeAssignment {
   user_challenge_id?: string | null;
   current_steps?: number;
   user_challenge_status?: string | null;
+  user_challenge_started_at?: string | null;
+  user_challenge_completed_at?: string | null;
 }
 
 /**
@@ -791,17 +793,38 @@ class TeamService {
       if (!assignment) throw new Error('Assignment not found');
       if (assignment.status !== 'accepted') throw new Error('Challenge must be accepted first');
 
-      // Check if user already has an active challenge
+      // ✅ FIX 1: Check if user already has ANY active challenge (including assignments)
       const { data: activeChallenge } = await supabase
         .from('user_challenges')
-        .select('id')
+        .select('id, assigned_by')
         .eq('user_id', user.id)
         .eq('device_id', profile.device_id || getDeviceId())
         .eq('status', 'active')
         .maybeSingle();
 
       if (activeChallenge) {
-        throw new Error('You already have an active challenge. Complete or pause it first.');
+        // Check if it's a social challenge
+        if (activeChallenge.assigned_by) {
+          throw new Error('You have an active social challenge. Complete or pause it first before starting a new one.');
+        } else {
+          throw new Error('You have an active solo challenge. Complete or pause it first before starting a new one.');
+        }
+      }
+
+      // ✅ FIX 2: Check if there are other accepted assignments waiting to be started
+      const { data: otherAcceptedAssignments, error: checkError } = await supabase
+        .from('challenge_assignments')
+        .select('id')
+        .eq('recipient_id', user.id)
+        .eq('status', 'accepted')
+        .is('user_challenge_id', null)
+        .neq('id', assignmentId) // Exclude current assignment
+        .maybeSingle();
+
+      if (checkError && checkError.code !== 'PGRST116') throw checkError;
+
+      if (otherAcceptedAssignments) {
+        throw new Error('You have another accepted challenge waiting. Start or decline that one first.');
       }
 
       // Create user_challenge (start the challenge)
@@ -814,6 +837,7 @@ class TeamService {
           current_steps: 0,
           status: 'active',
           started_at: new Date().toISOString(),
+          assigned_by: user.id, // Mark as social challenge
         })
         .select()
         .single();
@@ -933,6 +957,8 @@ class TeamService {
         user_challenge_id: item.user_challenge_id,
         current_steps: item.user_challenge?.current_steps || 0,
         user_challenge_status: item.user_challenge?.status || null,
+        user_challenge_started_at: item.user_challenge?.started_at || null,
+        user_challenge_completed_at: item.user_challenge?.completed_at || null,
       }));
 
       return assignments as ChallengeAssignment[];
@@ -988,6 +1014,8 @@ class TeamService {
         user_challenge_id: item.user_challenge_id,
         current_steps: item.user_challenge?.current_steps || 0,
         user_challenge_status: item.user_challenge?.status || null,
+        user_challenge_started_at: item.user_challenge?.started_at || null,
+        user_challenge_completed_at: item.user_challenge?.completed_at || null,
       }));
 
       return assignments as ChallengeAssignment[];

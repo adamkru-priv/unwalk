@@ -19,7 +19,7 @@ export function AppHeader({ title, showBackButton = false, subtitle }: AppHeader
   
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
-  const userTier = useChallengeStore((s) => s.userTier);
+  const setUserTierInStore = useChallengeStore((s) => s.setUserTier);
 
   useEffect(() => {
     loadUserProfile();
@@ -33,6 +33,12 @@ export function AppHeader({ title, showBackButton = false, subtitle }: AppHeader
   const loadUserProfile = async () => {
     const profile = await authService.getUserProfile();
     setUserProfile(profile);
+    
+    // Sync tier to store
+    if (profile?.tier) {
+      setUserTierInStore(profile.tier);
+      console.log('🔄 [AppHeader] Synced tier to store:', profile.tier);
+    }
   };
 
   const loadNotifications = async () => {
@@ -60,6 +66,7 @@ export function AppHeader({ title, showBackButton = false, subtitle }: AppHeader
 
   // Check if user is guest
   const isGuest = userProfile?.is_guest || false;
+  const userTier = userProfile?.tier || 'basic';
 
   return (
     <header className="bg-gray-50/80 dark:bg-[#0B101B]/80 backdrop-blur-md sticky top-0 z-20 px-6 py-4 border-b border-gray-200 dark:border-transparent">
