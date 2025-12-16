@@ -147,12 +147,23 @@ export function ProfileScreen() {
       if (error) {
         console.error('Failed to update tier:', error);
         alert('Failed to update account type. Please try again.');
+        setUserTier(userProfile?.tier || 'basic'); // Rollback on error
         return;
       }
-      console.log('✅ Tier updated in database:', tier);
+      
+      // ✅ Update userProfile in store to persist the change
+      if (userProfile) {
+        setUserProfile({
+          ...userProfile,
+          tier
+        });
+      }
+      
+      console.log('✅ Tier updated in database and store:', tier);
     } catch (err) {
       console.error('Failed to update tier:', err);
       alert('Failed to update account type. Please try again.');
+      setUserTier(userProfile?.tier || 'basic'); // Rollback on error
     }
   };
 
@@ -164,7 +175,18 @@ export function ProfileScreen() {
       const { error } = await authService.updateProfile({ tier: 'basic' });
       if (error) {
         console.error('Failed to downgrade tier:', error);
+        return;
       }
+      
+      // ✅ Update userProfile in store
+      if (userProfile) {
+        setUserProfile({
+          ...userProfile,
+          tier: 'basic'
+        });
+      }
+      
+      console.log('✅ Downgraded to basic in database and store');
     } catch (err) {
       console.error('Failed to downgrade tier:', err);
     }
