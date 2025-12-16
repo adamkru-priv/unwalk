@@ -69,7 +69,7 @@ function App() {
     };
 
     // Initialize authenticated user data
-    const initializeAuthenticatedData = async (userId: string) => {
+    const initializeAuthenticatedData = async () => {
       try {
         console.log('✅ [App] Initializing authenticated user data...');
         
@@ -132,7 +132,7 @@ function App() {
             await initializeGuestData();
           } else {
             console.log('✅ [App] Authenticated user detected');
-            await initializeAuthenticatedData(currentUserId);
+            await initializeAuthenticatedData();
           }
         }
         
@@ -153,7 +153,7 @@ function App() {
             await initializeGuestData();
           } else {
             console.log('✅ [App] User logged in, loading authenticated data');
-            await initializeAuthenticatedData(currentUserId);
+            await initializeAuthenticatedData();
           }
         } else {
           // User logged out

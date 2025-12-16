@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import type { UserChallenge } from '../../types';
-import { calculateChallengePoints, claimCompletedChallenge } from '../../lib/api';
+import { calculateChallengePoints } from '../../lib/api';
 import { useChallengeStore } from '../../stores/useChallengeStore';
 import { supabase } from '../../lib/supabase';
 
