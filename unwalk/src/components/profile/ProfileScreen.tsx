@@ -2,7 +2,7 @@ import { BottomNavigation } from '../common/BottomNavigation';
 import { AppHeader } from '../common/AppHeader';
 import { useChallengeStore } from '../../stores/useChallengeStore';
 import { useState, useEffect } from 'react';
-import { authService, type UserProfile } from '../../lib/auth';
+import { authService } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
 import { AccountSection } from './AccountSection';
 import { AccountTypeCards } from './AccountTypeCards';
@@ -12,16 +12,6 @@ import { DailyStepGoalSection } from './DailyStepGoalSection';
 import { PausedChallengesWarning } from './PausedChallengesWarning';
 
 export function ProfileScreen() {
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authMode, setAuthMode] = useState<'email' | 'verify-otp'>('email');
-  const [email, setEmail] = useState('');
-  const [otpCode, setOtpCode] = useState('');
-  const [authLoading, setAuthLoading] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [authSuccess, setAuthSuccess] = useState<string | null>(null);
-  const [showPausedWarning, setShowPausedWarning] = useState(false);
-
   const userTier = useChallengeStore((s) => s.userTier);
   const setUserTier = useChallengeStore((s) => s.setUserTier);
   const pausedChallenges = useChallengeStore((s) => s.pausedChallenges);
@@ -33,49 +23,38 @@ export function ProfileScreen() {
   const theme = useChallengeStore((s) => s.theme);
   const setTheme = useChallengeStore((s) => s.setTheme);
   const resetToInitialState = useChallengeStore((s) => s.resetToInitialState);
+  const userProfile = useChallengeStore((s) => s.userProfile); // ✅ Read from store
+  const setUserProfile = useChallengeStore((s) => s.setUserProfile); // For updates
+
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState<'email' | 'verify-otp'>('email');
+  const [email, setEmail] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authSuccess, setAuthSuccess] = useState<string | null>(null);
+  const [showPausedWarning, setShowPausedWarning] = useState(false);
 
   useEffect(() => {
-    loadUserProfile();
+    // Profile is already loaded in App.tsx, no need to load here
+    // Just sync local state when profile changes in store
+    if (userProfile) {
+      setUserTier(userProfile.tier);
+      setDailyStepGoal(userProfile.daily_step_goal);
+    }
     
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('🔐 [ProfileScreen] Auth state changed:', event, 'session:', session?.user?.id);
       
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
-        console.log('🔄 [ProfileScreen] Auth event detected, waiting for App.tsx to update...');
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        console.log('🔄 [ProfileScreen] Now reloading profile...');
-        await loadUserProfile();
+        console.log('🔄 [ProfileScreen] Auth event detected, profile will be reloaded by App.tsx');
       }
     });
 
     return () => {
       authListener?.subscription.unsubscribe();
     };
-  }, []);
-
-  const loadUserProfile = async () => {
-    try {
-      console.log('🔍 [ProfileScreen] Loading user profile...');
-      const profile = await authService.getUserProfile();
-      
-      console.log('🔍 [ProfileScreen] User profile loaded:', profile);
-      console.log('🔍 [ProfileScreen] Is guest?', profile?.is_guest);
-      console.log('🔍 [ProfileScreen] Email:', profile?.email);
-      console.log('🔍 [ProfileScreen] Tier:', profile?.tier);
-      
-      setUserProfile(profile);
-      
-      if (profile && !profile.is_guest) {
-        console.log('✅ [ProfileScreen] Updating store with authenticated user data');
-        setUserTier(profile.tier);
-        setDailyStepGoal(profile.daily_step_goal);
-      } else if (profile && profile.is_guest) {
-        console.log('👤 [ProfileScreen] User is guest, keeping guest tier');
-      }
-    } catch (error) {
-      console.error('❌ [ProfileScreen] Failed to load profile:', error);
-    }
-  };
+  }, [userProfile]);
 
   const isGuest = userProfile?.is_guest || false;
 

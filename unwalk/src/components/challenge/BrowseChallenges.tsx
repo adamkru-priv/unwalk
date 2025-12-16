@@ -3,12 +3,9 @@ import { motion } from 'framer-motion';
 import type { AdminChallenge, UserChallenge } from '../../types';
 import { getAdminChallenges, startChallenge, getCompletedChallenges, calculateChallengePoints } from '../../lib/api';
 import { useChallengeStore } from '../../stores/useChallengeStore';
-import { teamService, authService, type TeamMember } from '../../lib/auth';
-
-type Category = 'animals' | 'sport' | 'nature' | 'surprise';
+import { teamService, type TeamMember } from '../../lib/auth';
 
 export function BrowseChallenges() {
-  const [selectedCategory] = useState<Category | null>(null);
   const [challenges, setChallenges] = useState<AdminChallenge[]>([]);
   const [completedChallenges, setCompletedChallenges] = useState<UserChallenge[]>([]);
   const [completedChallengeIds, setCompletedChallengeIds] = useState<Set<string>>(new Set());
@@ -18,27 +15,16 @@ export function BrowseChallenges() {
   const [error, setError] = useState<string | null>(null);
   const [selectedChallenge, setSelectedChallenge] = useState<AdminChallenge | null>(null);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-  const [isGuest, setIsGuest] = useState(false);
   const { activeUserChallenge, setActiveChallenge, setCurrentScreen, getDailyChallenge, setDailyChallenge: saveDailyChallenge, userTier } = useChallengeStore();
+  const userProfile = useChallengeStore((s) => s.userProfile); // ✅ Read from store
+  const isGuest = userProfile?.is_guest ?? false;
 
   useEffect(() => {
     loadChallenges();
     loadCompletedChallenges();
     loadDailyChallenge();
     loadTeamMembers();
-    checkIfGuest();
-  }, [selectedCategory]);
-
-  const checkIfGuest = async () => {
-    try {
-      const profile = await authService.getUserProfile();
-      const guestStatus = profile?.is_guest || false;
-      setIsGuest(guestStatus);
-      console.log('🔐 [BrowseChallenges] Guest status:', guestStatus, 'Profile:', profile);
-    } catch (err) {
-      console.error('Failed to check guest status:', err);
-    }
-  };
+  }, []);
 
   const loadTeamMembers = async () => {
     try {
@@ -80,15 +66,8 @@ export function BrowseChallenges() {
       setError(null);
       const allChallenges = await getAdminChallenges();
       
-      // Filter by category if selected
-      let filtered = allChallenges;
-      if (selectedCategory && selectedCategory !== 'surprise') {
-        filtered = allChallenges.filter(c => 
-          c.category?.toLowerCase() === selectedCategory
-        );
-      }
-      
-      setChallenges(filtered);
+      // No filtering - show all challenges
+      setChallenges(allChallenges);
     } catch (err) {
       setError('Failed to load challenges. Please try again.');
       console.error('Error:', err);

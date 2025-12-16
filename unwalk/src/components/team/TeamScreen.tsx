@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AppHeader } from '../common/AppHeader';
 import { BottomNavigation } from '../common/BottomNavigation';
-import { teamService, authService, type TeamMember, type TeamInvitation, type UserProfile, type ChallengeAssignment } from '../../lib/auth';
+import { teamService, type TeamMember, type TeamInvitation, type ChallengeAssignment } from '../../lib/auth';
 import { useChallengeStore } from '../../stores/useChallengeStore';
 import { TeamMembers } from './TeamMembers';
 import { SentChallenges } from './SentChallenges';
@@ -11,7 +11,7 @@ import { MemberDetail } from './MemberDetail';
 
 export function TeamScreen() {
   const setCurrentScreen = useChallengeStore((state) => state.setCurrentScreen);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const userProfile = useChallengeStore((s) => s.userProfile); // ✅ Read from store
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [receivedInvitations, setReceivedInvitations] = useState<TeamInvitation[]>([]);
   const [sentInvitations, setSentInvitations] = useState<TeamInvitation[]>([]);
@@ -24,23 +24,19 @@ export function TeamScreen() {
   const [activeTab, setActiveTab] = useState<'team' | 'sent' | 'received'>('team');
 
   useEffect(() => {
-    loadUserAndTeamData();
+    loadTeamData();
   }, []);
 
-  const loadUserAndTeamData = async () => {
+  const loadTeamData = async () => {
     setLoading(true);
     try {
       console.log('🔄 [TeamScreen] Loading team data...');
       
-      // First load profile to check if guest
-      const profile = await authService.getUserProfile();
-      console.log('✅ [TeamScreen] User profile loaded:', profile);
-      console.log('✅ [TeamScreen] Is guest?', profile?.is_guest);
+      // ✅ Use profile from store
+      console.log('✅ [TeamScreen] Using profile from store:', { is_guest: userProfile?.is_guest });
       
-      setUserProfile(profile);
-      
-      // ✅ FIX: If guest, skip loading team data
-      if (profile?.is_guest) {
+      // ✅ If guest, skip loading team data
+      if (userProfile?.is_guest) {
         console.log('👤 [TeamScreen] Guest user detected - skipping team data load');
         setTeamMembers([]);
         setReceivedInvitations([]);
@@ -75,7 +71,6 @@ export function TeamScreen() {
     } catch (error) {
       console.error('❌ [TeamScreen] Failed to load team data:', error);
       // Set empty data to unblock UI
-      setUserProfile(null);
       setTeamMembers([]);
       setReceivedInvitations([]);
       setSentInvitations([]);
@@ -100,7 +95,7 @@ export function TeamScreen() {
         onBack={() => setSelectedMember(null)}
         onRemoved={() => {
           setSelectedMember(null);
-          loadUserAndTeamData();
+          loadTeamData();
         }}
       />
     );
@@ -132,7 +127,7 @@ export function TeamScreen() {
         isOpen={showInviteModal}
         onClose={() => setShowInviteModal(false)}
         userProfile={userProfile}
-        onInviteSent={loadUserAndTeamData}
+        onInviteSent={loadTeamData}
       />
 
       <main className="px-5 pt-6 pb-6 max-w-md mx-auto space-y-6">
@@ -250,21 +245,21 @@ export function TeamScreen() {
                 userProfile={userProfile}
                 onMemberSelect={setSelectedMember}
                 onInviteClick={handleInviteClick}
-                onRefresh={loadUserAndTeamData}
+                onRefresh={loadTeamData}
               />
             )}
 
             {activeTab === 'sent' && (
               <SentChallenges
                 challenges={sentChallengeHistory}
-                onRefresh={loadUserAndTeamData}
+                onRefresh={loadTeamData}
               />
             )}
 
             {activeTab === 'received' && (
               <ReceivedChallenges
                 challenges={receivedChallengeHistory}
-                onRefresh={loadUserAndTeamData}
+                onRefresh={loadTeamData}
               />
             )}
           </>

@@ -1,6 +1,6 @@
 import { AppHeader } from '../common/AppHeader';
 import { BottomNavigation } from '../common/BottomNavigation';
-import { badgesService, authService, type Badge } from '../../lib/auth';
+import { badgesService, type Badge } from '../../lib/auth';
 import { useChallengeStore } from '../../stores/useChallengeStore';
 import { useState, useEffect } from 'react';
 
@@ -8,12 +8,12 @@ export function BadgesScreen() {
   const [badges, setBadges] = useState<Badge[]>([]);
   const [totalPoints, setTotalPoints] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [isGuest, setIsGuest] = useState(false);
-  const [userTier, setUserTier] = useState<'basic' | 'pro'>('basic');
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Get setUserTier from store to sync
-  const setUserTierInStore = useChallengeStore((s) => s.setUserTier);
+  // ✅ Read from store instead of loading
+  const userProfile = useChallengeStore((s) => s.userProfile);
+  const isGuest = userProfile?.is_guest ?? false;
+  const userTier = userProfile?.tier ?? 'basic';
 
   // Refresh data every time component is rendered (when navigating back to Rewards)
   useEffect(() => {
@@ -33,35 +33,24 @@ export function BadgesScreen() {
   const loadBadgesData = async () => {
     setLoading(true);
     try {
-      // Always fetch fresh profile data
-      const profile = await authService.getUserProfile();
-      const guestStatus = profile?.is_guest ?? false;
-      const tier = profile?.tier ?? 'basic';
-      
-      console.log('🔍 [BadgesScreen] Fresh profile data:', { 
-        guestStatus, 
-        tier,
-        total_points: profile?.total_points 
+      // ✅ Use profile from store, no need to fetch
+      console.log('🔍 [BadgesScreen] Using profile from store:', { 
+        isGuest, 
+        userTier,
+        total_points: userProfile?.total_points 
       });
-      
-      setIsGuest(guestStatus);
-      setUserTier(tier);
-
-      // 🔄 SYNC: Update Zustand store with fresh tier from database
-      setUserTierInStore(tier);
-      console.log('✅ [BadgesScreen] Synced tier to store:', tier);
 
       // Only load badges if PRO user
-      if (!guestStatus && tier === 'pro') {
+      if (!isGuest && userTier === 'pro') {
         const badgesData = await badgesService.getBadges();
         
-        // ✅ FIX: Get total_points from user profile, not from badges
-        const userTotalPoints = profile?.total_points || 0;
+        // Get total_points from user profile in store
+        const userTotalPoints = userProfile?.total_points || 0;
 
         setBadges(badgesData);
         setTotalPoints(userTotalPoints);
         
-        console.log('✅ [BadgesScreen] Loaded points from profile:', userTotalPoints);
+        console.log('✅ [BadgesScreen] Loaded badges with points:', userTotalPoints);
       } else {
         // Clear badges if not PRO
         setBadges([]);

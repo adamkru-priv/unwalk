@@ -5,7 +5,6 @@ import { BottomNavigation } from '../common/BottomNavigation';
 import { getActiveUserChallenge } from '../../lib/api';
 import type { UserChallenge } from '../../types';
 import { CelebrationModal } from './CelebrationModal';
-import { authService, type UserProfile } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
 import { getDeviceId } from '../../lib/deviceId';
 import { HeroHeader } from './sections/HeroHeader';
@@ -20,11 +19,11 @@ export function HomeScreen() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [teamActiveChallenges, setTeamActiveChallenges] = useState<any[]>([]);
   
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
   const pausedChallenges = useChallengeStore((s) => s.pausedChallenges);
+  const userProfile = useChallengeStore((s) => s.userProfile); // ✅ Read from store
   const userTier = useChallengeStore((s) => s.userTier);
   const resumeChallenge = useChallengeStore((s) => s.resumeChallenge);
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
@@ -36,7 +35,6 @@ export function HomeScreen() {
   useEffect(() => {
     loadActiveChallenge();
     loadUnclaimedChallenges();
-    loadUserProfile();
     loadTeamChallenges();
   }, []);
 
@@ -88,11 +86,6 @@ export function HomeScreen() {
     } catch (err) {
       console.error('Failed to load unclaimed challenges:', err);
     }
-  };
-
-  const loadUserProfile = async () => {
-    const profile = await authService.getUserProfile();
-    setUserProfile(profile);
   };
 
   const loadTeamChallenges = async () => {
