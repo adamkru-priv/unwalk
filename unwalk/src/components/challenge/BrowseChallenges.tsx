@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import type { AdminChallenge, UserChallenge } from '../../types';
+import type { AdminChallenge } from '../../types';
 import { getAdminChallenges, startChallenge, getCompletedChallenges, calculateChallengePoints } from '../../lib/api';
 import { useChallengeStore } from '../../stores/useChallengeStore';
 import { teamService, type TeamMember } from '../../lib/auth';
 
 export function BrowseChallenges() {
   const [challenges, setChallenges] = useState<AdminChallenge[]>([]);
-  const [completedChallenges, setCompletedChallenges] = useState<UserChallenge[]>([]);
   const [completedChallengeIds, setCompletedChallengeIds] = useState<Set<string>>(new Set());
   const [dailyChallenge, setDailyChallenge] = useState<AdminChallenge | null>(null);
   const [loading, setLoading] = useState(true);
@@ -86,7 +85,6 @@ export function BrowseChallenges() {
           .filter((id): id is string => id !== null && id !== undefined)
       );
       setCompletedChallengeIds(completedIds);
-      setCompletedChallenges(completed);
       console.log('📊 [BrowseChallenges] State updated - completedChallenges.length:', completed.length);
     } catch (err) {
       console.error('Failed to load completed challenges:', err);
