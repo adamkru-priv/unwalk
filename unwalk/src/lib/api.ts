@@ -476,3 +476,29 @@ export async function getTeamActiveChallenges(): Promise<any[]> {
     return [];
   }
 }
+
+// Get team member stats (current count, max allowed based on tier)
+export async function getTeamMemberStats(): Promise<{
+  current_members: number;
+  max_members: number;
+  tier: string;
+} | null> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.log('👤 [API] No authenticated user - cannot check team stats');
+      return null;
+    }
+
+    const { data, error } = await supabase.rpc('get_team_member_stats', {
+      p_user_id: user.id
+    });
+
+    if (error) throw error;
+
+    return data?.[0] || null;
+  } catch (error) {
+    console.error('❌ [API] Get team member stats error:', error);
+    return null;
+  }
+}

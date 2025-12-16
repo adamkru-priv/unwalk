@@ -38,7 +38,11 @@ export function BadgesScreen() {
       const guestStatus = profile?.is_guest ?? false;
       const tier = profile?.tier ?? 'basic';
       
-      console.log('🔍 [BadgesScreen] Fresh profile data:', { guestStatus, tier });
+      console.log('🔍 [BadgesScreen] Fresh profile data:', { 
+        guestStatus, 
+        tier,
+        total_points: profile?.total_points 
+      });
       
       setIsGuest(guestStatus);
       setUserTier(tier);
@@ -49,13 +53,15 @@ export function BadgesScreen() {
 
       // Only load badges if PRO user
       if (!guestStatus && tier === 'pro') {
-        const [badgesData, points] = await Promise.all([
-          badgesService.getBadges(),
-          badgesService.getTotalPoints(),
-        ]);
+        const badgesData = await badgesService.getBadges();
+        
+        // ✅ FIX: Get total_points from user profile, not from badges
+        const userTotalPoints = profile?.total_points || 0;
 
         setBadges(badgesData);
-        setTotalPoints(points);
+        setTotalPoints(userTotalPoints);
+        
+        console.log('✅ [BadgesScreen] Loaded points from profile:', userTotalPoints);
       } else {
         // Clear badges if not PRO
         setBadges([]);

@@ -56,7 +56,9 @@ export function OnboardingScreen() {
   const setOnboardingComplete = useChallengeStore((s) => s.setOnboardingComplete);
 
   const handleSkip = () => {
+    // Mark onboarding as complete and redirect to "Who to Challenge" screen
     setOnboardingComplete(true);
+    useChallengeStore.setState({ currentScreen: 'whoToChallenge' });
   };
 
   // Touch handlers for swipe gestures
@@ -161,7 +163,7 @@ export function OnboardingScreen() {
 
                 {/* Features */}
                 <motion.div
-                  className="space-y-3"
+                  className="space-y-3 mb-6"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.4 }}
@@ -176,10 +178,24 @@ export function OnboardingScreen() {
                     </div>
                   ))}
                 </motion.div>
+
+                {/* Get Started button on last slide - MOVED UP */}
+                {isLastSlide && (
+                  <motion.button
+                    onClick={handleSkip}
+                    className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-blue-500/20 active:scale-98 transition-all mb-4"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    Get Started
+                  </motion.button>
+                )}
               </div>
 
               {/* Pagination dots */}
-              <div className="flex justify-center gap-2 mt-8 mb-4">
+              <div className="flex justify-center gap-2 mt-4">
                 {slides.map((_, index) => (
                   <button
                     key={index}
@@ -197,22 +213,6 @@ export function OnboardingScreen() {
           </motion.div>
         </AnimatePresence>
       </div>
-
-      {/* Bottom CTA - Start Walking button on last slide */}
-      {isLastSlide && (
-        <div className="p-6 pb-10">
-          <motion.button
-            onClick={handleSkip}
-            className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-blue-500/20 active:scale-98 transition-all"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            Start Walking
-          </motion.button>
-        </div>
-      )}
     </div>
   );
 }

@@ -3,6 +3,8 @@ import { useChallengeStore } from './stores/useChallengeStore';
 import { useToastStore } from './stores/useToastStore';
 import { ToastContainer } from './components/common/Toast';
 import { OnboardingScreen } from './components/onboarding/OnboardingScreen';
+import { WhoToChallengeScreen } from './components/onboarding/WhoToChallengeScreen';
+import { AuthRequiredScreen } from './components/onboarding/AuthRequiredScreen';
 import { HomeScreen } from './components/home/HomeScreen';
 import { Dashboard } from './components/dashboard/Dashboard';
 import { ChallengeLibrary } from './components/challenge/ChallengeLibrary';
@@ -13,6 +15,7 @@ import { BadgesScreen } from './components/badges/BadgesScreen';
 import { authService } from './lib/auth';
 import { getActiveUserChallenge, getPausedChallenges } from './lib/api';
 import { supabase } from './lib/supabase';
+import './lib/authDebug'; // Debug helper
 
 function App() {
   const isOnboardingComplete = useChallengeStore((s) => s.isOnboardingComplete);
@@ -114,6 +117,7 @@ function App() {
       console.log('🔐 [App] Auth state changed:', event, 'user:', session?.user?.id);
 
       const currentUserId = session?.user?.id || null;
+      const hasEmail = !!session?.user?.email; // ✅ NEW: Check if session has email
 
       // Initialize on first load
       if (!isInitialized) {
@@ -123,17 +127,14 @@ function App() {
           // No session - initialize as guest
           console.log('👤 [App] No session - initializing as guest');
           await initializeGuestData();
+        } else if (hasEmail) {
+          // ✅ Has session AND email - definitely authenticated user
+          console.log('✅ [App] Authenticated user detected (has email)');
+          await initializeAuthenticatedData();
         } else {
-          // Has session - check if real user or guest
-          const profile = await authService.getUserProfile();
-          
-          if (profile?.is_guest) {
-            console.log('👤 [App] Session detected but user is guest');
-            await initializeGuestData();
-          } else {
-            console.log('✅ [App] Authenticated user detected');
-            await initializeAuthenticatedData();
-          }
+          // Has session but no email - guest user
+          console.log('👤 [App] Guest user detected (no email)');
+          await initializeGuestData();
         }
         
         previousUserId = currentUserId;
@@ -144,22 +145,25 @@ function App() {
       if (currentUserId !== previousUserId) {
         previousUserId = currentUserId;
 
-        if (currentUserId) {
-          // User just logged in
-          const profile = await authService.getUserProfile();
-          
-          if (profile?.is_guest) {
-            console.log('👤 [App] Login detected but user is guest');
-            await initializeGuestData();
-          } else {
-            console.log('✅ [App] User logged in, loading authenticated data');
-            await initializeAuthenticatedData();
-          }
+        if (currentUserId && hasEmail) {
+          // ✅ User just logged in with email
+          console.log('✅ [App] User logged in with email, loading authenticated data');
+          await initializeAuthenticatedData();
+        } else if (currentUserId && !hasEmail) {
+          // User session but no email - guest
+          console.log('👤 [App] Guest session detected');
+          await initializeGuestData();
         } else {
           // User logged out
           console.log('👋 [App] User logged out, reloading guest data');
           await initializeGuestData();
         }
+      }
+      
+      // ✅ CRITICAL: Ignore TOKEN_REFRESHED events - don't reload data!
+      if (event === 'TOKEN_REFRESHED') {
+        console.log('🔄 [App] Token refreshed - keeping current data');
+        return;
       }
     });
 
@@ -168,9 +172,19 @@ function App() {
     };
   }, [setActiveChallenge, setPausedChallenges, setUserTier, setDailyStepGoal]);
 
-  // Show onboarding if not completed
+  // Show initial onboarding if not completed
   if (!isOnboardingComplete) {
     return <div className={theme}><OnboardingScreen /></div>;
+  }
+
+  // Show "Who to Challenge" screen when explicitly navigated to
+  if (currentScreen === 'whoToChallenge') {
+    return <div className={theme}><WhoToChallengeScreen /></div>;
+  }
+
+  // Show auth screen if required (for non-self targets)
+  if (currentScreen === 'auth') {
+    return <div className={theme}><AuthRequiredScreen /></div>;
   }
 
   // Otherwise show the appropriate screen

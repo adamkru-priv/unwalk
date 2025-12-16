@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { Challenge, UserChallenge, UserTier } from '../types';
 import type { AdminChallenge } from '../types';
 
-type Screen = 'onboarding' | 'home' | 'dashboard' | 'library' | 'team' | 'stats' | 'profile' | 'badges';
+type Screen = 'onboarding' | 'whoToChallenge' | 'auth' | 'home' | 'dashboard' | 'library' | 'team' | 'stats' | 'profile' | 'badges';
 type Theme = 'light' | 'dark';
 
 interface ChallengeStore {
@@ -12,6 +12,7 @@ interface ChallengeStore {
   pausedChallenges: UserChallenge[];
   currentScreen: Screen;
   isOnboardingComplete: boolean;
+  hasSeenWhoToChallenge: boolean; // New: track if user saw target selection
   isHealthConnected: boolean;
   userTier: UserTier;
   dailyStepGoal: number;
@@ -52,6 +53,7 @@ export const useChallengeStore = create<ChallengeStore>()(
       pausedChallenges: [],
       currentScreen: 'onboarding',
       isOnboardingComplete: false,
+      hasSeenWhoToChallenge: false, // New: track if user saw target selection
       isHealthConnected: false,
       userTier: 'basic',
       dailyStepGoal: 0,
@@ -188,6 +190,7 @@ export const useChallengeStore = create<ChallengeStore>()(
         pausedChallenges: [],
         currentScreen: 'onboarding',
         isOnboardingComplete: false,
+        hasSeenWhoToChallenge: false, // New: track if user saw target selection
         isHealthConnected: false,
         userTier: 'basic',
         dailyStepGoal: 0,

@@ -10,8 +10,10 @@ export interface UserProfile {
   daily_step_goal: number;
   tier: 'basic' | 'pro';
   onboarding_completed: boolean;
+  onboarding_target?: 'self' | 'spouse' | 'child' | 'friend' | null;
   is_guest: boolean;
   device_id: string | null;
+  total_points?: number;
   created_at: string;
   updated_at: string;
 }
