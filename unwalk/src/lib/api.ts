@@ -2,6 +2,7 @@
 import { supabase } from './supabase';
 import { getDeviceId } from './deviceId';
 import type { AdminChallenge, UserChallenge } from '../types';
+import { badgesService } from './auth';
 
 // Calculate points for a challenge based on goal_steps
 export function calculateChallengePoints(goalSteps: number, isDailyChallenge: boolean = false): number {
@@ -155,6 +156,16 @@ export async function completeChallenge(userChallengeId: string): Promise<UserCh
     .single();
 
   if (error) throw error;
+  
+  // ✅ Check and unlock achievements for PRO users
+  try {
+    await badgesService.checkAchievements();
+    console.log('✅ [API] Checked achievements after completing challenge');
+  } catch (achievementError) {
+    console.error('⚠️ [API] Failed to check achievements:', achievementError);
+    // Don't throw - completing challenge is more important than badge checking
+  }
+  
   return data;
 }
 
@@ -239,6 +250,16 @@ export async function claimCompletedChallenge(userChallengeId: string): Promise<
     .single();
 
   if (error) throw error;
+  
+  // ✅ Check and unlock achievements for PRO users
+  try {
+    await badgesService.checkAchievements();
+    console.log('✅ [API] Checked achievements after claiming challenge');
+  } catch (achievementError) {
+    console.error('⚠️ [API] Failed to check achievements:', achievementError);
+    // Don't throw - claiming challenge is more important than badge checking
+  }
+  
   return data;
 }
 
