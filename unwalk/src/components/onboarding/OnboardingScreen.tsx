@@ -43,7 +43,6 @@ const slides = [
     features: [
       { icon: '📱', text: 'Auto sync steps' },
       { icon: '🔒', text: 'Private & secure' },
-      { icon: '⚡', text: 'Real-time updates' },
     ],
   },
 ];
@@ -96,7 +95,7 @@ export function OnboardingScreen() {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Skip button - Top Right - MAXIMUM VISIBILITY */}
+      {/* Skip button - Top Right */}
       <div className="absolute top-4 right-4 z-30">
         <button
           onClick={handleSkip}
@@ -105,6 +104,22 @@ export function OnboardingScreen() {
           Skip
         </button>
       </div>
+
+      {/* Swipe indicator - Right side - Show on all slides except last */}
+      {!isLastSlide && (
+        <div className="absolute right-6 top-1/2 -translate-y-1/2 z-20 flex items-center gap-2">
+          <div className="text-white/40 text-xs font-medium">Swipe</div>
+          <motion.div
+            animate={{ x: [0, 8, 0] }}
+            transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+            className="flex items-center"
+          >
+            <svg className="w-6 h-6 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </motion.div>
+        </div>
+      )}
 
       {/* Content */}
       <div className="flex-1 flex flex-col">
@@ -117,8 +132,8 @@ export function OnboardingScreen() {
             transition={{ duration: 0.3, ease: 'easeOut' }}
             className="flex-1 flex flex-col"
           >
-            {/* Image Section */}
-            <div className="relative h-[45vh] overflow-hidden">
+            {/* Image Section - Smaller */}
+            <div className="relative h-[35vh] overflow-hidden flex-shrink-0">
               <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#0B101B] z-10" />
               
               <motion.img
@@ -131,84 +146,84 @@ export function OnboardingScreen() {
               />
             </div>
 
-            {/* Text Content */}
-            <div className="flex-1 px-6 pt-8 pb-6 flex flex-col">
-              <div className="flex-1">
-                <motion.h1
-                  className="text-3xl font-black text-white mb-3 leading-tight"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 }}
-                >
-                  {slide.title}
-                </motion.h1>
+            {/* Text Content - Scrollable with safe padding */}
+            <div className="flex-1 overflow-y-auto scrollbar-hide px-6 pt-6 pb-28">
+              <motion.h1
+                className="text-3xl font-black text-white mb-2 leading-tight"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+              >
+                {slide.title}
+              </motion.h1>
 
-                <motion.p
-                  className="text-lg text-blue-400 font-semibold mb-3"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
-                >
-                  {slide.subtitle}
-                </motion.p>
+              <motion.p
+                className="text-lg text-blue-400 font-semibold mb-2"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                {slide.subtitle}
+              </motion.p>
 
-                <motion.p
-                  className="text-white/70 text-base mb-6 leading-relaxed"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
-                >
-                  {slide.description}
-                </motion.p>
+              <motion.p
+                className="text-white/70 text-base mb-5 leading-relaxed"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+              >
+                {slide.description}
+              </motion.p>
 
-                {/* Features */}
-                <motion.div
-                  className="space-y-3 mb-6"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 }}
-                >
-                  {slide.features.map((feature, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center gap-3 bg-white/5 backdrop-blur-sm rounded-xl p-3 border border-white/10"
-                    >
-                      <div className="text-2xl">{feature.icon}</div>
-                      <span className="text-white font-medium">{feature.text}</span>
-                    </div>
-                  ))}
-                </motion.div>
-
-                {/* Get Started button on last slide - MOVED UP */}
-                {isLastSlide && (
-                  <motion.button
-                    onClick={handleSkip}
-                    className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-blue-500/20 active:scale-98 transition-all mb-4"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    Get Started
-                  </motion.button>
-                )}
-              </div>
-
-              {/* Pagination dots */}
-              <div className="flex justify-center gap-2 mt-4">
-                {slides.map((_, index) => (
-                  <button
+              {/* Features */}
+              <motion.div
+                className="space-y-3 mb-6"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+              >
+                {slide.features.map((feature, index) => (
+                  <div
                     key={index}
-                    onClick={() => setCurrentSlide(index)}
-                    className={`h-2 rounded-full transition-all ${
-                      index === currentSlide
-                        ? 'w-8 bg-blue-500'
-                        : 'w-2 bg-white/30'
-                    }`}
-                    aria-label={`Go to slide ${index + 1}`}
-                  />
+                    className="flex items-center gap-3 bg-white/5 backdrop-blur-sm rounded-xl p-3 border border-white/10"
+                  >
+                    <div className="text-2xl">{feature.icon}</div>
+                    <span className="text-white font-medium">{feature.text}</span>
+                  </div>
                 ))}
-              </div>
+              </motion.div>
+
+              {/* Get Started button on last slide - Beautiful gradient */}
+              {isLastSlide && (
+                <motion.button
+                  onClick={handleSkip}
+                  className="w-full bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-500 hover:via-purple-500 hover:to-pink-500 text-white py-4 rounded-2xl font-bold text-lg shadow-xl shadow-purple-500/30 active:scale-98 transition-all mb-8 relative overflow-hidden group"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <span className="relative z-10">Get Started</span>
+                  {/* Animated shimmer effect */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                </motion.button>
+              )}
+            </div>
+
+            {/* Pagination dots - Fixed at bottom */}
+            <div className="absolute bottom-8 left-0 right-0 flex justify-center gap-2 z-10">
+              {slides.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentSlide(index)}
+                  className={`h-2 rounded-full transition-all ${
+                    index === currentSlide
+                      ? 'w-8 bg-blue-500'
+                      : 'w-2 bg-white/30'
+                  }`}
+                  aria-label={`Go to slide ${index + 1}`}
+                />
+              ))}
             </div>
           </motion.div>
         </AnimatePresence>

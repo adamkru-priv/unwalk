@@ -9,14 +9,13 @@ export function BrowseChallenges() {
   const [challenges, setChallenges] = useState<AdminChallenge[]>([]);
   const [completedChallenges, setCompletedChallenges] = useState<UserChallenge[]>([]);
   const [completedChallengeIds, setCompletedChallengeIds] = useState<Set<string>>(new Set());
-  const [showHistory, setShowHistory] = useState(false);
   const [dailyChallenge, setDailyChallenge] = useState<AdminChallenge | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedChallenge, setSelectedChallenge] = useState<AdminChallenge | null>(null);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const { activeUserChallenge, setActiveChallenge, setCurrentScreen, getDailyChallenge, setDailyChallenge: saveDailyChallenge, userTier } = useChallengeStore();
-  const userProfile = useChallengeStore((s) => s.userProfile); // ✅ Read from store
+  const userProfile = useChallengeStore((s) => s.userProfile);
   const isGuest = userProfile?.is_guest ?? false;
 
   useEffect(() => {
@@ -533,99 +532,6 @@ export function BrowseChallenges() {
                 Check back later for new challenges
               </p>
             </div>
-          )}
-
-          {/* Challenge History - Collapsible Section - Only for authenticated users */}
-          {!isGuest && completedChallenges.length > 0 && (
-            <section className="pt-4 border-t border-white/5">
-              <button
-                onClick={() => setShowHistory(!showHistory)}
-                className="w-full flex items-center justify-between px-1 py-3 text-left group"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-gray-400 group-hover:text-white transition-colors">
-                    Challenge History
-                  </span>
-                  <span className="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">
-                    {completedChallenges.length}
-                  </span>
-                </div>
-                <svg
-                  className={`w-4 h-4 text-gray-400 group-hover:text-white transition-all ${showHistory ? 'rotate-180' : ''}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-
-              {showHistory && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="space-y-2 mt-2"
-                >
-                  {completedChallenges.map((uc) => {
-                    const challenge = uc.admin_challenge;
-                    if (!challenge) return null;
-
-                    const completedDate = uc.completed_at ? new Date(uc.completed_at) : null;
-                    const formattedDate = completedDate 
-                      ? completedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                      : 'Unknown date';
-
-                    return (
-                      <div
-                        key={uc.id}
-                        className="bg-[#151A25] border border-white/5 rounded-xl p-3 flex items-center gap-3"
-                      >
-                        {/* Challenge Image */}
-                        <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
-                          <img
-                            src={challenge.image_url}
-                            alt={challenge.title}
-                            className="w-full h-full object-cover"
-                            style={{ filter: 'brightness(0.7)' }}
-                          />
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="bg-green-500 text-white rounded-full p-1">
-                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 01-1.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Challenge Info */}
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-sm font-semibold text-white truncate">
-                            {challenge.title}
-                          </h4>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-xs text-gray-400">
-                              {uc.current_steps.toLocaleString()} steps
-                            </span>
-                            <span className="text-xs text-gray-500">•</span>
-                            <span className="text-xs text-gray-500">
-                              {formattedDate}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Points Badge (if Pro user and system challenge) */}
-                        {!challenge.is_custom && userTier === 'pro' && (
-                          <div className="bg-amber-500/20 text-amber-400 text-xs font-bold px-2 py-1 rounded-md flex-shrink-0">
-                            +{calculateChallengePoints(challenge.goal_steps)} PTS
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </motion.div>
-              )}
-            </section>
           )}
         </div>
       )}
