@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Challenge, UserChallenge, UserTier } from '../types';
 import type { AdminChallenge } from '../types';
+import type { UserProfile } from '../lib/auth';
 
 type Screen = 'onboarding' | 'whoToChallenge' | 'auth' | 'home' | 'dashboard' | 'library' | 'team' | 'stats' | 'profile' | 'badges' | 'challengeSelection';
 type Theme = 'light' | 'dark';
@@ -14,6 +15,7 @@ interface ChallengeStore {
   isOnboardingComplete: boolean;
   hasSeenWhoToChallenge: boolean; // New: track if user saw target selection
   isHealthConnected: boolean;
+  userProfile: UserProfile | null; // ✅ NEW: Full user profile
   userTier: UserTier;
   dailyStepGoal: number;
   exploreResetTrigger: number;
@@ -35,6 +37,7 @@ interface ChallengeStore {
   clearChallenge: () => void;
   setOnboardingComplete: (complete: boolean) => void;
   setHealthConnected: (connected: boolean) => void;
+  setUserProfile: (profile: UserProfile | null) => void; // ✅ NEW
   setUserTier: (tier: UserTier) => void;
   setDailyStepGoal: (goal: number) => void;
   resetExploreView: () => void;
@@ -55,6 +58,7 @@ export const useChallengeStore = create<ChallengeStore>()(
       isOnboardingComplete: false,
       hasSeenWhoToChallenge: false, // New: track if user saw target selection
       isHealthConnected: false,
+      userProfile: null, // ✅ NEW: Full user profile
       userTier: 'basic',
       dailyStepGoal: 0,
       exploreResetTrigger: 0,
@@ -158,6 +162,8 @@ export const useChallengeStore = create<ChallengeStore>()(
       
       setHealthConnected: (connected) => set({ isHealthConnected: connected }),
 
+      setUserProfile: (profile) => set({ userProfile: profile }), // ✅ NEW
+
       setUserTier: (tier) => set({ userTier: tier }),
 
       setDailyStepGoal: (goal) => set({ dailyStepGoal: goal }),
@@ -192,6 +198,7 @@ export const useChallengeStore = create<ChallengeStore>()(
         isOnboardingComplete: false,
         hasSeenWhoToChallenge: false, // New: track if user saw target selection
         isHealthConnected: false,
+        userProfile: null, // ✅ NEW: Full user profile
         userTier: 'basic',
         dailyStepGoal: 0,
         dailyChallenge: null,

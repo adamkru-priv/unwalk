@@ -4,19 +4,19 @@ import { useState, useEffect } from 'react';
 import { updateChallengeProgress, getActiveUserChallenge, deleteUserChallenge } from '../../lib/api';
 import { BottomNavigation } from '../common/BottomNavigation';
 import { useToastStore } from '../../stores/useToastStore';
-import { authService } from '../../lib/auth';
 
 export function Dashboard() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [showStats, setShowStats] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
-  const [isGuest, setIsGuest] = useState(false);
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
   const setActiveChallenge = useChallengeStore((s) => s.setActiveChallenge);
   const pauseActiveChallenge = useChallengeStore((s) => s.pauseActiveChallenge);
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
   const clearChallenge = useChallengeStore((s) => s.clearChallenge);
-  const userTier = useChallengeStore((s) => s.userTier);
+  const userProfile = useChallengeStore((s) => s.userProfile); // ✅ Read from store
+  const userTier = userProfile?.tier || 'basic';
+  const isGuest = userProfile?.is_guest || false;
   const toast = useToastStore((s) => s);
 
   // LOAD ACTIVE CHALLENGE on mount if not in store
@@ -36,13 +36,7 @@ export function Dashboard() {
       }
     };
 
-    const loadProfile = async () => {
-      const profile = await authService.getUserProfile();
-      setIsGuest(profile?.is_guest || false);
-    };
-
     loadActiveChallenge();
-    loadProfile();
   }, []);
 
   const handleExitChallenge = async () => {

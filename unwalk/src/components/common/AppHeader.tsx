@@ -1,7 +1,7 @@
 import { useChallengeStore } from '../../stores/useChallengeStore';
 import { useToastStore } from '../../stores/useToastStore';
 import { useState, useEffect } from 'react';
-import { authService, teamService, type UserProfile, type TeamInvitation } from '../../lib/auth';
+import { teamService, type TeamInvitation } from '../../lib/auth';
 import { getUnclaimedChallenges } from '../../lib/api';
 
 interface AppHeaderProps {
@@ -12,7 +12,6 @@ interface AppHeaderProps {
 }
 
 export function AppHeader({ title, showBackButton = false, subtitle }: AppHeaderProps) {
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [receivedInvitations, setReceivedInvitations] = useState<TeamInvitation[]>([]);
   const [unclaimedChallenges, setUnclaimedChallenges] = useState<any[]>([]);
   const [pendingChallengesCount, setPendingChallengesCount] = useState(0);
@@ -20,27 +19,15 @@ export function AppHeader({ title, showBackButton = false, subtitle }: AppHeader
   
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
-  const setUserTierInStore = useChallengeStore((s) => s.setUserTier);
+  const userProfile = useChallengeStore((s) => s.userProfile); // ✅ Read from store instead of loading
 
   useEffect(() => {
-    loadUserProfile();
     loadNotifications();
     
     // Refresh notifications every 30 seconds
     const interval = setInterval(loadNotifications, 30000);
     return () => clearInterval(interval);
   }, []);
-
-  const loadUserProfile = async () => {
-    const profile = await authService.getUserProfile();
-    setUserProfile(profile);
-    
-    // Sync tier to store
-    if (profile?.tier) {
-      setUserTierInStore(profile.tier);
-      console.log('🔄 [AppHeader] Synced tier to store:', profile.tier);
-    }
-  };
 
   const loadNotifications = async () => {
     try {

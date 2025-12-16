@@ -25,6 +25,7 @@ function App() {
   const setPausedChallenges = useChallengeStore((s) => s.setPausedChallenges);
   const setUserTier = useChallengeStore((s) => s.setUserTier);
   const setDailyStepGoal = useChallengeStore((s) => s.setDailyStepGoal);
+  const setUserProfile = useChallengeStore((s) => s.setUserProfile); // ✅ NEW
   
   // Toast management
   const toasts = useToastStore((s) => s.toasts);
@@ -49,6 +50,11 @@ function App() {
 
         console.log('🔍 [App] Profile loaded:', { is_guest: profile.is_guest, tier: profile.tier });
 
+        // ✅ Save profile to store
+        setUserProfile(profile);
+        setUserTier(profile.tier);
+        setDailyStepGoal(profile.daily_step_goal);
+
         // Load active challenge from database (uses device_id for guests)
         const activeChallenge = await getActiveUserChallenge();
         if (activeChallenge) {
@@ -62,10 +68,6 @@ function App() {
         const paused = await getPausedChallenges();
         setPausedChallenges(paused);
         console.log('✅ [App] Loaded paused challenges:', paused.length);
-
-        // Set tier and daily goal from profile
-        setUserTier(profile.tier);
-        setDailyStepGoal(profile.daily_step_goal);
       } catch (error) {
         console.error('❌ [App] Failed to initialize guest data:', error);
       }
@@ -89,7 +91,8 @@ function App() {
           tier: profile.tier 
         });
 
-        // Set user data in store
+        // ✅ Save profile to store FIRST - before loading challenges
+        setUserProfile(profile);
         setUserTier(profile.tier);
         setDailyStepGoal(profile.daily_step_goal);
 
@@ -170,7 +173,7 @@ function App() {
     return () => {
       authListener?.subscription.unsubscribe();
     };
-  }, [setActiveChallenge, setPausedChallenges, setUserTier, setDailyStepGoal]);
+  }, [setActiveChallenge, setPausedChallenges, setUserTier, setDailyStepGoal, setUserProfile]);
 
   // Show initial onboarding if not completed
   if (!isOnboardingComplete) {
