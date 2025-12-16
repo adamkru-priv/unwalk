@@ -116,6 +116,39 @@ function App() {
       }
     };
 
+    // ✅ NEW: Handle visibility change - refresh profile when user returns to tab
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        console.log('👁️ [App] Tab became visible - refreshing user profile');
+        
+        const { data: { session } } = await supabase.auth.getSession();
+        const hasEmail = !!session?.user?.email;
+        
+        if (session?.user?.id && hasEmail) {
+          // Authenticated user - refresh profile
+          const profile = await authService.getUserProfile();
+          if (profile) {
+            console.log('🔄 [App] Profile refreshed:', { is_guest: profile.is_guest, tier: profile.tier });
+            setUserProfile(profile);
+            setUserTier(profile.tier);
+            setDailyStepGoal(profile.daily_step_goal);
+          }
+        } else {
+          // Guest user - refresh profile
+          const profile = await authService.getUserProfile();
+          if (profile) {
+            console.log('🔄 [App] Guest profile refreshed:', { is_guest: profile.is_guest });
+            setUserProfile(profile);
+            setUserTier(profile.tier);
+            setDailyStepGoal(profile.daily_step_goal);
+          }
+        }
+      }
+    };
+
+    // ✅ Add visibility change listener
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('🔐 [App] Auth state changed:', event, 'user:', session?.user?.id);
 
@@ -172,6 +205,7 @@ function App() {
 
     return () => {
       authListener?.subscription.unsubscribe();
+      document.removeEventListener('visibilitychange', handleVisibilityChange); // ✅ Cleanup
     };
   }, [setActiveChallenge, setPausedChallenges, setUserTier, setDailyStepGoal, setUserProfile]);
 
