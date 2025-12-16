@@ -1,4 +1,5 @@
 import { useChallengeStore } from '../../stores/useChallengeStore';
+import { useToastStore } from '../../stores/useToastStore';
 import { useState, useEffect } from 'react';
 import { authService, teamService, type UserProfile, type TeamInvitation } from '../../lib/auth';
 import { getUnclaimedChallenges } from '../../lib/api';
@@ -64,6 +65,40 @@ export function AppHeader({ title, showBackButton = false, subtitle }: AppHeader
     }
   };
 
+  const handleNotificationClick = async () => {
+    const addToast = useToastStore.getState().addToast;
+    
+    // Show toast based on what notifications user has
+    if (pendingChallengesCount > 0) {
+      // Get actual challenge details to show in toast
+      const challenges = await teamService.getReceivedChallenges();
+      if (challenges.length > 0) {
+        const firstChallenge = challenges[0];
+        addToast({
+          message: `New Challenge from ${firstChallenge.sender_name || 'Team Member'}!`,
+          type: 'info',
+          duration: 3000,
+        });
+      }
+      setCurrentScreen('team');
+    } else if (receivedInvitations.length > 0) {
+      const firstInvitation = receivedInvitations[0];
+      addToast({
+        message: `Team invite from ${firstInvitation.sender_name || firstInvitation.sender_email}!`,
+        type: 'info',
+        duration: 3000,
+      });
+      setCurrentScreen('team');
+    } else if (unclaimedChallenges.length > 0) {
+      addToast({
+        message: `You have ${unclaimedChallenges.length} reward${unclaimedChallenges.length > 1 ? 's' : ''} to claim!`,
+        type: 'success',
+        duration: 3000,
+      });
+      setCurrentScreen('home');
+    }
+  };
+
   // Check if user is guest
   const isGuest = userProfile?.is_guest || false;
   const userTier = userProfile?.tier || 'basic';
@@ -108,14 +143,7 @@ export function AppHeader({ title, showBackButton = false, subtitle }: AppHeader
           {/* Notifications Button - Real data */}
           {!isGuest && notificationCount > 0 && (
             <button
-              onClick={() => {
-                // Go to team screen if there are pending challenges or invitations
-                if (pendingChallengesCount > 0 || receivedInvitations.length > 0) {
-                  setCurrentScreen('team');
-                } else if (unclaimedChallenges.length > 0) {
-                  setCurrentScreen('home');
-                }
-              }}
+              onClick={handleNotificationClick}
               className="relative text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white transition-colors"
               title={`${pendingChallengesCount} challenges, ${receivedInvitations.length} invitations, ${unclaimedChallenges.length} rewards`}
             >

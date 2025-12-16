@@ -253,7 +253,7 @@ export function TeamMembers({
             </div>
             <h3 className="text-xl font-black text-white mb-2">Build Your Team</h3>
             <p className="text-white/60 text-sm mb-6">
-              Invite friends to start your journey together
+              Invite friends and family to start your journey together
             </p>
             {!userProfile?.is_guest && (
               <button
@@ -268,29 +268,61 @@ export function TeamMembers({
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {teamMembers.map((member) => (
-              <button
-                key={member.id}
-                onClick={() => onMemberSelect(member)}
-                className="bg-[#151A25] border border-white/5 hover:bg-[#1A1F2E] hover:border-white/10 rounded-2xl p-4 transition-all text-left"
-              >
-                <div 
-                  className="w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold mx-auto mb-2"
-                  style={{ backgroundColor: getColorFromName(member.display_name) }}
+          <div className="space-y-3">
+            {teamMembers.map((member) => {
+              // Get display name - priority: custom_name > display_name > email
+              const displayName = member.custom_name || member.display_name || member.email.split('@')[0];
+              const showRelationship = member.relationship && member.relationship.trim().length > 0;
+              
+              return (
+                <button
+                  key={member.id}
+                  onClick={() => onMemberSelect(member)}
+                  className="w-full bg-[#151A25] border border-white/5 hover:bg-[#1A1F2E] hover:border-blue-500/30 rounded-2xl p-4 transition-all text-left group"
                 >
-                  {getInitials(member.display_name)}
-                </div>
-                <div className="text-center">
-                  <div className="font-bold text-white text-sm mb-1 truncate">
-                    {member.display_name || member.email.split('@')[0]}
+                  <div className="flex items-center gap-4">
+                    {/* Avatar */}
+                    <div 
+                      className="w-14 h-14 rounded-full flex items-center justify-center text-white text-lg font-bold flex-shrink-0 ring-2 ring-white/10 group-hover:ring-blue-500/50 transition-all"
+                      style={{ backgroundColor: getColorFromName(displayName) }}
+                    >
+                      {getInitials(displayName)}
+                    </div>
+                    
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <h3 className="font-bold text-white text-base truncate">
+                          {displayName}
+                        </h3>
+                        {showRelationship && (
+                          <span className="bg-blue-500/20 text-blue-400 text-xs font-bold px-2 py-0.5 rounded-full border border-blue-500/30 flex-shrink-0">
+                            {member.relationship}
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-center gap-3 text-xs">
+                        <div className="text-white/50">
+                          {member.active_challenges_count} active challenge{member.active_challenges_count !== 1 ? 's' : ''}
+                        </div>
+                        {member.tier === 'pro' && (
+                          <div className="text-amber-400 font-bold flex items-center gap-1">
+                            <span>⭐</span>
+                            <span>PRO</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Arrow */}
+                    <svg className="w-5 h-5 text-white/30 group-hover:text-white/60 transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
                   </div>
-                  <div className="text-xs text-white/50">
-                    {member.active_challenges_count} active
-                  </div>
-                </div>
-              </button>
-            ))}
+                </button>
+              );
+            })}
           </div>
         )}
       </section>

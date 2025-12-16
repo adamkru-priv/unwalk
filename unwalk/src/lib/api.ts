@@ -43,8 +43,7 @@ export async function getActiveUserChallenge(): Promise<UserChallenge | null> {
     .from('user_challenges')
     .select(`
       *,
-      admin_challenge:admin_challenges(*),
-      assigner:assigned_by(display_name, avatar_url)
+      admin_challenge:admin_challenges(*)
     `)
     .eq('device_id', deviceId)
     .eq('status', 'active')
@@ -52,13 +51,21 @@ export async function getActiveUserChallenge(): Promise<UserChallenge | null> {
 
   if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows
   
-  // Transform data to include assigned_by info
-  if (data && data.assigner) {
-    return {
-      ...data,
-      assigned_by_name: data.assigner.display_name,
-      assigned_by_avatar: data.assigner.avatar_url,
-    };
+  // If challenge was assigned by someone, fetch assigner info separately
+  if (data && data.assigned_by) {
+    const { data: assigner } = await supabase
+      .from('users')
+      .select('display_name, avatar_url')
+      .eq('id', data.assigned_by)
+      .single();
+    
+    if (assigner) {
+      return {
+        ...data,
+        assigned_by_name: assigner.display_name,
+        assigned_by_avatar: assigner.avatar_url,
+      };
+    }
   }
   
   return data || null;

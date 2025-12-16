@@ -1,7 +1,7 @@
 import { useChallengeStore } from '../../stores/useChallengeStore';
 import { EmptyState } from './EmptyState';
 import { useState, useEffect } from 'react';
-import { updateChallengeProgress, calculateChallengePoints } from '../../lib/api';
+import { updateChallengeProgress, calculateChallengePoints, getActiveUserChallenge } from '../../lib/api';
 import { BottomNavigation } from '../common/BottomNavigation';
 
 export function Dashboard() {
@@ -18,6 +18,26 @@ export function Dashboard() {
   const clearChallenge = useChallengeStore((s) => s.clearChallenge);
   const userTier = useChallengeStore((s) => s.userTier);
   const dailyChallenge = useChallengeStore((s) => s.getDailyChallenge());
+
+  // LOAD ACTIVE CHALLENGE on mount if not in store
+  useEffect(() => {
+    const loadActiveChallenge = async () => {
+      if (!activeUserChallenge) {
+        console.log('🔄 [Dashboard] No active challenge in store, loading from DB...');
+        try {
+          const activeChallenge = await getActiveUserChallenge();
+          if (activeChallenge) {
+            setActiveChallenge(activeChallenge);
+            console.log('✅ [Dashboard] Loaded active challenge:', activeChallenge.admin_challenge?.title);
+          }
+        } catch (err) {
+          console.error('Failed to load active challenge:', err);
+        }
+      }
+    };
+
+    loadActiveChallenge();
+  }, []);
 
   // AUTO-DETECT COMPLETION - Check if challenge is at 100%
   useEffect(() => {

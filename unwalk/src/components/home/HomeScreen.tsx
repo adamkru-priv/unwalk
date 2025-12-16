@@ -2,7 +2,7 @@ import { useChallengeStore } from '../../stores/useChallengeStore';
 import { useEffect, useState } from 'react';
 import { AppHeader } from '../common/AppHeader';
 import { BottomNavigation } from '../common/BottomNavigation';
-import { getUnclaimedChallenges, getTeamActiveChallenges } from '../../lib/api';
+import { getUnclaimedChallenges, getTeamActiveChallenges, getActiveUserChallenge } from '../../lib/api';
 import type { UserChallenge } from '../../types';
 import { CelebrationModal } from './CelebrationModal';
 import { authService, type UserProfile } from '../../lib/auth';
@@ -22,6 +22,7 @@ export function HomeScreen() {
   const resumeChallenge = useChallengeStore((s) => s.resumeChallenge);
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
   const dailyStepGoal = useChallengeStore((s) => s.dailyStepGoal);
+  const setActiveChallenge = useChallengeStore((s) => s.setActiveChallenge);
 
   // Mock today's stats - later from Health API
   const todaySteps = 7234;
@@ -31,6 +32,7 @@ export function HomeScreen() {
   const dailyGoalProgress = Math.min(100, Math.round((todaySteps / actualDailyGoal) * 100));
 
   useEffect(() => {
+    loadActiveChallenge();
     loadUnclaimedChallenges();
     loadUserProfile();
     loadTeamChallenges();
@@ -41,6 +43,18 @@ export function HomeScreen() {
   useEffect(() => {
     checkChallengeCompletion();
   }, [activeUserChallenge]);
+
+  const loadActiveChallenge = async () => {
+    try {
+      const activeChallenge = await getActiveUserChallenge();
+      if (activeChallenge) {
+        setActiveChallenge(activeChallenge);
+        console.log('✅ [HomeScreen] Loaded active challenge:', activeChallenge.admin_challenge?.title);
+      }
+    } catch (err) {
+      console.error('Failed to load active challenge:', err);
+    }
+  };
 
   const loadUnclaimedChallenges = async () => {
     try {

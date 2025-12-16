@@ -1,4 +1,6 @@
 import { useChallengeStore } from './stores/useChallengeStore';
+import { useToastStore } from './stores/useToastStore';
+import { ToastContainer } from './components/common/Toast';
 import { OnboardingScreen } from './components/onboarding/OnboardingScreen';
 import { HomeScreen } from './components/home/HomeScreen';
 import { Dashboard } from './components/dashboard/Dashboard';
@@ -12,6 +14,10 @@ function App() {
   const isOnboardingComplete = useChallengeStore((s) => s.isOnboardingComplete);
   const currentScreen = useChallengeStore((s) => s.currentScreen);
   const theme = useChallengeStore((s) => s.theme);
+  
+  // Toast management
+  const toasts = useToastStore((s) => s.toasts);
+  const removeToast = useToastStore((s) => s.removeToast);
 
   // Show onboarding if not completed
   if (!isOnboardingComplete) {
@@ -40,7 +46,12 @@ function App() {
     }
   };
 
-  return <div className={theme}>{renderScreen()}</div>;
+  return (
+    <div className={theme}>
+      {renderScreen()}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
+    </div>
+  );
 }
 
 export default App;

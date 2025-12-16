@@ -37,6 +37,9 @@ export interface TeamInvitation {
 export interface TeamMember {
   id: string;
   member_id: string;
+  custom_name: string | null;
+  relationship: string | null;
+  notes: string | null;
   email: string;
   display_name: string | null;
   avatar_url: string | null;
@@ -630,6 +633,37 @@ class TeamService {
   }
 
   /**
+   * Update team member personalization (name, relationship, notes)
+   */
+  async updateMemberPersonalization(
+    teamMemberId: string,
+    updates: {
+      custom_name?: string;
+      relationship?: string;
+      notes?: string;
+    }
+  ): Promise<{ error: Error | null }> {
+    try {
+      const user = await authService.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('team_members')
+        .update(updates)
+        .eq('id', teamMemberId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      console.log('✅ [Team] Member personalization updated');
+      return { error: null };
+    } catch (error) {
+      console.error('❌ [Team] Update member personalization error:', error);
+      return { error: error as Error };
+    }
+  }
+
+  /**
    * Assign challenge to team member
    */
   async assignChallenge(
@@ -784,7 +818,7 @@ class TeamService {
       // Get assignment details
       const { data: assignment, error: fetchError } = await supabase
         .from('challenge_assignments')
-        .select('admin_challenge_id, recipient_id, status')
+        .select('admin_challenge_id, recipient_id, status, user_challenge_id')
         .eq('id', assignmentId)
         .eq('recipient_id', user.id)
         .single();
@@ -793,7 +827,13 @@ class TeamService {
       if (!assignment) throw new Error('Assignment not found');
       if (assignment.status !== 'accepted') throw new Error('Challenge must be accepted first');
 
-      // ✅ FIX 1: Check if user already has ANY active challenge (including assignments)
+      // ✅ FIX: If challenge already has user_challenge_id, it was already started
+      if (assignment.user_challenge_id) {
+        console.log('✅ [Team] Challenge already started, skipping creation');
+        return { error: null }; // Success - just redirect to dashboard
+      }
+
+      // ✅ Check if user already has ANY other active challenge
       const { data: activeChallenge } = await supabase
         .from('user_challenges')
         .select('id, assigned_by')
@@ -809,22 +849,6 @@ class TeamService {
         } else {
           throw new Error('You have an active solo challenge. Complete or pause it first before starting a new one.');
         }
-      }
-
-      // ✅ FIX 2: Check if there are other accepted assignments waiting to be started
-      const { data: otherAcceptedAssignments, error: checkError } = await supabase
-        .from('challenge_assignments')
-        .select('id')
-        .eq('recipient_id', user.id)
-        .eq('status', 'accepted')
-        .is('user_challenge_id', null)
-        .neq('id', assignmentId) // Exclude current assignment
-        .maybeSingle();
-
-      if (checkError && checkError.code !== 'PGRST116') throw checkError;
-
-      if (otherAcceptedAssignments) {
-        throw new Error('You have another accepted challenge waiting. Start or decline that one first.');
       }
 
       // Create user_challenge (start the challenge)

@@ -247,9 +247,12 @@ export function BrowseChallenges() {
                   <div className="text-xs text-gray-400 mb-2 text-center">or assign to</div>
                   <div className="grid grid-cols-3 gap-2">
                     {teamMembers.map((member) => {
+                      // Get display name - priority: custom_name > display_name > email
+                      const displayName = member.custom_name || member.display_name || member.email.split('@')[0];
+                      const showRelationship = member.relationship && member.relationship.trim().length > 0;
+
                       // Get initials from name
-                      const getInitials = (name: string | null | undefined) => {
-                        if (!name) return '?';
+                      const getInitials = (name: string) => {
                         return name
                           .split(' ')
                           .map(word => word[0])
@@ -259,9 +262,7 @@ export function BrowseChallenges() {
                       };
 
                       // Generate color from name
-                      const getColorFromName = (name: string | null | undefined) => {
-                        if (!name) return '#3B82F6';
-                        
+                      const getColorFromName = (name: string) => {
                         const colors = [
                           '#3B82F6', // blue
                           '#F59E0B', // amber
@@ -281,17 +282,24 @@ export function BrowseChallenges() {
                         <button
                           key={member.id}
                           onClick={() => handleAssignToMember(member.member_id)}
-                          className="bg-[#0B101B] hover:bg-gray-800 border border-white/5 text-white px-2 py-2 rounded-lg text-xs font-medium transition-colors flex flex-col items-center gap-1"
+                          className="bg-[#0B101B] hover:bg-gray-800 border border-white/5 hover:border-blue-500/30 text-white px-2 py-2 rounded-xl text-xs font-medium transition-all flex flex-col items-center gap-1.5"
                         >
                           <div 
-                            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                            style={{ backgroundColor: getColorFromName(member.display_name) }}
+                            className="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold ring-2 ring-white/10"
+                            style={{ backgroundColor: getColorFromName(displayName) }}
                           >
-                            {getInitials(member.display_name)}
+                            {getInitials(displayName)}
                           </div>
-                          <span className="text-[10px] truncate w-full text-center">
-                            {member.display_name?.split(' ')[0] || member.email.split('@')[0]}
-                          </span>
+                          <div className="flex flex-col items-center gap-0.5 w-full">
+                            <span className="text-[11px] font-bold truncate w-full text-center leading-tight">
+                              {displayName.split(' ')[0]}
+                            </span>
+                            {showRelationship && (
+                              <span className="text-[9px] text-blue-400 font-semibold truncate w-full text-center">
+                                {member.relationship}
+                              </span>
+                            )}
+                          </div>
                         </button>
                       );
                     })}
