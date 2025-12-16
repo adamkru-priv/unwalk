@@ -47,6 +47,14 @@ export function BadgesScreen() {
         // Get total_points from user profile in store
         const userTotalPoints = userProfile?.total_points || 0;
 
+        // 🐛 DEBUG: Log all badges with their unlocked status
+        console.log('🏆 [BadgesScreen] All badges:', badgesData.map(b => ({
+          id: b.id,
+          title: b.title,
+          unlocked: b.unlocked,
+          gradient: b.gradient
+        })));
+
         setBadges(badgesData);
         setTotalPoints(userTotalPoints);
         
@@ -163,58 +171,74 @@ export function BadgesScreen() {
                 {/* BADGES GRID */}
                 <section>
                   <div className="grid grid-cols-3 gap-4">
-                    {badges.map((badge) => (
-                      <button
-                        key={badge.id}
-                        className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-white dark:bg-[#151A25] border border-gray-200 dark:border-white/5 hover:bg-gray-50 dark:hover:bg-[#1A1F2E] transition-all group"
-                      >
-                        {/* Badge Circle */}
-                        <div className="relative">
-                          <div
-                            className={`w-16 h-16 rounded-full flex items-center justify-center transition-all ${
-                              badge.unlocked
-                                ? `bg-gradient-to-br ${badge.gradient} shadow-lg`
-                                : 'bg-gray-100 dark:bg-[#0B101B] border-2 border-gray-300 dark:border-white/10'
-                            }`}
-                          >
-                            {/* Icon */}
-                            <div className={`text-2xl ${!badge.unlocked && 'grayscale opacity-30'}`}>
-                              {badge.icon}
-                            </div>
+                    {badges.map((badge) => {
+                      // Map gradient string to actual Tailwind classes
+                      const gradientClass = badge.unlocked ? 
+                        badge.gradient === 'from-blue-400 to-blue-600' ? 'bg-gradient-to-br from-blue-400 to-blue-600' :
+                        badge.gradient === 'from-orange-400 to-red-600' ? 'bg-gradient-to-br from-orange-400 to-red-600' :
+                        badge.gradient === 'from-purple-400 to-purple-600' ? 'bg-gradient-to-br from-purple-400 to-purple-600' :
+                        badge.gradient === 'from-green-400 to-green-600' ? 'bg-gradient-to-br from-green-400 to-green-600' :
+                        badge.gradient === 'from-pink-400 to-pink-600' ? 'bg-gradient-to-br from-pink-400 to-pink-600' :
+                        badge.gradient === 'from-cyan-400 to-cyan-600' ? 'bg-gradient-to-br from-cyan-400 to-cyan-600' :
+                        badge.gradient === 'from-indigo-400 to-indigo-600' ? 'bg-gradient-to-br from-indigo-400 to-indigo-600' :
+                        badge.gradient === 'from-amber-400 to-amber-600' ? 'bg-gradient-to-br from-amber-400 to-amber-600' :
+                        badge.gradient === 'from-teal-400 to-teal-600' ? 'bg-gradient-to-br from-teal-400 to-teal-600' :
+                        `bg-gradient-to-br ${badge.gradient}` // fallback
+                        : '';
 
-                            {/* Lock icon for locked badges */}
-                            {!badge.unlocked && (
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <svg className="w-5 h-5 text-gray-400 dark:text-white/20" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                                </svg>
+                      return (
+                        <button
+                          key={badge.id}
+                          className="flex flex-col items-center gap-2 p-3 rounded-2xl bg-white dark:bg-[#151A25] border border-gray-200 dark:border-white/5 hover:bg-gray-50 dark:hover:bg-[#1A1F2E] transition-all group"
+                        >
+                          {/* Badge Circle */}
+                          <div className="relative">
+                            <div
+                              className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-lg ${
+                                badge.unlocked
+                                  ? gradientClass
+                                  : 'bg-gray-100 dark:bg-[#0B101B] border-2 border-gray-300 dark:border-white/10'
+                              }`}
+                            >
+                              {/* Icon */}
+                              <div className={`text-2xl ${!badge.unlocked && 'grayscale opacity-30'}`}>
+                                {badge.icon}
                               </div>
-                            )}
+
+                              {/* Lock icon for locked badges */}
+                              {!badge.unlocked && (
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <svg className="w-5 h-5 text-gray-400 dark:text-white/20" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                                  </svg>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
 
-                        {/* Title */}
-                        <div className={`text-xs font-bold text-center leading-tight ${
-                          badge.unlocked ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-white/40'
-                        }`}>
-                          {badge.title}
-                        </div>
-
-                        {/* Description */}
-                        <div className={`text-[10px] leading-snug text-center h-8 flex items-center ${
-                          badge.unlocked ? 'text-gray-500 dark:text-white/50' : 'text-gray-400 dark:text-white/30'
-                        }`}>
-                          {badge.description}
-                        </div>
-
-                        {/* Points badge */}
-                        {badge.unlocked && (
-                          <div className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-full">
-                            +{badge.points}
+                          {/* Title */}
+                          <div className={`text-xs font-bold text-center leading-tight ${
+                            badge.unlocked ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-white/40'
+                          }`}>
+                            {badge.title}
                           </div>
-                        )}
-                      </button>
-                    ))}
+
+                          {/* Description */}
+                          <div className={`text-[10px] leading-snug text-center h-8 flex items-center ${
+                            badge.unlocked ? 'text-gray-500 dark:text-white/50' : 'text-gray-400 dark:text-white/30'
+                          }`}>
+                            {badge.description}
+                          </div>
+
+                          {/* Points badge */}
+                          {badge.unlocked && (
+                            <div className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-full">
+                              +{badge.points}
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </section>
 

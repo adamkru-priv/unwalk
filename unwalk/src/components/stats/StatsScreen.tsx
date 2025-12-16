@@ -10,6 +10,7 @@ export function StatsScreen() {
   const [loading, setLoading] = useState(true);
   const [selectedChallenge, setSelectedChallenge] = useState<UserChallenge | null>(null);
   const userTier = useChallengeStore((s) => s.userTier);
+  const userProfile = useChallengeStore((s) => s.userProfile);
 
   useEffect(() => {
     loadCompletedChallenges();
@@ -38,21 +39,8 @@ export function StatsScreen() {
   const totalDays = Math.floor(totalActiveTimeSeconds / 86400);
   const totalHours = Math.floor((totalActiveTimeSeconds % 86400) / 3600);
 
-  // Calculate total points earned (Pro users only)
-  const totalPoints = userTier === 'pro' 
-    ? completedChallenges
-        .filter(c => !c.admin_challenge?.is_custom)
-        .reduce((sum, c) => {
-          const goalSteps = c.admin_challenge?.goal_steps || 0;
-          let points = 0;
-          if (goalSteps <= 5000) points = 5;
-          else if (goalSteps <= 10000) points = 10;
-          else if (goalSteps <= 15000) points = 15;
-          else if (goalSteps <= 25000) points = 25;
-          else points = 50;
-          return sum + points;
-        }, 0)
-    : 0;
+  // Get total points from user profile (includes challenge points + badge points)
+  const totalPoints = userProfile?.total_points || 0;
 
   // Format active time for challenge
   const formatActiveTime = (challenge: UserChallenge) => {
