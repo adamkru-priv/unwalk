@@ -4,10 +4,21 @@ import { useChallengeStore } from '../../stores/useChallengeStore';
 
 const slides = [
   {
+    title: 'Get Your Kids Moving',
+    subtitle: 'Away from screens, into the world',
+    description: 'Turn screen time into active adventures. Challenge your children to explore the outdoors and build healthy habits together.',
+    image: 'https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=800&q=80',
+    features: [
+      { icon: '🏃', text: 'Replace screen time with active time' },
+      { icon: '🌳', text: 'Discover the outdoors together' },
+      { icon: '💪', text: 'Build lifelong healthy habits' },
+    ],
+  },
+  {
     title: 'Move at Your Own Pace',
     subtitle: 'Challenge yourself or friends & family',
     description: 'Solo walks or team adventures - you decide how to stay active',
-    image: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=800&q=80',
     features: [
       { icon: '🎯', text: 'Personal challenges' },
       { icon: '👥', text: 'Family & friends' },
@@ -17,7 +28,7 @@ const slides = [
     title: 'Unlock Rewards & Badges',
     subtitle: 'Every step brings you closer',
     description: 'Reveal beautiful images, earn badges, and track your progress',
-    image: 'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=800&q=80',
     features: [
       { icon: '🖼️', text: 'Hidden images' },
       { icon: '🏆', text: 'Achievement badges' },
@@ -25,10 +36,10 @@ const slides = [
     ],
   },
   {
-    title: 'Connect Apple Health',
+    title: 'Connect Your Device',
     subtitle: 'Automatic step tracking',
-    description: 'We sync with Apple Health to count your steps. Your data stays private and secure.',
-    image: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800&q=80',
+    description: 'Sync with your fitness tracker or health app to count your steps automatically. Your data stays private and secure.',
+    image: 'https://images.unsplash.com/photo-1434494878577-86c23bcb06b9?w=800&q=80',
     features: [
       { icon: '📱', text: 'Auto sync steps' },
       { icon: '🔒', text: 'Private & secure' },
