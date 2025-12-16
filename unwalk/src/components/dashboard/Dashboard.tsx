@@ -88,12 +88,6 @@ export function Dashboard() {
       if (newSteps >= goalSteps && goalSteps > 0) {
         console.log('✅ Challenge completed at 100%! Redirecting to Home for claim...');
         
-        // Show success toast
-        toast.addToast({ 
-          message: '🎉 Challenge completed! Go claim your reward', 
-          type: 'success' 
-        });
-        
         // Redirect to home where claim UI will show
         setTimeout(() => {
           setCurrentScreen('home');

@@ -121,7 +121,8 @@ export function HomeScreen() {
   const handleClaimSuccess = () => {
     setSelectedCompletedChallenge(null);
     loadUnclaimedChallenges(); // Refresh from Supabase
-    setCurrentScreen('badges'); // Go to badges to see the new addition
+    loadActiveChallenge(); // Reload active challenge
+    // Stay on home screen to see updated state
   };
 
   const calculateProgress = () => {

@@ -21,6 +21,10 @@ export function CelebrationModal({ challenge, onClaim }: CelebrationModalProps) 
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       
+      console.log('🎯 [Claim] Starting claim process...');
+      console.log('🎯 [Claim] User ID:', user?.id);
+      console.log('🎯 [Claim] Challenge ID:', challenge.id);
+      
       if (!user) {
         throw new Error('User not authenticated');
       }
@@ -32,17 +36,20 @@ export function CelebrationModal({ challenge, onClaim }: CelebrationModalProps) 
       });
       
       if (error) {
-        console.error('Failed to claim challenge:', error);
+        console.error('❌ [Claim] RPC error:', error);
+        console.error('❌ [Claim] Error details:', JSON.stringify(error, null, 2));
         throw error;
       }
       
-      console.log('✅ Challenge claimed successfully:', data);
+      console.log('✅ [Claim] Challenge claimed successfully:', data);
       
       // No more localStorage - everything is in Supabase!
       onClaim();
-    } catch (error) {
-      console.error('Failed to claim reward:', error);
-      alert('Failed to claim reward. Please try again.');
+    } catch (error: any) {
+      console.error('❌ [Claim] Failed to claim reward:', error);
+      console.error('❌ [Claim] Error message:', error?.message);
+      console.error('❌ [Claim] Error details:', error?.details);
+      alert(`Failed to claim reward: ${error?.message || 'Unknown error'}\n\nPlease try again or contact support.`);
       setClaiming(false);
     }
   };
