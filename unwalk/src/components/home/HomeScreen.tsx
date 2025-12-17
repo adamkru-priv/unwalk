@@ -12,6 +12,7 @@ import { CompletedChallengesList } from './sections/CompletedChallengesList';
 import { HeroCarousel } from './sections/HeroCarousel';
 import { TodayActivity } from './sections/TodayActivity';
 import { PausedChallengesGrid } from './sections/PausedChallengesGrid';
+import { useHealthKit } from '../../hooks/useHealthKit';
 
 export function HomeScreen() {
   const [unclaimedChallenges, setUnclaimedChallenges] = useState<UserChallenge[]>([]);
@@ -23,20 +24,55 @@ export function HomeScreen() {
   
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
   const pausedChallenges = useChallengeStore((s) => s.pausedChallenges);
-  const userProfile = useChallengeStore((s) => s.userProfile); // ✅ Read from store
+  const userProfile = useChallengeStore((s) => s.userProfile);
   const userTier = useChallengeStore((s) => s.userTier);
   const resumeChallenge = useChallengeStore((s) => s.resumeChallenge);
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
   const dailyStepGoal = useChallengeStore((s) => s.dailyStepGoal);
   const setActiveChallenge = useChallengeStore((s) => s.setActiveChallenge);
 
-  const todaySteps = 7234; // Mock - later from Health API
+  // ✅ HealthKit integration - prawdziwe kroki z Apple Health!
+  const { 
+    isAvailable: healthKitAvailable, 
+    isAuthorized: healthKitAuthorized,
+    todaySteps: healthKitSteps, 
+    requestPermission: requestHealthKitPermission,
+    syncSteps,
+    isNative
+  } = useHealthKit();
+
+  // Użyj prawdziwych kroków z HealthKit, fallback na mock dla web
+  const todaySteps = isNative && healthKitAuthorized ? healthKitSteps : 7234;
 
   useEffect(() => {
     loadActiveChallenge();
     loadUnclaimedChallenges();
     loadTeamChallenges();
+    
+    // ✅ Request HealthKit permission przy pierwszym uruchomieniu
+    if (isNative && healthKitAvailable && !healthKitAuthorized) {
+      console.log('🔐 [HomeScreen] Requesting HealthKit permission...');
+      requestHealthKitPermission();
+    }
   }, []);
+
+  // ✅ Auto-sync kroków co 5 minut jeśli mamy dostęp do HealthKit
+  useEffect(() => {
+    if (isNative && healthKitAuthorized) {
+      console.log('🔄 [HomeScreen] Starting auto-sync for HealthKit steps...');
+      
+      // Początkowa synchronizacja
+      syncSteps();
+      
+      // Synchronizuj co 5 minut
+      const interval = setInterval(() => {
+        console.log('🔄 [HomeScreen] Auto-syncing steps...');
+        syncSteps();
+      }, 5 * 60 * 1000);
+
+      return () => clearInterval(interval);
+    }
+  }, [healthKitAuthorized, isNative]);
 
   const loadActiveChallenge = async () => {
     try {

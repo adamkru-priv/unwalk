@@ -15,7 +15,6 @@ export function TeamScreen() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [receivedInvitations, setReceivedInvitations] = useState<TeamInvitation[]>([]);
   const [sentInvitations, setSentInvitations] = useState<TeamInvitation[]>([]);
-  const [receivedChallenges, setReceivedChallenges] = useState<ChallengeAssignment[]>([]);
   const [sentChallengeHistory, setSentChallengeHistory] = useState<ChallengeAssignment[]>([]);
   const [receivedChallengeHistory, setReceivedChallengeHistory] = useState<ChallengeAssignment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,17 +22,33 @@ export function TeamScreen() {
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [activeTab, setActiveTab] = useState<'team' | 'sent' | 'received'>('team');
 
+  // ✅ Reload data when userProfile changes (e.g. after auth init)
   useEffect(() => {
-    loadTeamData();
-  }, []);
+    if (userProfile?.id) {
+      loadTeamData();
+    }
+  }, [userProfile?.id]);
 
   const loadTeamData = async () => {
     setLoading(true);
+    
+    // Create a timeout promise
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Request timed out')), 10000)
+    );
+
     try {
       console.log('🔄 [TeamScreen] Loading team data...');
       
       // ✅ Use profile from store
       console.log('✅ [TeamScreen] Using profile from store:', { is_guest: userProfile?.is_guest });
+
+      // ✅ SAFETY CHECK: If profile is missing (shouldn't happen if App handles isAppReady correctly, but good for safety)
+      if (!userProfile) {
+        console.log('⏳ [TeamScreen] No user profile yet - waiting...');
+        setLoading(false); // Ensure loading is turned off
+        return;
+      }
       
       // ✅ If guest, skip loading team data
       if (userProfile?.is_guest) {
@@ -41,7 +56,6 @@ export function TeamScreen() {
         setTeamMembers([]);
         setReceivedInvitations([]);
         setSentInvitations([]);
-        setReceivedChallenges([]);
         setSentChallengeHistory([]);
         setReceivedChallengeHistory([]);
         setLoading(false);
@@ -49,34 +63,55 @@ export function TeamScreen() {
       }
       
       // Load team data only for authenticated users
-      const [members, received, sent, challenges, sentHistory, receivedHistory] = await Promise.all([
-        teamService.getTeamMembers(),
-        teamService.getReceivedInvitations(),
-        teamService.getSentInvitations(),
-        teamService.getReceivedChallenges(),
-        teamService.getSentChallengeAssignments(),
-        teamService.getReceivedChallengeHistory(),
-      ]);
+      // ✅ FIX: Load data sequentially/independently to prevent blocking
+      // and better error handling for each part
+      
+      // 1. Team Members
+      try {
+        const members = await Promise.race([
+          teamService.getTeamMembers(),
+          timeoutPromise
+        ]) as TeamMember[];
+        setTeamMembers(members);
+      } catch (e) {
+        console.error('❌ [TeamScreen] Failed to load members:', e);
+      }
 
-      console.log('✅ [TeamScreen] Team members:', members.length);
+      // 2. Invitations (Parallel)
+      try {
+        const [received, sent] = await Promise.race([
+          Promise.all([
+            teamService.getReceivedInvitations(),
+            teamService.getSentInvitations()
+          ]),
+          timeoutPromise
+        ]) as [TeamInvitation[], TeamInvitation[]];
+        
+        setReceivedInvitations(received.filter(inv => inv.status === 'pending'));
+        setSentInvitations(sent);
+      } catch (e) {
+        console.error('❌ [TeamScreen] Failed to load invitations:', e);
+      }
 
-      setTeamMembers(members);
-      setReceivedInvitations(received.filter(inv => inv.status === 'pending'));
-      setSentInvitations(sent);
-      setReceivedChallenges(challenges);
-      setSentChallengeHistory(sentHistory);
-      setReceivedChallengeHistory(receivedHistory);
+      // 3. Challenges (Parallel)
+      try {
+        const [sentHistory, receivedHistory] = await Promise.race([
+          Promise.all([
+            teamService.getSentChallengeAssignments(),
+            teamService.getReceivedChallengeHistory(),
+          ]),
+          timeoutPromise
+        ]) as [ChallengeAssignment[], ChallengeAssignment[]];
+        
+        setSentChallengeHistory(sentHistory);
+        setReceivedChallengeHistory(receivedHistory);
+      } catch (e) {
+        console.error('❌ [TeamScreen] Failed to load challenges:', e);
+      }
       
       console.log('✅ [TeamScreen] All team data loaded successfully');
     } catch (error) {
-      console.error('❌ [TeamScreen] Failed to load team data:', error);
-      // Set empty data to unblock UI
-      setTeamMembers([]);
-      setReceivedInvitations([]);
-      setSentInvitations([]);
-      setReceivedChallenges([]);
-      setSentChallengeHistory([]);
-      setReceivedChallengeHistory([]);
+      console.error('❌ [TeamScreen] Critical error loading team data:', error);
     } finally {
       setLoading(false);
       console.log('✅ [TeamScreen] Loading complete');
@@ -240,7 +275,6 @@ export function TeamScreen() {
               <TeamMembers
                 teamMembers={teamMembers}
                 receivedInvitations={receivedInvitations}
-                receivedChallenges={receivedChallenges}
                 sentInvitations={sentInvitations}
                 userProfile={userProfile}
                 onMemberSelect={setSelectedMember}

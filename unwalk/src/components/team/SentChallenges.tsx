@@ -39,6 +39,9 @@ export function SentChallenges({ challenges, onRefresh }: SentChallengesProps) {
           ? Math.round((assignment.current_steps / assignment.challenge_goal_steps) * 100)
           : 0;
 
+        // ✅ Check if challenge is completed or claimed
+        const isCompleted = assignment.user_challenge_status === 'completed' || assignment.user_challenge_status === 'claimed';
+
         return (
           <div
             key={assignment.id}
@@ -83,8 +86,10 @@ export function SentChallenges({ challenges, onRefresh }: SentChallengesProps) {
                   </>
                 )}
                 {assignment.status === 'accepted' && (
-                  <span className="bg-green-500/20 text-green-400 text-xs font-bold px-2 py-1 rounded whitespace-nowrap">
-                    {assignment.user_challenge_status === 'completed' ? 'Completed' : assignment.user_challenge_id ? 'Active' : 'Accepted'}
+                  <span className={`${
+                    isCompleted ? 'bg-green-500/20 text-green-400' : 'bg-purple-500/20 text-purple-400'
+                  } text-xs font-bold px-2 py-1 rounded whitespace-nowrap`}>
+                    {isCompleted ? '✓ Completed' : assignment.user_challenge_id ? 'Active' : 'Accepted'}
                   </span>
                 )}
                 {assignment.status === 'rejected' && (
@@ -95,7 +100,8 @@ export function SentChallenges({ challenges, onRefresh }: SentChallengesProps) {
               </div>
             </div>
 
-            {assignment.status === 'accepted' && assignment.user_challenge_id && assignment.user_challenge_status === 'active' && (
+            {/* Progress bar - show for active challenges */}
+            {assignment.status === 'accepted' && assignment.user_challenge_id && !isCompleted && (
               <div className="mt-3 pt-3 border-t border-white/5">
                 <div className="flex items-center justify-between text-xs mb-2">
                   <span className="text-white/60">Progress</span>
@@ -104,6 +110,25 @@ export function SentChallenges({ challenges, onRefresh }: SentChallengesProps) {
                 <div className="bg-white/10 rounded-full h-2 overflow-hidden">
                   <div
                     className="bg-gradient-to-r from-blue-500 to-purple-500 h-full rounded-full transition-all"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <div className="text-xs text-white/50 mt-1">
+                  {assignment.current_steps?.toLocaleString()} / {assignment.challenge_goal_steps.toLocaleString()} steps
+                </div>
+              </div>
+            )}
+
+            {/* Completion info - show for completed challenges */}
+            {assignment.status === 'accepted' && isCompleted && (
+              <div className="mt-3 pt-3 border-t border-white/5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-green-400">✓ Challenge completed!</span>
+                  <span className="text-green-400 font-bold">{progress}%</span>
+                </div>
+                <div className="bg-white/10 rounded-full h-2 overflow-hidden mt-2">
+                  <div
+                    className="bg-gradient-to-r from-green-500 to-emerald-500 h-full rounded-full transition-all"
                     style={{ width: `${progress}%` }}
                   />
                 </div>

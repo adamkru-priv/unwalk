@@ -91,8 +91,8 @@ export function AccountTypeCards({ isGuest, userTier, onTierChange, onShowAuthMo
           className={`min-w-[240px] flex-shrink-0 rounded-xl border-2 p-4 transition-all snap-center ${
             !isGuest && userTier === 'basic' 
               ? 'bg-green-50 dark:bg-green-900/20 border-green-500 shadow-lg ring-2 ring-green-500/50' 
-              : 'bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/10 opacity-75'
-          }`}
+              : 'bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/10'
+          } ${isGuest ? 'opacity-75' : ''}`}
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">

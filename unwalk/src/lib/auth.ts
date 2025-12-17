@@ -310,78 +310,127 @@ class AuthService {
    */
   async getUserProfile(): Promise<UserProfile | null> {
     try {
-      const user = await this.getUser();
+      console.log('🔍 [Auth] getUserProfile: Starting...');
       
-      if (user) {
-        // Logged user - get from users table
+      // ✅ FIX: Use getSession() instead of getUser() to avoid API timeout
+      // getSession() reads from localStorage (instant), getUser() makes API call (can hang)
+      console.log('🔍 [Auth] Getting session...');
+      const sessionResponse = await supabase.auth.getSession();
+      console.log('🔍 [Auth] Session response:', {
+        hasData: !!sessionResponse.data,
+        hasSession: !!sessionResponse.data?.session,
+        userId: sessionResponse.data?.session?.user?.id,
+        email: sessionResponse.data?.session?.user?.email
+      });
+      
+      const session = sessionResponse.data?.session;
+      const user = session?.user || null;
+      
+      console.log('🔍 [Auth] getUserProfile: User ID:', user?.id, 'Email:', user?.email);
+      
+      if (user && user.email) {
+        // ✅ Authenticated user (has email) - get from users table
+        console.log('🔍 [Auth] Fetching authenticated user profile...');
+        
         const { data, error } = await supabase
           .from('users')
           .select('*')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
 
         if (error) {
-          // User doesn't exist in users table - create it!
-          if (error.code === 'PGRST116') { // No rows returned
-            console.log('⚠️ [Auth] Authenticated user not in users table, creating profile...');
-            
-            // Create new user profile
-            const { data: newUser, error: insertError } = await supabase
-              .from('users')
-              .insert({
-                id: user.id,
-                email: user.email,
-                display_name: user.email?.split('@')[0] || 'User',
-                is_guest: false,
-                tier: 'basic',
-                daily_step_goal: 10000,
-                onboarding_completed: true,
-              })
-              .select()
-              .single();
-
-            if (insertError) {
-              console.error('❌ [Auth] Failed to create user profile:', insertError);
-              throw insertError;
-            }
-
-            console.log('✅ [Auth] Created user profile:', newUser);
-            return newUser as UserProfile;
-          }
+          console.error('❌ [Auth] Error fetching user profile:', error);
           throw error;
         }
+
+        if (!data) {
+          // User doesn't exist in users table - create it!
+          console.log('⚠️ [Auth] Authenticated user not in users table, creating profile...');
+          
+          const { data: newUser, error: insertError } = await supabase
+            .from('users')
+            .insert({
+              id: user.id,
+              email: user.email,
+              display_name: user.email.split('@')[0] || 'User',
+              is_guest: false,
+              tier: 'pro',
+              daily_step_goal: 10000,
+              onboarding_completed: true,
+            })
+            .select()
+            .single();
+
+          if (insertError) {
+            console.error('❌ [Auth] Failed to create user profile:', insertError);
+            throw insertError;
+          }
+
+          console.log('✅ [Auth] Created user profile:', newUser.email);
+          return newUser as UserProfile;
+        }
         
+        console.log('✅ [Auth] Authenticated profile loaded:', data.email);
         return data as UserProfile;
       } else {
-        // Guest user - get by device_id
+        // ✅ Guest user - get by device_id
         const deviceId = getDeviceId();
+        console.log('👤 [Auth] Fetching guest profile for device:', deviceId);
+        
         const { data, error } = await supabase
           .from('users')
           .select('*')
           .eq('device_id', deviceId)
           .eq('is_guest', true)
-          .single();
+          .maybeSingle();
 
         if (error) {
-          // Guest doesn't exist yet, create it
-          const guestId = await this.initGuestUser();
-          if (!guestId) return null;
+          console.error('❌ [Auth] Error fetching guest profile:', error);
+          throw error;
+        }
 
-          // Fetch again
+        if (!data) {
+          // ✅ Guest doesn't exist yet - create via RPC function
+          console.log('⚠️ [Auth] Guest profile not found, creating via RPC...');
+          
+          const { data: guestId, error: rpcError } = await supabase.rpc('create_guest_user', {
+            p_device_id: deviceId
+          });
+
+          if (rpcError) {
+            console.error('❌ [Auth] Error creating guest user:', rpcError);
+            throw rpcError;
+          }
+
+          if (!guestId) {
+            console.error('❌ [Auth] create_guest_user returned null');
+            return null;
+          }
+
+          // ✅ Fetch the newly created guest profile
           const { data: guestData, error: guestError } = await supabase
             .from('users')
             .select('*')
             .eq('id', guestId)
             .single();
 
-          if (guestError) throw guestError;
+          if (guestError) {
+            console.error('❌ [Auth] Error fetching newly created guest:', guestError);
+            throw guestError;
+          }
+
+          console.log('✅ [Auth] Guest profile created and loaded');
+          this.guestUserId = guestId;
           return guestData as UserProfile;
         }
 
+        console.log('✅ [Auth] Guest profile found');
+        this.guestUserId = data.id;
         return data as UserProfile;
       }
     } catch (error) {
       console.error('❌ [Auth] Get profile error:', error);
+      console.error('❌ [Auth] Error stack:', error instanceof Error ? error.stack : 'No stack');
       return null;
     }
   }
@@ -905,10 +954,10 @@ class TeamService {
       const profile = await authService.getUserProfile();
       if (!profile) throw new Error('User profile not found');
 
-      // Get assignment details
+      // Get assignment details including sender_id
       const { data: assignment, error: fetchError } = await supabase
         .from('challenge_assignments')
-        .select('admin_challenge_id, recipient_id, status, user_challenge_id')
+        .select('admin_challenge_id, recipient_id, sender_id, status, user_challenge_id')
         .eq('id', assignmentId)
         .eq('recipient_id', user.id)
         .single();
@@ -923,22 +972,16 @@ class TeamService {
         return { error: null }; // Success - just redirect to dashboard
       }
 
-      // ✅ Check if user already has ANY other active challenge
+      // ✅ Check if user already has ANY other DIFFERENT active challenge
       const { data: activeChallenge } = await supabase
         .from('user_challenges')
-        .select('id, assigned_by')
+        .select('id, admin_challenge_id')
         .eq('user_id', user.id)
-        .eq('device_id', profile.device_id || getDeviceId())
         .eq('status', 'active')
         .maybeSingle();
 
-      if (activeChallenge) {
-        // Check if it's a social challenge
-        if (activeChallenge.assigned_by) {
-          throw new Error('You have an active social challenge. Complete or pause it first before starting a new one.');
-        } else {
-          throw new Error('You have an active solo challenge. Complete or pause it first before starting a new one.');
-        }
+      if (activeChallenge && activeChallenge.admin_challenge_id !== assignment.admin_challenge_id) {
+        throw new Error('You already have an active challenge. Complete or pause it first before starting a new one.');
       }
 
       // Create user_challenge (start the challenge)
@@ -951,7 +994,7 @@ class TeamService {
           current_steps: 0,
           status: 'active',
           started_at: new Date().toISOString(),
-          assigned_by: user.id, // Mark as social challenge
+          assigned_by: assignment.sender_id, // ✅ FIX: ID nadawcy, nie odbiorcy!
         })
         .select()
         .single();

@@ -18,7 +18,7 @@ export function BadgesScreen() {
   // Refresh data every time component is rendered (when navigating back to Rewards)
   useEffect(() => {
     loadBadgesData();
-  }, [refreshKey]); // Reload when refreshKey changes
+  }, [refreshKey, userProfile?.id]); // ✅ Reload when userProfile loads
 
   // Also refresh when window gains focus
   useEffect(() => {
@@ -32,6 +32,12 @@ export function BadgesScreen() {
 
   const loadBadgesData = async () => {
     setLoading(true);
+    
+    // Create a timeout promise
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Request timed out')), 10000)
+    );
+
     try {
       // ✅ Use profile from store, no need to fetch
       console.log('🔍 [BadgesScreen] Using profile from store:', { 
@@ -42,7 +48,14 @@ export function BadgesScreen() {
 
       // Only load badges if PRO user
       if (!isGuest && userTier === 'pro') {
-        const badgesData = await badgesService.getBadges();
+        console.log('🔍 [BadgesScreen] Fetching badges from badgesService...');
+        
+        const badgesData = await Promise.race([
+          badgesService.getBadges(),
+          timeoutPromise
+        ]) as Badge[];
+        
+        console.log('🔍 [BadgesScreen] Badges fetched, count:', badgesData.length);
         
         // Get total_points from user profile in store
         const userTotalPoints = userProfile?.total_points || 0;
@@ -60,13 +73,15 @@ export function BadgesScreen() {
         
         console.log('✅ [BadgesScreen] Loaded badges with points:', userTotalPoints);
       } else {
+        console.log('ℹ️ [BadgesScreen] Not PRO or is guest - skipping badges');
         // Clear badges if not PRO
         setBadges([]);
         setTotalPoints(0);
       }
     } catch (error) {
-      console.error('Failed to load badges:', error);
+      console.error('❌ [BadgesScreen] Failed to load badges:', error);
     } finally {
+      console.log('🔍 [BadgesScreen] Setting loading to false');
       setLoading(false);
     }
   };

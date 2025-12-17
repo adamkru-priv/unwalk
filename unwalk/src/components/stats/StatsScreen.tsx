@@ -19,7 +19,17 @@ export function StatsScreen() {
   const loadCompletedChallenges = async () => {
     try {
       setLoading(true);
-      const challenges = await getCompletedChallenges();
+      
+      // Create a timeout promise
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Request timed out')), 10000)
+      );
+
+      const challenges = await Promise.race([
+        getCompletedChallenges(),
+        timeoutPromise
+      ]) as UserChallenge[];
+
       setCompletedChallenges(challenges);
       console.log('✅ [StatsScreen] Loaded completed challenges:', challenges.length);
     } catch (error) {

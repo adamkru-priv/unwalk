@@ -55,9 +55,21 @@ export function OnboardingScreen() {
   const setOnboardingComplete = useChallengeStore((s) => s.setOnboardingComplete);
 
   const handleSkip = () => {
-    // Mark onboarding as complete and redirect to "Who to Challenge" screen
+    // Mark onboarding as complete
     setOnboardingComplete(true);
-    useChallengeStore.setState({ currentScreen: 'whoToChallenge' });
+    
+    // ✅ For guest users after sign out - do a hard reload to ensure clean state
+    const userProfile = useChallengeStore.getState().userProfile;
+    if (!userProfile || userProfile.is_guest) {
+      console.log('🔄 [Onboarding] Guest user - reloading page for clean state...');
+      // Small delay to save state, then reload
+      setTimeout(() => {
+        window.location.reload();
+      }, 100);
+    } else {
+      // Authenticated user - just navigate
+      useChallengeStore.setState({ currentScreen: 'whoToChallenge' });
+    }
   };
 
   // Touch handlers for swipe gestures

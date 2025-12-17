@@ -40,20 +40,45 @@ export async function getAdminChallenges(): Promise<AdminChallenge[]> {
 export async function getActiveUserChallenge(): Promise<UserChallenge | null> {
   const deviceId = getDeviceId();
   
-  const { data, error } = await supabase
+  // Get current user (for authenticated users)
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  // Build query - for authenticated users, search by user_id OR device_id
+  // For guests, only search by device_id
+  let query = supabase
     .from('user_challenges')
     .select(`
       *,
       admin_challenge:admin_challenges(*)
     `)
-    .eq('device_id', deviceId)
-    .eq('status', 'active')
-    .single();
+    .eq('status', 'active');
+  
+  if (user) {
+    // Authenticated user - match by user_id OR device_id
+    query = query.or(`user_id.eq.${user.id},device_id.eq.${deviceId}`);
+    console.log('🔍 [API] Searching for active challenge by user_id OR device_id');
+  } else {
+    // Guest - only match by device_id
+    query = query.eq('device_id', deviceId);
+    console.log('🔍 [API] Searching for active challenge by device_id (guest)');
+  }
+  
+  const { data, error } = await query.maybeSingle(); // ✅ Use maybeSingle to avoid error if not found
 
-  if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows
+  if (error) {
+    console.error('❌ [API] Error loading active challenge:', error);
+    throw error;
+  }
+  
+  if (!data) {
+    console.log('ℹ️ [API] No active challenge found');
+    return null;
+  }
+  
+  console.log('✅ [API] Active challenge found:', data.admin_challenge?.title);
   
   // If challenge was assigned by someone, fetch assigner info separately
-  if (data && data.assigned_by) {
+  if (data.assigned_by) {
     const { data: assigner } = await supabase
       .from('users')
       .select('display_name, avatar_url')
@@ -69,7 +94,7 @@ export async function getActiveUserChallenge(): Promise<UserChallenge | null> {
     }
   }
   
-  return data || null;
+  return data;
 }
 
 // Get user's paused challenges (for Pro users)

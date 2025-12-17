@@ -13,16 +13,17 @@ interface ChallengeStore {
   pausedChallenges: UserChallenge[];
   currentScreen: Screen;
   isOnboardingComplete: boolean;
-  hasSeenWhoToChallenge: boolean; // New: track if user saw target selection
+  hasSeenWhoToChallenge: boolean;
   isHealthConnected: boolean;
-  userProfile: UserProfile | null; // ✅ NEW: Full user profile
+  userProfile: UserProfile | null;
   userTier: UserTier;
   dailyStepGoal: number;
   exploreResetTrigger: number;
   dailyChallenge: AdminChallenge | null;
-  dailyChallengeDate: string | null; // Format: YYYY-MM-DD
+  dailyChallengeDate: string | null;
   theme: Theme;
-  assignTarget: { id: string; name: string; email: string } | null; // Member to assign challenge to
+  assignTarget: { id: string; name: string; email: string } | null;
+  isAppReady: boolean; // ✅ NEW: Blocks components until App.tsx validates session
   
   // Actions
   setChallenge: (challenge: Challenge) => void;
@@ -37,7 +38,7 @@ interface ChallengeStore {
   clearChallenge: () => void;
   setOnboardingComplete: (complete: boolean) => void;
   setHealthConnected: (connected: boolean) => void;
-  setUserProfile: (profile: UserProfile | null) => void; // ✅ NEW
+  setUserProfile: (profile: UserProfile | null) => void;
   setUserTier: (tier: UserTier) => void;
   setDailyStepGoal: (goal: number) => void;
   resetExploreView: () => void;
@@ -46,6 +47,7 @@ interface ChallengeStore {
   setTheme: (theme: Theme) => void;
   resetToInitialState: () => void;
   setAssignTarget: (target: { id: string; name: string; email: string } | null) => void;
+  setIsAppReady: (ready: boolean) => void; // ✅ NEW
 }
 
 export const useChallengeStore = create<ChallengeStore>()(
@@ -66,6 +68,7 @@ export const useChallengeStore = create<ChallengeStore>()(
       dailyChallengeDate: null,
       theme: 'dark',
       assignTarget: null,
+      isAppReady: false, // ✅ NEW
 
       setChallenge: (challenge) => set({ challenge }),
       
@@ -206,9 +209,29 @@ export const useChallengeStore = create<ChallengeStore>()(
       }),
 
       setAssignTarget: (target) => set({ assignTarget: target }),
+
+      setIsAppReady: (ready) => set({ isAppReady: ready }), // ✅ NEW
     }),
     {
       name: 'unwalk-storage',
+      partialize: (state) => ({
+        // Persist everything EXCEPT isAppReady
+        challenge: state.challenge,
+        activeUserChallenge: state.activeUserChallenge,
+        pausedChallenges: state.pausedChallenges,
+        currentScreen: state.currentScreen,
+        isOnboardingComplete: state.isOnboardingComplete,
+        hasSeenWhoToChallenge: state.hasSeenWhoToChallenge,
+        isHealthConnected: state.isHealthConnected,
+        userProfile: state.userProfile,
+        userTier: state.userTier,
+        dailyStepGoal: state.dailyStepGoal,
+        exploreResetTrigger: state.exploreResetTrigger,
+        dailyChallenge: state.dailyChallenge,
+        dailyChallengeDate: state.dailyChallengeDate,
+        theme: state.theme,
+        assignTarget: state.assignTarget,
+      }),
     }
   )
 );

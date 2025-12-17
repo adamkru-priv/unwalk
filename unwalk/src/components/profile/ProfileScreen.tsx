@@ -3,7 +3,6 @@ import { AppHeader } from '../common/AppHeader';
 import { useChallengeStore } from '../../stores/useChallengeStore';
 import { useState, useEffect } from 'react';
 import { authService } from '../../lib/auth';
-import { supabase } from '../../lib/supabase';
 import { AccountSection } from './AccountSection';
 import { AccountTypeCards } from './AccountTypeCards';
 import { AuthModal } from './AuthModal';
@@ -35,37 +34,52 @@ export function ProfileScreen() {
   const [authSuccess, setAuthSuccess] = useState<string | null>(null);
   const [showPausedWarning, setShowPausedWarning] = useState(false);
 
+  // ✅ Sync local state when profile changes in store (no auth listener needed - App.tsx handles it)
   useEffect(() => {
-    // Profile is already loaded in App.tsx, no need to load here
-    // Just sync local state when profile changes in store
     if (userProfile) {
       setUserTier(userProfile.tier);
       setDailyStepGoal(userProfile.daily_step_goal);
     }
-    
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('🔐 [ProfileScreen] Auth state changed:', event, 'session:', session?.user?.id);
-      
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
-        console.log('🔄 [ProfileScreen] Auth event detected, profile will be reloaded by App.tsx');
-      }
-    });
-
-    return () => {
-      authListener?.subscription.unsubscribe();
-    };
-  }, [userProfile]);
+  }, [userProfile, setUserTier, setDailyStepGoal]);
 
   const isGuest = userProfile?.is_guest || false;
 
   const handleSignOut = async () => {
     if (!confirm('Sign out from your account?')) return;
     
-    const { error } = await authService.signOut();
-    if (!error) {
+    try {
+      console.log('🔓 [ProfileScreen] Signing out...');
+      
+      // 1. Clear store FIRST
+      console.log('🧹 [ProfileScreen] Clearing store...');
       setUserProfile(null);
       resetToInitialState();
-      window.location.reload();
+      
+      // 2. Clear ALL localStorage (including Supabase auth cache)
+      console.log('🧹 [ProfileScreen] Clearing localStorage...');
+      localStorage.clear();
+      
+      // 3. Sign out from Supabase
+      const { error } = await authService.signOut();
+      if (error) {
+        console.error('❌ Sign out error:', error);
+        alert('Failed to sign out. Please try again.');
+        return;
+      }
+      
+      console.log('✅ [ProfileScreen] Supabase sign out successful');
+      
+      // 4. Small delay to ensure cleanup completes
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // 5. Hard reload to root
+      console.log('🔄 [ProfileScreen] Reloading page...');
+      window.location.href = '/';
+    } catch (err) {
+      console.error('❌ Unexpected error during sign out:', err);
+      // W przypadku błędu - wyczyść wszystko i reload
+      localStorage.clear();
+      window.location.href = '/';
     }
   };
 
