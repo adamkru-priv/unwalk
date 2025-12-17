@@ -9,6 +9,7 @@ import { AuthModal } from './AuthModal';
 import { ThemeSelector } from './ThemeSelector';
 import { DailyStepGoalSection } from './DailyStepGoalSection';
 import { PausedChallengesWarning } from './PausedChallengesWarning';
+import { APP_VERSION, BUILD_DATE } from '../../version';
 
 export function ProfileScreen() {
   const userTier = useChallengeStore((s) => s.userTier);
@@ -341,7 +342,7 @@ export function ProfileScreen() {
           )}
           
           <div className="text-xs text-gray-400 dark:text-white/30">
-            Movee v1.0.0
+            Movee v{APP_VERSION} • {BUILD_DATE}
           </div>
         </div>
       </main>
