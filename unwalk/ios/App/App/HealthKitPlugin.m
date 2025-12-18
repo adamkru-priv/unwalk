@@ -1,7 +1,2 @@
-#import <Capacitor/Capacitor.h>
-
-CAP_PLUGIN(HealthKitPlugin, "HealthKitPlugin",
-    CAP_PLUGIN_METHOD(isAvailable, CAPPluginReturnPromise);
-    CAP_PLUGIN_METHOD(requestAuthorization, CAPPluginReturnPromise);
-    CAP_PLUGIN_METHOD(getSteps, CAPPluginReturnPromise);
-)
+// Removed legacy in-app Objective-C plugin registration.
+// The MoveeHealthKit plugin is provided by the Swift package in /plugins/movee-healthkit.

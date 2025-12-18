@@ -1,6 +1,5 @@
 import Foundation
 import HealthKit
-import Capacitor
 
 class HealthKitManager {
     static let shared = HealthKitManager()

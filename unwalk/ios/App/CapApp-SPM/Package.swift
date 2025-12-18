@@ -17,7 +17,8 @@ let package = Package(
         .package(name: "CapacitorPreferences", path: "../../../node_modules/@capacitor/preferences"),
         .package(name: "CapacitorSplashScreen", path: "../../../node_modules/@capacitor/splash-screen"),
         .package(name: "CapacitorStatusBar", path: "../../../node_modules/@capacitor/status-bar"),
-        .package(name: "CapacitorToast", path: "../../../node_modules/@capacitor/toast")
+        .package(name: "CapacitorToast", path: "../../../node_modules/@capacitor/toast"),
+        .package(name: "CapacitorMoveeHealthkit", path: "../../../plugins/movee-healthkit")
     ],
     targets: [
         .target(
@@ -30,7 +31,8 @@ let package = Package(
                 .product(name: "CapacitorPreferences", package: "CapacitorPreferences"),
                 .product(name: "CapacitorSplashScreen", package: "CapacitorSplashScreen"),
                 .product(name: "CapacitorStatusBar", package: "CapacitorStatusBar"),
-                .product(name: "CapacitorToast", package: "CapacitorToast")
+                .product(name: "CapacitorToast", package: "CapacitorToast"),
+                .product(name: "CapacitorMoveeHealthkit", package: "CapacitorMoveeHealthkit")
             ]
         )
     ]

@@ -21,3 +21,6 @@ unwalk/ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/WorkspaceSettings.
 # CocoaPods (if ever used)
 **/Pods/
 **/Podfile.lock
+
+# Local plugin repo (embedded git repository)
+unwalk/plugins/movee-healthkit/
