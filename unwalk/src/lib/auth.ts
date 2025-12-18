@@ -245,7 +245,7 @@ class AuthService {
               email: email,
               display_name: email.split('@')[0],
               is_guest: false,
-              tier: 'pro', // New authenticated users get pro
+              tier: 'basic', // New authenticated users start on basic
               daily_step_goal: 10000,
               onboarding_completed: true,
             });
@@ -401,7 +401,7 @@ class AuthService {
               email,
               display_name: displayName,
               is_guest: false,
-              tier: 'pro',
+              tier: 'basic',
               daily_step_goal: 10000,
               onboarding_completed: true,
             })

@@ -71,6 +71,14 @@ export function TeamMembers({
 
   return (
     <div className="space-y-6">
+      {/* RECEIVED INVITATIONS with 5-team limit */}
+      <ReceivedInvitationsSlots
+        receivedInvitations={receivedInvitations}
+        acceptedTeamsCount={acceptedTeamsCount}
+        onAccept={handleAcceptInvitation}
+        onReject={handleRejectInvitation}
+      />
+
       {/* TEAM SLOTS - Your team roster */}
       <TeamSlots
         teamMembers={teamMembers}
@@ -78,14 +86,6 @@ export function TeamMembers({
         onInviteClick={onInviteClick}
         onMemberClick={onMemberSelect}
         invitedCount={sentInvitations.filter(inv => inv.status === 'pending').length}
-      />
-
-      {/* RECEIVED INVITATIONS with 5-team limit */}
-      <ReceivedInvitationsSlots
-        receivedInvitations={receivedInvitations}
-        acceptedTeamsCount={acceptedTeamsCount}
-        onAccept={handleAcceptInvitation}
-        onReject={handleRejectInvitation}
       />
 
       {/* SENT INVITATIONS - moved to bottom, simplified */}

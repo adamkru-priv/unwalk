@@ -161,7 +161,7 @@ export function AccountTypeCards({ isGuest, userTier, onTierChange, onShowAuthMo
                 </span>
               )}
             </div>
-            <div className="text-xs font-bold text-amber-600 dark:text-amber-400">$2.99/month</div>
+            {/* Price intentionally hidden */}
           </div>
           
           <div className="space-y-1.5 text-xs text-gray-600 dark:text-gray-400 mb-4">

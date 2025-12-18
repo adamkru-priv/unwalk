@@ -29,7 +29,7 @@ export function Toast({ message, type = 'info', duration = 3000, onClose }: Toas
 
   const colors = {
     success: 'bg-emerald-600/90',
-    info: 'bg-slate-900/90',
+    info: 'bg-gradient-to-r from-indigo-600/95 via-fuchsia-600/90 to-sky-600/95',
     warning: 'bg-amber-600/90',
     error: 'bg-rose-600/90',
   };
@@ -43,7 +43,7 @@ export function Toast({ message, type = 'info', duration = 3000, onClose }: Toas
     >
       <div className="mx-auto w-full max-w-md">
         <div
-          className={`${colors[type]} text-white rounded-2xl shadow-xl px-4 py-3 flex items-start gap-3 border border-white/10 backdrop-blur-md`}
+          className={`${colors[type]} text-white rounded-2xl shadow-2xl px-4 py-3 flex items-start gap-3 border border-white/20 backdrop-blur-md`}
           role="status"
           aria-live="polite"
         >
