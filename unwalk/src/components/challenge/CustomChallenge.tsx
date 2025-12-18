@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useChallengeStore } from '../../stores/useChallengeStore';
-import { createCustomChallenge, uploadChallengeImage, assignChallengeToUsers, getMyCustomChallenges, deleteCustomChallenge, startChallenge } from '../../lib/api';
+import { createCustomChallenge, uploadChallengeImage, getMyCustomChallenges, deleteCustomChallenge, startChallenge, updateCustomChallenge } from '../../lib/api';
+import { teamService, type TeamMember } from '../../lib/auth';
 import type { AdminChallenge } from '../../types';
 
 type CreateStep = 'form' | 'assign';
@@ -15,6 +16,8 @@ export function CustomChallenge() {
   const [myCustomChallenges, setMyCustomChallenges] = useState<AdminChallenge[]>([]);
   const [editingChallenge, setEditingChallenge] = useState<AdminChallenge | null>(null);
   const { setCurrentScreen, activeUserChallenge, setActiveChallenge } = useChallengeStore();
+  const userProfile = useChallengeStore((s) => s.userProfile);
+  const isGuest = userProfile?.is_guest ?? false;
 
   // Form state
   const [title, setTitle] = useState('');
@@ -27,19 +30,47 @@ export function CustomChallenge() {
   const [deadlineDays, setDeadlineDays] = useState(7);
   const [deadlineHours, setDeadlineHours] = useState(0);
   const [deadlineMinutes, setDeadlineMinutes] = useState(0);
-  const [assignTo, setAssignTo] = useState<'myself' | 'person' | 'group'>('myself');
+  const [assignTo, setAssignTo] = useState<'myself' | 'person'>('myself');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [createdChallengeId, setCreatedChallengeId] = useState<string | null>(null);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
 
-  const familyMembers = [
-    { id: '1', name: 'Mama', avatar: '👩', deviceId: 'device-mama' },
-    { id: '2', name: 'Tata', avatar: '👨', deviceId: 'device-tata' },
-    { id: '3', name: 'Kasia', avatar: '👧', deviceId: 'device-kasia' },
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [assigningChallenge, setAssigningChallenge] = useState<AdminChallenge | null>(null);
+  const [assignModalTo, setAssignModalTo] = useState<'myself' | 'person'>('person');
+  const [assignModalSelected, setAssignModalSelected] = useState<string[]>([]);
+
+  const goalStepPresets = [1000, 5000, 10000, 15000, 25000, 50000];
+  const timePresets = [
+    { label: '1h', minutes: 60 },
+    { label: '12h', minutes: 12 * 60 },
+    { label: '24h', minutes: 24 * 60 },
+    { label: '3d', minutes: 3 * 24 * 60 },
+    { label: '7d', minutes: 7 * 24 * 60 },
+    { label: '14d', minutes: 14 * 24 * 60 },
   ];
 
   useEffect(() => {
     loadMyCustomChallenges();
   }, []);
+
+  useEffect(() => {
+    const loadTeam = async () => {
+      if (isGuest) {
+        setTeamMembers([]);
+        return;
+      }
+      try {
+        const members = await teamService.getTeamMembers();
+        setTeamMembers(members || []);
+      } catch (e) {
+        console.error('❌ [CustomChallenge] Failed to load team members:', e);
+        setTeamMembers([]);
+      }
+    };
+
+    loadTeam();
+  }, [isGuest, userProfile?.id]);
 
   const loadMyCustomChallenges = async () => {
     try {
@@ -62,8 +93,16 @@ export function CustomChallenge() {
     }
   };
 
-  const getTotalMinutes = () => {
-    return deadlineDays * 24 * 60 + deadlineHours * 60 + deadlineMinutes;
+  const getDeadlineTotalMinutes = () => deadlineDays * 24 * 60 + deadlineHours * 60 + deadlineMinutes;
+  const setDeadlineFromTotalMinutes = (total: number) => {
+    const t = Math.max(0, Math.round(total));
+    const d = Math.floor(t / (24 * 60));
+    const rem = t % (24 * 60);
+    const h = Math.floor(rem / 60);
+    const m = rem % 60;
+    setDeadlineDays(d);
+    setDeadlineHours(h);
+    setDeadlineMinutes(m);
   };
 
   const handleCreateChallenge = async () => {
@@ -82,7 +121,7 @@ export function CustomChallenge() {
       // Calculate deadline as ISO string from now + time limit
       let deadline: string | undefined;
       if (hasDeadline) {
-        const totalMinutes = getTotalMinutes();
+        const totalMinutes = getDeadlineTotalMinutes();
         const deadlineDate = new Date();
         deadlineDate.setMinutes(deadlineDate.getMinutes() + totalMinutes);
         deadline = deadlineDate.toISOString();
@@ -116,21 +155,19 @@ export function CustomChallenge() {
       setLoading(true);
       setError(null);
 
-      let deviceIds: string[] = [];
-      
       if (assignTo === 'myself') {
-        deviceIds = [];
-      } else if (assignTo === 'person' && selectedMembers.length > 0) {
-        const selectedMemberDevices = familyMembers
-          .filter(m => selectedMembers.includes(m.id))
-          .map(m => m.deviceId);
-        deviceIds = selectedMemberDevices;
-      } else if (assignTo === 'group') {
-        deviceIds = familyMembers.map(m => m.deviceId);
+        // Start the newly created challenge for the current user immediately
+        const userChallenge = await startChallenge(createdChallengeId);
+        setActiveChallenge(userChallenge);
+        setCurrentScreen('dashboard');
+        return;
       }
 
-      await assignChallengeToUsers(createdChallengeId, deviceIds);
-      
+      if (assignTo === 'person' && selectedMembers.length > 0) {
+        // Assign to a specific team member (by user id)
+        await teamService.assignChallenge(selectedMembers[0], createdChallengeId);
+      }
+
       // Reset form
       setTitle('');
       setDescription('');
@@ -146,13 +183,13 @@ export function CustomChallenge() {
       setSelectedMembers([]);
       setCreatedChallengeId(null);
       setCreateStep('form');
-      setLoading(false);
-      
+
       // Go back to home
       setCurrentScreen('home');
     } catch (err) {
       console.error('Failed to assign challenge:', err);
       setError('Failed to assign challenge. Please try again.');
+    } finally {
       setLoading(false);
     }
   };
@@ -209,39 +246,80 @@ export function CustomChallenge() {
       setError(null);
 
       // Upload new image if changed
-      const imageUrl = imagePreview;
+      let imageUrl = imagePreview || editingChallenge.image_url;
       if (imageFile) {
-        const uploadedUrl = await uploadChallengeImage(imageFile);
-        // Use uploadedUrl for update when API is ready
-        console.log('New image uploaded:', uploadedUrl);
+        imageUrl = await uploadChallengeImage(imageFile);
       }
 
-      // Calculate deadline as ISO string from now + time limit
-      const deadline: string | undefined = hasDeadline 
-        ? new Date(Date.now() + getTotalMinutes() * 60000).toISOString()
-        : undefined;
+      const deadline: string | null = hasDeadline
+        ? new Date(Date.now() + getDeadlineTotalMinutes() * 60000).toISOString()
+        : null;
 
-      // Update challenge via API
-      // TODO: Add updateCustomChallenge API function
-      console.log('Update challenge:', { 
-        id: editingChallenge.id,
-        title, 
-        description, 
-        goalSteps, 
-        imageUrl, 
-        isImageHidden, 
-        deadline 
+      const updated = await updateCustomChallenge(editingChallenge.id, {
+        title,
+        description: description || 'Custom challenge',
+        goal_steps: goalSteps,
+        image_url: imageUrl,
+        is_image_hidden: isImageHidden,
+        deadline,
       });
-      
-      // For now, just show success and refresh
+
+      // Update local list immediately
+      setMyCustomChallenges((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+
       setLoading(false);
       setViewMode('list');
       setEditingChallenge(null);
-      loadMyCustomChallenges();
-      
+      // clear file selection
+      setImageFile(null);
+      // keep preview as the saved url
+      setImagePreview(updated.image_url);
     } catch (err) {
       console.error('Failed to update challenge:', err);
       setError('Failed to update challenge. Please try again.');
+      setLoading(false);
+    }
+  };
+
+  const closeAssignModal = () => {
+    setAssignModalOpen(false);
+    setAssigningChallenge(null);
+    setAssignModalSelected([]);
+    setAssignModalTo('person');
+  };
+
+  const openAssignExisting = (challenge: AdminChallenge) => {
+    setAssigningChallenge(challenge);
+    setAssignModalTo('person');
+    setAssignModalSelected([]);
+    setAssignModalOpen(true);
+  };
+
+  const handleAssignExisting = async () => {
+    if (!assigningChallenge) return;
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      if (assignModalTo === 'myself') {
+        await handleStartCustomChallenge(assigningChallenge.id);
+        closeAssignModal();
+        return;
+      }
+
+      const memberId = assignModalSelected[0];
+      if (!memberId) {
+        setError('Select a team member');
+        return;
+      }
+      await teamService.assignChallenge(memberId, assigningChallenge.id);
+
+      closeAssignModal();
+    } catch (e) {
+      console.error('❌ [CustomChallenge] Failed to assign existing custom challenge:', e);
+      setError('Failed to assign challenge. Please try again.');
+    } finally {
       setLoading(false);
     }
   };
@@ -262,83 +340,107 @@ export function CustomChallenge() {
       {viewMode === 'list' ? (
         /* LIST VIEW - My Challenges */
         <>
+          {/* Hero */}
           <div className="text-center mb-6">
-            <h2 className="text-2xl font-bold text-white mb-2">My Custom Challenges</h2>
-            <p className="text-gray-400 text-sm">
-              Create, manage, and start your personalized challenges
+            <div className="text-xs font-black text-amber-400/90 uppercase tracking-[0.2em] mb-2">
+              Your creation
+            </div>
+            <h2 className="text-3xl font-black text-white mb-2 tracking-tight">My Custom Challenges</h2>
+            <p className="text-white/60 text-sm leading-relaxed">
+              Create a challenge, then assign it to yourself or a teammate.
             </p>
           </div>
 
           {/* Create New Button */}
           <button
-            onClick={() => setViewMode('create')}
-            className="w-full bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white px-6 py-4 rounded-xl font-bold text-base transition-all shadow-lg flex items-center justify-center gap-2"
+            onClick={() => {
+              setViewMode('create');
+              setCreateStep('form');
+            }}
+            className="relative w-full overflow-hidden rounded-3xl p-5 text-left border border-amber-500/20 bg-gradient-to-br from-amber-600/30 via-amber-500/10 to-[#151A25] hover:border-amber-500/40 transition-all"
           >
-            <span>✨</span>
-            <span>Create New Challenge</span>
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 hover:opacity-100 transition-opacity" />
+            <div className="relative flex items-center justify-between">
+              <div>
+                <div className="text-xs font-black text-amber-300 uppercase tracking-widest">New</div>
+                <div className="text-xl font-black text-white mt-1">Create New Challenge</div>
+                <div className="text-xs text-white/60 mt-1">Pick steps, add image, assign</div>
+              </div>
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-2xl">
+                ✨
+              </div>
+            </div>
           </button>
 
           {/* MY CUSTOM CHALLENGES LIST */}
           {myCustomChallenges.length > 0 ? (
             <section>
-              <h3 className="text-sm font-bold text-gray-400 mb-3 px-1 uppercase tracking-wider">
+              <h3 className="text-xs font-bold text-gray-400 mb-3 px-1 uppercase tracking-wider">
                 Your Challenges ({myCustomChallenges.length})
               </h3>
-              
+
               <div className="space-y-3">
                 {myCustomChallenges.map((challenge) => (
                   <div
                     key={challenge.id}
-                    className="bg-gradient-to-br from-amber-900/20 to-amber-800/20 border border-amber-700/30 rounded-2xl p-4 flex items-center gap-4"
+                    className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#151A25] via-[#121827] to-[#0E1423] p-4"
                   >
-                    {/* Thumbnail */}
-                    <div className="relative w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 ring-2 ring-amber-500/30">
-                      <img
-                        src={challenge.image_url}
-                        alt={challenge.title}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute top-1 right-1 bg-amber-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded">
-                        ✨
-                      </div>
-                    </div>
+                    {/* Subtle image backdrop */}
+                    <div
+                      className="absolute inset-0 opacity-20"
+                      style={{
+                        backgroundImage: `url(${challenge.image_url})`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-r from-[#0B101B] via-[#0B101B]/70 to-transparent" />
+                    <div className="absolute -top-24 -right-24 w-56 h-56 bg-amber-500/15 blur-3xl rounded-full" />
 
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-white text-sm truncate">
-                        {challenge.title}
-                      </h3>
-                      <div className="text-xs text-amber-200/60 flex items-center gap-2 mt-0.5">
-                        <span>🎯 {(challenge.goal_steps / 1000).toFixed(0)}k steps</span>
-                        <span>•</span>
-                        <span>≈ {(challenge.goal_steps / 1250).toFixed(1)} km</span>
+                    <div className="relative flex items-center gap-4">
+                      {/* Thumbnail */}
+                      <div className="relative w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0 ring-2 ring-white/10">
+                        <img src={challenge.image_url} alt={challenge.title} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/10" />
                       </div>
-                    </div>
 
-                    {/* Actions */}
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleStartCustomChallenge(challenge.id)}
-                        disabled={!!activeUserChallenge}
-                        className="text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 disabled:bg-gray-700 disabled:opacity-50 px-3 py-1.5 rounded-lg transition-colors"
-                        title={activeUserChallenge ? 'Complete current challenge first' : 'Start this challenge'}
-                      >
-                        Start
-                      </button>
-                      <button
-                        onClick={() => handleEditChallenge(challenge)}
-                        className="text-xs font-bold text-blue-400 bg-blue-900/20 hover:bg-blue-900/40 px-2.5 py-1.5 rounded-lg transition-colors"
-                        title="Edit challenge"
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        onClick={() => handleDeleteCustomChallenge(challenge.id, challenge.title)}
-                        className="text-xs font-bold text-red-400 bg-red-900/20 hover:bg-red-900/40 px-2.5 py-1.5 rounded-lg transition-colors"
-                        title="Delete challenge"
-                      >
-                        🗑️
-                      </button>
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-black text-white text-base truncate">{challenge.title}</h3>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span className="inline-flex items-center rounded-xl bg-white/10 px-2.5 py-1 border border-white/10 text-xs font-bold text-white/80">
+                            🎯 {(challenge.goal_steps / 1000).toFixed(0)}k steps
+                          </span>
+                          <span className="text-xs text-white/50">≈ {(challenge.goal_steps / 1250).toFixed(1)} km</span>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex flex-col items-end gap-2">
+                        <button
+                          onClick={() => openAssignExisting(challenge)}
+                          className="text-xs font-black text-white bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 px-4 py-2 rounded-2xl transition-colors shadow-lg shadow-amber-500/10"
+                          title="Assign"
+                        >
+                          Assign
+                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleEditChallenge(challenge)}
+                            className="text-xs font-bold text-white/70 bg-white/10 hover:bg-white/15 px-3 py-2 rounded-2xl transition-colors"
+                            title="Edit challenge"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            onClick={() => handleDeleteCustomChallenge(challenge.id, challenge.title)}
+                            className="text-xs font-bold text-red-300 bg-red-500/15 hover:bg-red-500/20 px-3 py-2 rounded-2xl transition-colors"
+                            title="Delete challenge"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -346,27 +448,42 @@ export function CustomChallenge() {
             </section>
           ) : (
             /* Empty State */
-            <div className="bg-[#151A25] border border-white/10 rounded-2xl p-8 text-center">
-              <div className="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <span className="text-4xl">📝</span>
+            <div className="relative overflow-hidden bg-gradient-to-br from-[#151A25] to-[#1A1F2E] border border-white/10 rounded-3xl p-8 text-center">
+              <div className="absolute -top-20 -left-20 w-60 h-60 bg-gradient-to-br from-amber-500/20 to-orange-500/10 rounded-full blur-3xl" />
+              <div className="relative">
+                <div className="w-16 h-16 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <span className="text-4xl">✨</span>
+                </div>
+                <h3 className="text-lg font-black text-white mb-2">Create your first custom challenge</h3>
+                <p className="text-white/60 text-sm mb-4">
+                  Make it personal: set steps, add a photo, then assign it.
+                </p>
               </div>
-              <h3 className="text-lg font-bold text-white mb-2">No Custom Challenges Yet</h3>
-              <p className="text-gray-400 text-sm mb-4">
-                Create your first personalized challenge and start walking!
-              </p>
             </div>
           )}
         </>
       ) : viewMode === 'create' ? (
         /* CREATE VIEW - Form */
         <>
+          {/* Top back */}
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => {
+                setViewMode('list');
+                setCreateStep('form');
+              }}
+              className="text-sm font-black text-white/70 hover:text-white px-1"
+            >
+              ← Back
+            </button>
+          </div>
+
           {createStep === 'form' ? (
             <>
               <div className="text-center mb-6">
-                <h2 className="text-2xl font-bold text-white mb-2">Create Custom Challenge</h2>
-                <p className="text-gray-400 text-sm">
-                  Design your personal walking adventure
-                </p>
+                <h2 className="text-2xl font-black text-white mb-2">Create Custom Challenge</h2>
+                <p className="text-gray-400 text-sm">Design your personal walking adventure</p>
               </div>
 
               {/* Title */}
@@ -385,9 +502,7 @@ export function CustomChallenge() {
 
               {/* Description */}
               <section>
-                <label className="text-sm font-semibold text-white mb-2 block px-1">
-                  Description (optional)
-                </label>
+                <label className="text-sm font-semibold text-white mb-2 block px-1">Description (optional)</label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
@@ -417,14 +532,10 @@ export function CustomChallenge() {
                     onChange={handleImageUpload}
                     className="hidden"
                   />
-                  
+
                   {imagePreview ? (
                     <div className="relative aspect-video rounded-xl overflow-hidden">
-                      <img
-                        src={imagePreview}
-                        alt="Preview"
-                        className="w-full h-full object-cover"
-                      />
+                      <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-3">
                         <div className="text-white text-xs">✓ Image uploaded - click to change</div>
                       </div>
@@ -433,7 +544,12 @@ export function CustomChallenge() {
                     <div className="text-center">
                       <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-3">
                         <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                          />
                         </svg>
                       </div>
                       <div className="text-white text-sm font-medium mb-1">Click to upload image</div>
@@ -441,7 +557,7 @@ export function CustomChallenge() {
                     </div>
                   )}
                 </div>
-                
+
                 {/* Blur checkbox */}
                 <label className="flex items-center gap-3 mt-3 px-1 cursor-pointer">
                   <input
@@ -454,37 +570,31 @@ export function CustomChallenge() {
                 </label>
               </section>
 
-              {/* Goal Steps Slider */}
+              {/* Goal Steps */}
               <section>
                 <div className="flex items-center justify-between mb-3 px-1">
-                  <label className="text-sm font-semibold text-white">
-                    Goal Steps
-                  </label>
-                  <span className="text-2xl font-bold text-amber-400">
-                    {(goalSteps / 1000).toFixed(0)}k
-                  </span>
+                  <label className="text-sm font-semibold text-white">Goal Steps</label>
+                  <span className="text-2xl font-bold text-amber-400">{(goalSteps / 1000).toFixed(0)}k</span>
                 </div>
-                
-                <input
-                  type="range"
-                  min="1000"
-                  max="100000"
-                  step="1000"
-                  value={goalSteps}
-                  onChange={(e) => setGoalSteps(parseInt(e.target.value))}
-                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-amber-500"
-                  style={{
-                    background: `linear-gradient(to right, #f59e0b 0%, #f59e0b ${((goalSteps - 1000) / 99000) * 100}%, #374151 ${((goalSteps - 1000) / 99000) * 100}%, #374151 100%)`
-                  }}
-                />
-                <div className="flex justify-between mt-2 text-xs text-gray-500">
-                  <span>1k</span>
-                  <span>50k</span>
-                  <span>100k</span>
+
+                <div className="grid grid-cols-3 gap-2">
+                  {goalStepPresets.map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setGoalSteps(p)}
+                      className={`px-3 py-3 rounded-2xl text-sm font-black border transition-all ${
+                        goalSteps === p
+                          ? 'bg-amber-600/20 border-amber-500 text-amber-200'
+                          : 'bg-[#151A25] border-white/10 text-white/70 hover:border-white/20'
+                      }`}
+                    >
+                      {(p / 1000).toFixed(0)}k
+                    </button>
+                  ))}
                 </div>
-                <div className="text-xs text-gray-400 px-1 mt-2">
-                  ≈ {(goalSteps / 1250).toFixed(1)} km
-                </div>
+
+                <div className="text-xs text-gray-400 px-1 mt-2">≈ {(goalSteps / 1250).toFixed(1)} km</div>
               </section>
 
               {/* Time Limit */}
@@ -498,69 +608,41 @@ export function CustomChallenge() {
                   />
                   <span className="text-sm font-semibold text-white">Set time limit</span>
                 </label>
-                
+
                 {hasDeadline && (
                   <div className="space-y-3">
                     <div className="bg-[#151A25] border border-white/10 rounded-xl p-4">
                       <div className="text-xs text-gray-400 mb-3">Time will start when challenge begins</div>
-                      
-                      {/* Days */}
-                      <div className="mb-4">
-                        <label className="text-xs text-gray-400 mb-2 block">Days</label>
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="range"
-                            min="0"
-                            max="365"
-                            value={deadlineDays}
-                            onChange={(e) => setDeadlineDays(parseInt(e.target.value))}
-                            className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-amber-500"
-                          />
-                          <span className="text-white font-semibold w-12 text-right">{deadlineDays}d</span>
-                        </div>
+
+                      <div className="grid grid-cols-3 gap-2 mb-4">
+                        {timePresets.map((p) => (
+                          <button
+                            key={p.label}
+                            type="button"
+                            onClick={() => setDeadlineFromTotalMinutes(p.minutes)}
+                            className={`px-3 py-3 rounded-2xl text-sm font-black border transition-all ${
+                              getDeadlineTotalMinutes() === p.minutes
+                                ? 'bg-amber-600/20 border-amber-500 text-amber-200'
+                                : 'bg-[#151A25] border-white/10 text-white/70 hover:border-white/20'
+                            }`}
+                          >
+                            {p.label}
+                          </button>
+                        ))}
                       </div>
 
-                      {/* Hours */}
-                      <div className="mb-4">
-                        <label className="text-xs text-gray-400 mb-2 block">Hours</label>
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="range"
-                            min="0"
-                            max="23"
-                            value={deadlineHours}
-                            onChange={(e) => setDeadlineHours(parseInt(e.target.value))}
-                            className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-amber-500"
-                          />
-                          <span className="text-white font-semibold w-12 text-right">{deadlineHours}h</span>
-                        </div>
-                      </div>
-
-                      {/* Minutes */}
-                      <div>
-                        <label className="text-xs text-gray-400 mb-2 block">Minutes</label>
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="range"
-                            min="0"
-                            max="59"
-                            value={deadlineMinutes}
-                            onChange={(e) => setDeadlineMinutes(parseInt(e.target.value))}
-                            className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-amber-500"
-                          />
-                          <span className="text-white font-semibold w-12 text-right">{deadlineMinutes}m</span>
-                        </div>
-                      </div>
-
-                      {/* Total time display */}
-                      <div className="mt-4 pt-4 border-t border-white/10">
+                      <div className="pt-1">
                         <div className="flex items-center justify-between">
                           <span className="text-xs text-gray-400">Total time limit:</span>
                           <span className="text-sm font-bold text-amber-400">
-                            {deadlineDays > 0 && `${deadlineDays}d `}
-                            {deadlineHours > 0 && `${deadlineHours}h `}
-                            {deadlineMinutes > 0 && `${deadlineMinutes}m`}
-                            {deadlineDays === 0 && deadlineHours === 0 && deadlineMinutes === 0 && 'Not set'}
+                            {(() => {
+                              const t = getDeadlineTotalMinutes();
+                              const d = Math.floor(t / (24 * 60));
+                              const h = Math.floor((t % (24 * 60)) / 60);
+                              const m = t % 60;
+                              if (t === 0) return 'Not set';
+                              return `${d > 0 ? `${d}d ` : ''}${h > 0 ? `${h}h ` : ''}${m > 0 ? `${m}m` : ''}`.trim();
+                            })()}
                           </span>
                         </div>
                       </div>
@@ -591,115 +673,89 @@ export function CustomChallenge() {
           ) : (
             /* ASSIGN STEP */
             <>
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setCreateStep('form')}
+                  className="text-sm font-black text-white/70 hover:text-white px-1"
+                >
+                  ← Back
+                </button>
+              </div>
+
               <div className="text-center mb-6">
                 <div className="w-16 h-16 bg-amber-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <span className="text-4xl">✅</span>
                 </div>
-                <h2 className="text-2xl font-bold text-white mb-2">Challenge Created!</h2>
-                <p className="text-gray-400 text-sm">
-                  Who should take on this challenge?
-                </p>
+                <h2 className="text-2xl font-black text-white mb-2">Challenge Created!</h2>
+                <p className="text-gray-400 text-sm">Who should take on this challenge?</p>
               </div>
 
-              {/* Assignment Options */}
               <section className="space-y-3">
                 <button
+                  type="button"
                   onClick={() => setAssignTo('myself')}
-                  className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
+                  className={`w-full p-4 rounded-2xl border-2 transition-all text-left ${
                     assignTo === 'myself'
-                      ? 'bg-amber-600/20 border-amber-500 shadow-lg shadow-amber-500/20'
+                      ? 'bg-amber-600/15 border-amber-500/60'
                       : 'bg-[#151A25] border-white/10 hover:border-white/20'
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">🚶‍♂️</span>
-                    <div className="flex-1">
-                      <div className="font-semibold text-white">Start for Myself</div>
-                      <div className="text-xs text-gray-400">Begin walking immediately</div>
-                    </div>
-                    {assignTo === 'myself' && (
-                      <svg className="w-5 h-5 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                    )}
-                  </div>
+                  <div className="font-black text-white">Myself</div>
+                  <div className="text-xs text-white/50">Start now on this device</div>
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => setAssignTo('person')}
-                  className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
+                  className={`w-full p-4 rounded-2xl border-2 transition-all text-left ${
                     assignTo === 'person'
-                      ? 'bg-amber-600/20 border-amber-500 shadow-lg shadow-amber-500/20'
+                      ? 'bg-amber-600/15 border-amber-500/60'
                       : 'bg-[#151A25] border-white/10 hover:border-white/20'
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">👤</span>
-                    <div className="flex-1">
-                      <div className="font-semibold text-white">Assign to Someone</div>
-                      <div className="text-xs text-gray-400">Choose family member</div>
-                    </div>
-                    {assignTo === 'person' && (
-                      <svg className="w-5 h-5 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                    )}
-                  </div>
+                  <div className="font-black text-white">Someone</div>
+                  <div className="text-xs text-white/50">Pick one team member</div>
                 </button>
 
                 {assignTo === 'person' && (
-                  <div className="grid grid-cols-3 gap-2 ml-11">
-                    {familyMembers.map((member) => (
-                      <button
-                        key={member.id}
-                        onClick={() => {
-                          if (selectedMembers.includes(member.id)) {
-                            setSelectedMembers(selectedMembers.filter(id => id !== member.id));
-                          } else {
-                            setSelectedMembers([...selectedMembers, member.id]);
-                          }
-                        }}
-                        className={`p-3 rounded-lg border-2 transition-all flex flex-col items-center gap-1 ${
-                          selectedMembers.includes(member.id)
-                            ? 'bg-amber-600/20 border-amber-500'
-                            : 'bg-[#151A25] border-white/10 hover:border-white/20'
-                        }`}
-                      >
-                        <span className="text-2xl">{member.avatar}</span>
-                        <span className="text-[10px] text-white font-medium">{member.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
+                  <div className="grid grid-cols-3 gap-2">
+                    {teamMembers.map((member) => {
+                      const label = member.custom_name || member.display_name || member.email;
+                      const avatar = member.avatar_url;
+                      const isSelected = selectedMembers.includes(member.member_id);
 
-                <button
-                  onClick={() => setAssignTo('group')}
-                  className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
-                    assignTo === 'group'
-                      ? 'bg-amber-600/20 border-amber-500 shadow-lg shadow-amber-500/20'
-                      : 'bg-[#151A25] border-white/10 hover:border-white/20'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">👥</span>
-                    <div className="flex-1">
-                      <div className="font-semibold text-white">Assign to Everyone</div>
-                      <div className="text-xs text-gray-400">All family members</div>
-                    </div>
-                    {assignTo === 'group' && (
-                      <svg className="w-5 h-5 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
+                      return (
+                        <button
+                          key={member.member_id}
+                          type="button"
+                          onClick={() => setSelectedMembers(isSelected ? [] : [member.member_id])}
+                          className={`p-3 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${
+                            isSelected
+                              ? 'bg-amber-600/20 border-amber-500'
+                              : 'bg-[#151A25] border-white/10 hover:border-white/20'
+                          }`}
+                        >
+                          {avatar ? (
+                            <img src={avatar} alt={label} className="w-10 h-10 rounded-full object-cover" />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-white/10 grid place-items-center text-white/70 font-black">👤</div>
+                          )}
+                          <span className="text-[11px] text-white font-bold truncate w-full text-center">{label}</span>
+                        </button>
+                      );
+                    })}
+                    {teamMembers.length === 0 && (
+                      <div className="col-span-3 text-xs text-white/50">No team members yet. Invite someone in Team first.</div>
                     )}
                   </div>
-                </button>
+                )}
               </section>
 
-              {/* Assign Button */}
               <button
                 onClick={handleAssignChallenge}
                 disabled={loading || (assignTo === 'person' && selectedMembers.length === 0)}
-                className="w-full bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 disabled:from-gray-700 disabled:to-gray-700 text-white px-6 py-4 rounded-xl font-bold text-base transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full bg-amber-600 hover:bg-amber-700 disabled:bg-gray-700 text-white px-6 py-4 rounded-2xl font-black text-base transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {loading ? (
                   <>
@@ -719,11 +775,23 @@ export function CustomChallenge() {
       ) : (
         /* EDIT VIEW */
         <>
+          {/* Top back */}
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => {
+                setViewMode('list');
+                setEditingChallenge(null);
+              }}
+              className="text-sm font-black text-white/70 hover:text-white px-1"
+            >
+              ← Back
+            </button>
+          </div>
+
           <div className="text-center mb-6">
-            <h2 className="text-2xl font-bold text-white mb-2">Edit Custom Challenge</h2>
-            <p className="text-gray-400 text-sm">
-              Update your personalized challenge
-            </p>
+            <h2 className="text-2xl font-black text-white mb-2">Edit Custom Challenge</h2>
+            <p className="text-gray-400 text-sm">Update your personal walking adventure</p>
           </div>
 
           {/* Title */}
@@ -742,9 +810,7 @@ export function CustomChallenge() {
 
           {/* Description */}
           <section>
-            <label className="text-sm font-semibold text-white mb-2 block px-1">
-              Description (optional)
-            </label>
+            <label className="text-sm font-semibold text-white mb-2 block px-1">Description (optional)</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -774,14 +840,10 @@ export function CustomChallenge() {
                 onChange={handleImageUpload}
                 className="hidden"
               />
-              
+
               {imagePreview ? (
                 <div className="relative aspect-video rounded-xl overflow-hidden">
-                  <img
-                    src={imagePreview}
-                    alt="Preview"
-                    className="w-full h-full object-cover"
-                  />
+                  <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-3">
                     <div className="text-white text-xs">✓ Image uploaded - click to change</div>
                   </div>
@@ -790,7 +852,12 @@ export function CustomChallenge() {
                 <div className="text-center">
                   <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-3">
                     <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      />
                     </svg>
                   </div>
                   <div className="text-white text-sm font-medium mb-1">Click to upload image</div>
@@ -798,7 +865,7 @@ export function CustomChallenge() {
                 </div>
               )}
             </div>
-            
+
             {/* Blur checkbox */}
             <label className="flex items-center gap-3 mt-3 px-1 cursor-pointer">
               <input
@@ -811,37 +878,31 @@ export function CustomChallenge() {
             </label>
           </section>
 
-          {/* Goal Steps Slider */}
+          {/* Goal Steps */}
           <section>
             <div className="flex items-center justify-between mb-3 px-1">
-              <label className="text-sm font-semibold text-white">
-                Goal Steps
-              </label>
-              <span className="text-2xl font-bold text-amber-400">
-                {(goalSteps / 1000).toFixed(0)}k
-              </span>
+              <label className="text-sm font-semibold text-white">Goal Steps</label>
+              <span className="text-2xl font-bold text-amber-400">{(goalSteps / 1000).toFixed(0)}k</span>
             </div>
-            
-            <input
-              type="range"
-              min="1000"
-              max="100000"
-              step="1000"
-              value={goalSteps}
-              onChange={(e) => setGoalSteps(parseInt(e.target.value))}
-              className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-amber-500"
-              style={{
-                background: `linear-gradient(to right, #f59e0b 0%, #f59e0b ${((goalSteps - 1000) / 99000) * 100}%, #374151 ${((goalSteps - 1000) / 99000) * 100}%, #374151 100%)`
-              }}
-            />
-            <div className="flex justify-between mt-2 text-xs text-gray-500">
-              <span>1k</span>
-              <span>50k</span>
-              <span>100k</span>
+
+            <div className="grid grid-cols-3 gap-2">
+              {goalStepPresets.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setGoalSteps(p)}
+                  className={`px-3 py-3 rounded-2xl text-sm font-black border transition-all ${
+                    goalSteps === p
+                      ? 'bg-amber-600/20 border-amber-500 text-amber-200'
+                      : 'bg-[#151A25] border-white/10 text-white/70 hover:border-white/20'
+                  }`}
+                >
+                  {(p / 1000).toFixed(0)}k
+                </button>
+              ))}
             </div>
-            <div className="text-xs text-gray-400 px-1 mt-2">
-              ≈ {(goalSteps / 1250).toFixed(1)} km
-            </div>
+
+            <div className="text-xs text-gray-400 px-1 mt-2">≈ {(goalSteps / 1250).toFixed(1)} km</div>
           </section>
 
           {/* Time Limit */}
@@ -855,69 +916,41 @@ export function CustomChallenge() {
               />
               <span className="text-sm font-semibold text-white">Set time limit</span>
             </label>
-            
+
             {hasDeadline && (
               <div className="space-y-3">
                 <div className="bg-[#151A25] border border-white/10 rounded-xl p-4">
                   <div className="text-xs text-gray-400 mb-3">Time will start when challenge begins</div>
-                  
-                  {/* Days */}
-                  <div className="mb-4">
-                    <label className="text-xs text-gray-400 mb-2 block">Days</label>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="range"
-                        min="0"
-                        max="365"
-                        value={deadlineDays}
-                        onChange={(e) => setDeadlineDays(parseInt(e.target.value))}
-                        className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-amber-500"
-                      />
-                      <span className="text-white font-semibold w-12 text-right">{deadlineDays}d</span>
-                    </div>
+
+                  <div className="grid grid-cols-3 gap-2 mb-4">
+                    {timePresets.map((p) => (
+                      <button
+                        key={p.label}
+                        type="button"
+                        onClick={() => setDeadlineFromTotalMinutes(p.minutes)}
+                        className={`px-3 py-3 rounded-2xl text-sm font-black border transition-all ${
+                          getDeadlineTotalMinutes() === p.minutes
+                            ? 'bg-amber-600/20 border-amber-500 text-amber-200'
+                            : 'bg-[#151A25] border-white/10 text-white/70 hover:border-white/20'
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
                   </div>
 
-                  {/* Hours */}
-                  <div className="mb-4">
-                    <label className="text-xs text-gray-400 mb-2 block">Hours</label>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="range"
-                        min="0"
-                        max="23"
-                        value={deadlineHours}
-                        onChange={(e) => setDeadlineHours(parseInt(e.target.value))}
-                        className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-amber-500"
-                      />
-                      <span className="text-white font-semibold w-12 text-right">{deadlineHours}h</span>
-                    </div>
-                  </div>
-
-                  {/* Minutes */}
-                  <div>
-                    <label className="text-xs text-gray-400 mb-2 block">Minutes</label>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="range"
-                        min="0"
-                        max="59"
-                        value={deadlineMinutes}
-                        onChange={(e) => setDeadlineMinutes(parseInt(e.target.value))}
-                        className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-amber-500"
-                      />
-                      <span className="text-white font-semibold w-12 text-right">{deadlineMinutes}m</span>
-                    </div>
-                  </div>
-
-                  {/* Total time display */}
-                  <div className="mt-4 pt-4 border-t border-white/10">
+                  <div className="pt-1">
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-gray-400">Total time limit:</span>
                       <span className="text-sm font-bold text-amber-400">
-                        {deadlineDays > 0 && `${deadlineDays}d `}
-                        {deadlineHours > 0 && `${deadlineHours}h `}
-                        {deadlineMinutes > 0 && `${deadlineMinutes}m`}
-                        {deadlineDays === 0 && deadlineHours === 0 && deadlineMinutes === 0 && 'Not set'}
+                        {(() => {
+                          const t = getDeadlineTotalMinutes();
+                          const d = Math.floor(t / (24 * 60));
+                          const h = Math.floor((t % (24 * 60)) / 60);
+                          const m = t % 60;
+                          if (t === 0) return 'Not set';
+                          return `${d > 0 ? `${d}d ` : ''}${h > 0 ? `${h}h ` : ''}${m > 0 ? `${m}m` : ''}`.trim();
+                        })()}
                       </span>
                     </div>
                   </div>
@@ -939,12 +972,106 @@ export function CustomChallenge() {
               </>
             ) : (
               <>
-                <span>✏️</span>
+                <span>✨</span>
                 <span>Update Challenge</span>
               </>
             )}
           </button>
         </>
+      )}
+
+      {assignModalOpen && assigningChallenge && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4"
+          onClick={closeAssignModal}
+        >
+          <div
+            className="w-full max-w-md rounded-3xl border border-white/10 bg-[#0B101B] p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div>
+                <div className="text-white font-black">Assign</div>
+                <div className="text-white/50 text-xs truncate max-w-[260px]">{assigningChallenge.title}</div>
+              </div>
+              <button
+                type="button"
+                className="text-white/60 hover:text-white text-sm font-bold"
+                onClick={closeAssignModal}
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => setAssignModalTo('myself')}
+                className={`w-full p-3 rounded-2xl border text-left ${
+                  assignModalTo === 'myself'
+                    ? 'bg-amber-600/15 border-amber-500/60'
+                    : 'bg-[#151A25] border-white/10'
+                }`}
+              >
+                <div className="font-black text-white">Myself</div>
+                <div className="text-xs text-white/50">Start now on this device</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setAssignModalTo('person')}
+                className={`w-full p-3 rounded-2xl border text-left ${
+                  assignModalTo === 'person'
+                    ? 'bg-amber-600/15 border-amber-500/60'
+                    : 'bg-[#151A25] border-white/10'
+                }`}
+              >
+                <div className="font-black text-white">Someone</div>
+                <div className="text-xs text-white/50">Pick one team member</div>
+              </button>
+
+              {assignModalTo === 'person' && (
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  {teamMembers.map((m) => {
+                    const label = m.custom_name || m.display_name || m.email;
+                    const selected = assignModalSelected[0] === m.member_id;
+                    return (
+                      <button
+                        key={m.member_id}
+                        type="button"
+                        onClick={() => setAssignModalSelected(selected ? [] : [m.member_id])}
+                        className={`p-3 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${
+                          selected
+                            ? 'bg-amber-600/20 border-amber-500'
+                            : 'bg-[#151A25] border-white/10 hover:border-white/20'
+                        }`}
+                      >
+                        {m.avatar_url ? (
+                          <img src={m.avatar_url} alt={label} className="w-10 h-10 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-white/10 grid place-items-center text-white/70 font-black">👤</div>
+                        )}
+                        <span className="text-[11px] text-white font-bold truncate w-full text-center">{label}</span>
+                      </button>
+                    );
+                  })}
+                  {teamMembers.length === 0 && (
+                    <div className="col-span-3 text-xs text-white/50">No team members yet.</div>
+                  )}
+                </div>
+              )}
+
+              <button
+                type="button"
+                disabled={loading || (assignModalTo === 'person' && assignModalSelected.length === 0)}
+                onClick={handleAssignExisting}
+                className="w-full mt-2 bg-amber-600 hover:bg-amber-700 disabled:bg-gray-700 text-white py-3 rounded-2xl font-black text-sm transition-all"
+              >
+                {loading ? 'Assigning...' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </motion.div>
   );

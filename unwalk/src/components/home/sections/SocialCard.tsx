@@ -66,7 +66,7 @@ export function SocialCard({
     <div className={outerClassName}>
       <div
         onClick={onTeamClick}
-        className={`relative rounded-3xl overflow-hidden cursor-pointer group border-2 border-gray-200 dark:border-white/10 hover:border-emerald-500/50 dark:hover:border-emerald-500/50 transition-all shadow-xl ${
+        className={`relative rounded-3xl overflow-hidden cursor-pointer group border-2 border-gray-200 dark:border-white/10 hover:border-purple-400/40 dark:hover:border-purple-400/40 transition-all shadow-xl ${
           variant === 'stack' ? 'aspect-[16/9]' : 'aspect-[3/4]'
         }`}
       >
@@ -81,9 +81,9 @@ export function SocialCard({
         <div className="absolute inset-0 p-6 flex flex-col justify-between">
           {/* Top - Label */}
           <div className="flex items-start justify-between">
-            <div className="text-xs font-bold text-emerald-200 uppercase tracking-wide">Social</div>
+            <div className="text-xs font-bold text-purple-200 uppercase tracking-wide">Social</div>
             {teamActiveChallenges.length > 0 && (
-              <div className="bg-emerald-500/90 backdrop-blur-sm text-white text-xs font-black px-3 py-1.5 rounded-full shadow-lg">
+              <div className="bg-gradient-to-r from-purple-500 to-indigo-400 backdrop-blur-sm text-[#0B101B] text-xs font-black px-3 py-1.5 rounded-full shadow-lg">
                 {teamActiveChallenges.length} ACTIVE
               </div>
             )}
@@ -112,17 +112,30 @@ export function SocialCard({
         {/* Quick assign (basic/pro only) */}
         {showQuickAssign && (
           <div
-            className="absolute left-4 right-4 bottom-4 rounded-2xl bg-black/35 backdrop-blur-md border border-white/15 px-3 py-2"
+            className="absolute left-4 right-4 bottom-4 rounded-3xl bg-gradient-to-r from-black/55 via-[#0B101B]/55 to-black/55 backdrop-blur-xl border border-white/10 px-4 py-3 shadow-[0_18px_55px_-35px_rgba(139,92,246,0.85)]"
             onClick={(e) => {
               // Prevent card click (onTeamClick) when interacting with quick-assign
               e.stopPropagation();
             }}
           >
             <div className="flex items-center justify-between gap-3">
-              <div className="text-[11px] font-extrabold text-white/85 uppercase tracking-wide">
-                Quick assign
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-2xl grid place-items-center bg-purple-500/15 border border-purple-400/25">
+                    <span className="text-sm">⚡</span>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-black text-white/80 uppercase tracking-[0.24em]">
+                      Quick assign
+                    </div>
+                    <div className="text-[11px] text-white/50 truncate">
+                      Tap an avatar to send a challenge
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center -space-x-2">
+
+              <div className="flex items-center gap-2 flex-shrink-0">
                 {quickMembers.map((m) => {
                   const label = m.custom_name || m.display_name || m.email || 'Member';
                   const avatar = m.avatar_url;
@@ -153,7 +166,7 @@ export function SocialCard({
                             cx={size / 2}
                             cy={size / 2}
                             r={r}
-                            stroke="rgba(255,255,255,0.18)"
+                            stroke="rgba(255,255,255,0.14)"
                             strokeWidth={stroke}
                             fill="transparent"
                           />
@@ -161,7 +174,7 @@ export function SocialCard({
                             cx={size / 2}
                             cy={size / 2}
                             r={r}
-                            stroke="rgba(16,185,129,0.95)"
+                            stroke="rgba(139,92,246,0.95)"
                             strokeWidth={stroke}
                             fill="transparent"
                             strokeDasharray={c}
@@ -173,17 +186,15 @@ export function SocialCard({
                       )}
 
                       {/* Avatar */}
-                      <div className="relative h-10 w-10 rounded-full ring-2 ring-white/20 overflow-hidden bg-white/10 hover:ring-white/35 transition">
+                      <div className="relative h-10 w-10 rounded-full ring-2 ring-white/15 overflow-hidden bg-white/10 hover:ring-purple-300/40 transition">
                         {avatar ? (
                           <img src={avatar} alt={label} className="h-full w-full object-cover" />
                         ) : (
-                          <div className="h-full w-full grid place-items-center text-xs font-black text-white">
+                          <div className="h-full w-full grid place-items-center text-[11px] font-black text-white">
                             {initials(label)}
                           </div>
                         )}
                       </div>
-
-                      {/* Active dot removed (ring is sufficient) */}
                     </button>
                   );
                 })}

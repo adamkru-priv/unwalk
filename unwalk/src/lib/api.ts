@@ -361,7 +361,10 @@ export async function createCustomChallenge(challenge: {
   deadline?: string;
 }): Promise<AdminChallenge> {
   const deviceId = getDeviceId();
-  
+
+  // Prefer stable user id when logged in
+  const { data: { user } } = await supabase.auth.getUser();
+
   const { data, error } = await supabase
     .from('admin_challenges')
     .insert({
@@ -374,6 +377,7 @@ export async function createCustomChallenge(challenge: {
       deadline: challenge.deadline,
       is_custom: true,
       created_by_device_id: deviceId,
+      created_by_user_id: user?.id ?? null,
       difficulty: 'medium',
       sort_order: 999,
       is_active: true,
@@ -419,13 +423,22 @@ export async function assignChallengeToUsers(
 // Get custom challenges created by current user
 export async function getMyCustomChallenges(): Promise<AdminChallenge[]> {
   const deviceId = getDeviceId();
-  
-  const { data, error } = await supabase
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // If authenticated, use stable user id; fallback to device id for guests
+  let query = supabase
     .from('admin_challenges')
     .select('*')
     .eq('is_custom', true)
-    .eq('created_by_device_id', deviceId)
     .order('created_at', { ascending: false });
+
+  if (user?.id) {
+    query = query.eq('created_by_user_id', user.id);
+  } else {
+    query = query.eq('created_by_device_id', deviceId);
+  }
+
+  const { data, error } = await query;
 
   if (error) throw error;
   return data || [];
@@ -473,6 +486,42 @@ export async function deleteCustomChallenge(challengeId: string): Promise<void> 
       .from('custom-challenges')
       .remove([filePath]);
   }
+}
+
+export async function updateCustomChallenge(
+  challengeId: string,
+  updates: Partial<{
+    title: string;
+    description: string;
+    goal_steps: number;
+    image_url: string;
+    is_image_hidden: boolean;
+    deadline: string | null;
+  }>
+): Promise<AdminChallenge> {
+  const deviceId = getDeviceId();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  let query = supabase
+    .from('admin_challenges')
+    .update({
+      ...updates,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', challengeId)
+    .eq('is_custom', true)
+    .select('*');
+
+  if (user?.id) {
+    query = query.eq('created_by_user_id', user.id);
+  } else {
+    query = query.eq('created_by_device_id', deviceId);
+  }
+
+  const { data, error } = await query.single();
+
+  if (error) throw error;
+  return data;
 }
 
 // Get all user challenges (active, paused, waiting to start)

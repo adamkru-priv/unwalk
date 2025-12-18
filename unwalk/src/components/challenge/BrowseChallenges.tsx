@@ -13,9 +13,21 @@ export function BrowseChallenges() {
   const [error, setError] = useState<string | null>(null);
   const [selectedChallenge, setSelectedChallenge] = useState<AdminChallenge | null>(null);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-  const { activeUserChallenge, setActiveChallenge, setCurrentScreen, getDailyChallenge, setDailyChallenge: saveDailyChallenge, userTier } = useChallengeStore();
+  const {
+    activeUserChallenge,
+    setActiveChallenge,
+    setCurrentScreen,
+    getDailyChallenge,
+    setDailyChallenge: saveDailyChallenge,
+    userTier,
+    assignTarget,
+    setAssignTarget,
+  } = useChallengeStore();
   const userProfile = useChallengeStore((s) => s.userProfile);
   const isGuest = userProfile?.is_guest ?? false;
+
+  // Helper flag near other derived values
+  const isSendToFlow = !!assignTarget?.id;
 
   useEffect(() => {
     loadChallenges();
@@ -35,14 +47,12 @@ export function BrowseChallenges() {
 
   const loadDailyChallenge = async () => {
     try {
-      // Check if we already have today's daily challenge
       const todaysChallenge = getDailyChallenge();
       if (todaysChallenge) {
         setDailyChallenge(todaysChallenge);
         return;
       }
 
-      // If not, fetch and set a new one
       const allChallenges = await getAdminChallenges();
       const dailyChallenges = allChallenges.filter(c => c.goal_steps === 10000);
       const randomChallenge = dailyChallenges.length > 0 
@@ -63,8 +73,6 @@ export function BrowseChallenges() {
       setLoading(true);
       setError(null);
       const allChallenges = await getAdminChallenges();
-      
-      // No filtering - show all challenges
       setChallenges(allChallenges);
     } catch (err) {
       setError('Failed to load challenges. Please try again.');
@@ -95,14 +103,12 @@ export function BrowseChallenges() {
     return completedChallengeIds.has(challengeId);
   };
 
-  // Group challenges by difficulty level
   const groupedChallenges = {
     beginner: challenges.filter(c => c.goal_steps <= 5000),
     advanced: challenges.filter(c => c.goal_steps > 5000 && c.goal_steps <= 15000),
     expert: challenges.filter(c => c.goal_steps > 15000),
   };
 
-  // Sort each group so daily challenge is first
   const sortWithDailyFirst = (challengeList: AdminChallenge[]) => {
     return [...challengeList].sort((a, b) => {
       const aIsDaily = dailyChallenge?.id === a.id;
@@ -140,21 +146,17 @@ export function BrowseChallenges() {
 
   const handleAssignToMember = async (memberId: string) => {
     if (!selectedChallenge) return;
-    
+
     try {
       setError(null);
-      
-      // Assign challenge via TeamService
-      const { error: assignError } = await teamService.assignChallenge(
-        memberId,
-        selectedChallenge.id
-      );
 
+      const { error: assignError } = await teamService.assignChallenge(memberId, selectedChallenge.id);
       if (assignError) throw assignError;
 
-      const member = teamMembers.find(m => m.member_id === memberId);
+      const member = teamMembers.find((m) => m.member_id === memberId);
       alert(`✅ Challenge "${selectedChallenge.title}" assigned to ${member?.display_name || member?.email}!`);
       setSelectedChallenge(null);
+      if (assignTarget?.id === memberId) setAssignTarget(null);
     } catch (err) {
       console.error('Failed to assign challenge:', err);
       setError('Failed to assign challenge. Please try again.');
@@ -167,7 +169,6 @@ export function BrowseChallenges() {
       animate={{ opacity: 1, x: 0 }}
       className="space-y-6"
     >
-      {/* Challenge Preview Modal */}
       {selectedChallenge && (
         <motion.div
           initial={{ opacity: 0 }}
@@ -182,8 +183,16 @@ export function BrowseChallenges() {
             className="bg-[#151A25] border border-white/10 rounded-2xl p-5 max-w-sm w-full"
           >
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-white">Your Challenge!</h2>
-              <button onClick={() => setSelectedChallenge(null)} className="text-gray-400 hover:text-white">
+              <h2 className="text-lg font-bold text-white">
+                {assignTarget?.id ? `Send Challenge to ${assignTarget.name}` : 'Your Challenge!'}
+              </h2>
+              <button
+                onClick={() => {
+                  setSelectedChallenge(null);
+                  if (assignTarget?.id) setAssignTarget(null);
+                }}
+                className="text-gray-400 hover:text-white"
+              >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -203,8 +212,7 @@ export function BrowseChallenges() {
                     <div className="text-sm font-semibold mb-0.5">{selectedChallenge.title}</div>
                     <div className="text-xs text-white/70">{(selectedChallenge.goal_steps / 1000).toFixed(0)}k steps • ≈ {(selectedChallenge.goal_steps / 1250).toFixed(1)} km</div>
                   </div>
-                  {/* Points badge in preview - only for Pro users */}
-                  {!selectedChallenge.is_custom && userTier === 'pro' && (
+                  {!selectedChallenge.is_custom && userTier === 'pro' && !isSendToFlow && (
                     <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-black px-3 py-1.5 rounded-lg shadow-lg">
                       {calculateChallengePoints(selectedChallenge.goal_steps)} PTS
                     </div>
@@ -214,91 +222,98 @@ export function BrowseChallenges() {
             </div>
 
             <div className="space-y-2">
-              <button
-                onClick={handleStartForMyself}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
-              >
-                🚶‍♂️ Start Now
-              </button>
-
-              {/* Hide "assign to" section for Guest users or if no team members */}
-              {!isGuest && teamMembers.length > 0 && (
+              {assignTarget?.id ? (
                 <div>
-                  <div className="text-xs text-gray-400 mb-2 text-center">or assign to</div>
-                  <div className="grid grid-cols-3 gap-2">
-                    {teamMembers.map((member) => {
-                      // Get display name - priority: custom_name > display_name > email
-                      const displayName = member.custom_name || member.display_name || member.email.split('@')[0];
-                      const showRelationship = member.relationship && member.relationship.trim().length > 0;
-
-                      // Get initials from name
-                      const getInitials = (name: string) => {
-                        return name
-                          .split(' ')
-                          .map(word => word[0])
-                          .join('')
-                          .toUpperCase()
-                          .slice(0, 2);
-                      };
-
-                      // Generate color from name
-                      const getColorFromName = (name: string) => {
-                        const colors = [
-                          '#3B82F6', // blue
-                          '#F59E0B', // amber
-                          '#10B981', // green
-                          '#EC4899', // pink
-                          '#8B5CF6', // purple
-                          '#EF4444', // red
-                          '#06B6D4', // cyan
-                          '#F97316', // orange
-                        ];
-                        
-                        const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-                        return colors[hash % colors.length];
-                      };
-
-                      return (
-                        <button
-                          key={member.id}
-                          onClick={() => handleAssignToMember(member.member_id)}
-                          className="bg-[#0B101B] hover:bg-gray-800 border border-white/5 hover:border-blue-500/30 text-white px-2 py-2 rounded-xl text-xs font-medium transition-all flex flex-col items-center gap-1.5"
-                        >
-                          <div 
-                            className="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold ring-2 ring-white/10"
-                            style={{ backgroundColor: getColorFromName(displayName) }}
-                          >
-                            {getInitials(displayName)}
-                          </div>
-                          <div className="flex flex-col items-center gap-0.5 w-full">
-                            <span className="text-[11px] font-bold truncate w-full text-center leading-tight">
-                              {displayName.split(' ')[0]}
-                            </span>
-                            {showRelationship && (
-                              <span className="text-[9px] text-blue-400 font-semibold truncate w-full text-center">
-                                {member.relationship}
-                              </span>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <button
+                    onClick={() => handleAssignToMember(assignTarget.id)}
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-3 rounded-xl text-sm font-black transition-colors"
+                  >
+                    Send to {assignTarget.name}
+                  </button>
                 </div>
+              ) : (
+                <>
+                  <button
+                    onClick={handleStartForMyself}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+                  >
+                    🚶‍♂️ Start Now
+                  </button>
+
+                  {!isGuest && teamMembers.length > 0 && (
+                    <div>
+                      <div className="text-xs text-gray-400 mb-2 text-center">or assign to</div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {teamMembers.map((member) => {
+                          const displayName = member.custom_name || member.display_name || member.email.split('@')[0];
+                          const showRelationship = member.relationship && member.relationship.trim().length > 0;
+
+                          const getInitials = (name: string) => {
+                            return name
+                              .split(' ')
+                              .map(word => word[0])
+                              .join('')
+                              .toUpperCase()
+                              .slice(0, 2);
+                          };
+
+                          const getColorFromName = (name: string) => {
+                            const colors = [
+                              '#3B82F6',
+                              '#F59E0B',
+                              '#10B981',
+                              '#EC4899',
+                              '#8B5CF6',
+                              '#EF4444',
+                              '#06B6D4',
+                              '#F97316',
+                            ];
+                            
+                            const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                            return colors[hash % colors.length];
+                          };
+
+                          return (
+                            <button
+                              key={member.id}
+                              onClick={() => handleAssignToMember(member.member_id)}
+                              className="bg-[#0B101B] hover:bg-gray-800 border border-white/5 hover:border-blue-500/30 text-white px-2 py-2 rounded-xl text-xs font-medium transition-all flex flex-col items-center gap-1.5"
+                            >
+                              <div 
+                                className="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold ring-2 ring-white/10"
+                                style={{ backgroundColor: getColorFromName(displayName) }}
+                              >
+                                {getInitials(displayName)}
+                              </div>
+                              <div className="flex flex-col items-center gap-0.5 w-full">
+                                <span className="text-[11px] font-bold truncate w-full text-center leading-tight">
+                                  {displayName.split(' ')[0]}
+                                </span>
+                                {showRelationship && (
+                                  <span className="text-[9px] text-blue-400 font-semibold truncate w-full text-center">
+                                    {member.relationship}
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </motion.div>
         </motion.div>
       )}
 
-      {/* Error Message */}
       {error && (
         <div className="bg-red-900/30 border border-red-700/50 text-red-200 px-4 py-3 rounded-xl text-sm">
           {error}
         </div>
       )}
 
-      {/* Header */}
       <div className="text-center mb-6">
         <h2 className="text-2xl font-bold text-white mb-2">Browse Challenges</h2>
         <p className="text-gray-400 text-sm">
@@ -306,7 +321,6 @@ export function BrowseChallenges() {
         </p>
       </div>
 
-      {/* Loading State */}
       {loading && (
         <div className="flex flex-col items-center justify-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mb-4"></div>
@@ -314,11 +328,8 @@ export function BrowseChallenges() {
         </div>
       )}
 
-      {/* Challenge Carousels */}
       {!loading && (
         <div className="space-y-8">
-          
-          {/* Beginner Challenges */}
           {sortedGroupedChallenges.beginner.length > 0 && (
             <section>
               <h3 className="text-lg font-bold text-white mb-3 px-1">Beginner • Up to 5k Steps</h3>
@@ -341,14 +352,12 @@ export function BrowseChallenges() {
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
                           
-                          {/* Daily Pick Badge */}
                           {isDaily && !isChallengeCompleted(challenge.id) && (
                             <div className="absolute top-2 right-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-[10px] font-black px-2 py-1 rounded-full shadow-lg animate-pulse">
                               DAILY
                             </div>
                           )}
                           
-                          {/* Completed Badge */}
                           {isChallengeCompleted(challenge.id) && (
                             <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1.5 shadow-lg">
                               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -357,8 +366,7 @@ export function BrowseChallenges() {
                             </div>
                           )}
 
-                          {/* Points Badge - show for all challenges (including daily with 3x multiplier) - only for Pro users */}
-                          {!challenge.is_custom && !isChallengeCompleted(challenge.id) && userTier === 'pro' && (
+                          {!isSendToFlow && !challenge.is_custom && !isChallengeCompleted(challenge.id) && userTier === 'pro' && (
                             <div className={`absolute top-2 left-2 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md shadow-lg ${
                               isDaily 
                                 ? 'bg-gradient-to-r from-amber-500 to-orange-500 animate-pulse' 
@@ -385,7 +393,6 @@ export function BrowseChallenges() {
             </section>
           )}
 
-          {/* Advanced Challenges */}
           {sortedGroupedChallenges.advanced.length > 0 && (
             <section>
               <h3 className="text-lg font-bold text-white mb-3 px-1">Advanced • 5k to 15k Steps</h3>
@@ -408,14 +415,12 @@ export function BrowseChallenges() {
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
                           
-                          {/* Daily Pick Badge */}
                           {isDaily && !isChallengeCompleted(challenge.id) && (
                             <div className="absolute top-2 right-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-[10px] font-black px-2 py-1 rounded-full shadow-lg animate-pulse">
                               DAILY
                             </div>
                           )}
                           
-                          {/* Completed Badge */}
                           {isChallengeCompleted(challenge.id) && (
                             <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1.5 shadow-lg">
                               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -424,8 +429,7 @@ export function BrowseChallenges() {
                             </div>
                           )}
 
-                          {/* Points Badge - show for all challenges (including daily with 3x multiplier) - only for Pro users */}
-                          {!challenge.is_custom && !isChallengeCompleted(challenge.id) && userTier === 'pro' && (
+                          {!isSendToFlow && !challenge.is_custom && !isChallengeCompleted(challenge.id) && userTier === 'pro' && (
                             <div className={`absolute top-2 left-2 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md shadow-lg ${
                               isDaily 
                                 ? 'bg-gradient-to-r from-amber-500 to-orange-500 animate-pulse' 
@@ -452,7 +456,6 @@ export function BrowseChallenges() {
             </section>
           )}
 
-          {/* Expert Challenges */}
           {sortedGroupedChallenges.expert.length > 0 && (
             <section>
               <h3 className="text-lg font-bold text-white mb-3 px-1">Expert • 15k+ Steps</h3>
@@ -475,14 +478,12 @@ export function BrowseChallenges() {
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
                           
-                          {/* Daily Pick Badge */}
                           {isDaily && !isChallengeCompleted(challenge.id) && (
                             <div className="absolute top-2 right-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-[10px] font-black px-2 py-1 rounded-full shadow-lg animate-pulse">
                               DAILY
                             </div>
                           )}
                           
-                          {/* Completed Badge */}
                           {isChallengeCompleted(challenge.id) && (
                             <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1.5 shadow-lg">
                               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -491,8 +492,7 @@ export function BrowseChallenges() {
                             </div>
                           )}
 
-                          {/* Points Badge - show for all challenges (including daily with 3x multiplier) - only for Pro users */}
-                          {!challenge.is_custom && !isChallengeCompleted(challenge.id) && userTier === 'pro' && (
+                          {!isSendToFlow && !challenge.is_custom && !isChallengeCompleted(challenge.id) && userTier === 'pro' && (
                             <div className={`absolute top-2 left-2 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md shadow-lg ${
                               isDaily 
                                 ? 'bg-gradient-to-r from-amber-500 to-orange-500 animate-pulse' 
@@ -519,7 +519,6 @@ export function BrowseChallenges() {
             </section>
           )}
 
-          {/* Empty State */}
           {challenges.length === 0 && (
             <div className="bg-[#151A25] border border-white/10 rounded-2xl p-8 text-center">
               <div className="w-16 h-16 bg-purple-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
