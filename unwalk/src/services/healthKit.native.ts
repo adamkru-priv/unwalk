@@ -1,8 +1,16 @@
 import { Capacitor } from '@capacitor/core';
 
-// Native-only plugin loader (prevents web/Vercel builds from failing when the
-// local Capacitor plugin isn't present in the build environment).
+// Native-only plugin loader.
+// Prefer Capacitor.Plugins (native runtime) and fall back to dynamic import
+// for environments where bundling provides the module.
+function getMoveeHealthKitPlugin(): any {
+  const plugins: any = (Capacitor as any).Plugins;
+  return plugins?.MoveeHealthKit;
+}
+
 async function loadMoveeHealthKit() {
+  const plugin = getMoveeHealthKitPlugin();
+  if (plugin) return { MoveeHealthKit: plugin };
   return import('capacitor-movee-healthkit');
 }
 
@@ -11,7 +19,10 @@ export interface HealthKitService {
   echo: () => Promise<string>;
   isAvailable: () => Promise<boolean>;
   requestAuthorization: () => Promise<boolean>;
+  // Keep legacy name used by some callers
   getStepCount: (startDate: Date, endDate: Date) => Promise<number>;
+  // Alias used by hooks/web-style API
+  getSteps: (startDate: Date, endDate: Date) => Promise<number>;
   getTodaySteps: () => Promise<number>;
 }
 
@@ -80,6 +91,10 @@ class HealthKitNativeService implements HealthKitService {
     }
   }
 
+  async getSteps(startDate: Date, endDate: Date): Promise<number> {
+    return this.getStepCount(startDate, endDate);
+  }
+
   async getTodaySteps(): Promise<number> {
     const now = new Date();
     const startOfDay = new Date(now);
@@ -110,6 +125,10 @@ class HealthKitMockService implements HealthKitService {
     const mockSteps = Math.floor(Math.random() * 5000) + 2000;
     console.log('⚠️ HealthKit Mock: Returning mock steps:', mockSteps);
     return mockSteps;
+  }
+
+  async getSteps(startDate: Date, endDate: Date): Promise<number> {
+    return this.getStepCount(startDate, endDate);
   }
 
   async getTodaySteps(): Promise<number> {

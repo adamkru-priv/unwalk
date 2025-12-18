@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { healthKitService } from '../services/healthKit';
+import { healthKitService } from '../services/healthKit.native';
 import { useChallengeStore } from '../stores/useChallengeStore';
 
 export function useHealthKit() {
