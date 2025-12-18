@@ -1,12 +1,5 @@
-import { Capacitor, registerPlugin } from '@capacitor/core';
-
-export interface HealthKitPlugin {
-  isAvailable(): Promise<{ available: boolean }>;
-  requestAuthorization(): Promise<{ authorized: boolean }>;
-  getSteps(options: { startDate: string; endDate: string }): Promise<{ steps: number }>;
-}
-
-const HealthKit = registerPlugin<HealthKitPlugin>('HealthKitPlugin');
+import { Capacitor } from '@capacitor/core';
+import { MoveeHealthKit } from 'capacitor-movee-healthkit';
 
 export const healthKitService = {
   async isAvailable(): Promise<boolean> {
@@ -15,7 +8,7 @@ export const healthKitService = {
       return false;
     }
     try {
-      const result = await HealthKit.isAvailable();
+      const result = await MoveeHealthKit.isAvailable();
       console.log('✅ HealthKit available:', result.available);
       return result.available;
     } catch (error) {
@@ -27,7 +20,7 @@ export const healthKitService = {
   async requestAuthorization(): Promise<boolean> {
     try {
       console.log('🔐 Requesting HealthKit authorization...');
-      const result = await HealthKit.requestAuthorization();
+      const result = await MoveeHealthKit.requestAuthorization();
       console.log('✅ Authorization result:', result.authorized);
       return result.authorized;
     } catch (error) {
@@ -38,7 +31,7 @@ export const healthKitService = {
 
   async getSteps(startDate: Date, endDate: Date): Promise<number> {
     try {
-      const result = await HealthKit.getSteps({
+      const result = await MoveeHealthKit.getSteps({
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
       });

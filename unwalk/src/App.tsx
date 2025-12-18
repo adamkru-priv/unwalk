@@ -16,6 +16,8 @@ import { authService } from './lib/auth';
 import { getActiveUserChallenge, getPausedChallenges } from './lib/api';
 import { supabase } from './lib/supabase';
 import './lib/authDebug'; // Debug helper
+import { App as CapacitorApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
 
 function App() {
   const isOnboardingComplete = useChallengeStore((s) => s.isOnboardingComplete);
@@ -28,6 +30,7 @@ function App() {
   const setDailyStepGoal = useChallengeStore((s) => s.setDailyStepGoal);
   const setUserProfile = useChallengeStore((s) => s.setUserProfile);
   const setIsAppReady = useChallengeStore((s) => s.setIsAppReady); // ✅ NEW
+  const addToast = useToastStore((s) => s.addToast);
 
   // Toast management
   const toasts = useToastStore((s) => s.toasts);
@@ -272,6 +275,92 @@ function App() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [setActiveChallenge, setPausedChallenges, setUserTier, setDailyStepGoal, setUserProfile, setIsAppReady]); // ✅ REMOVED userProfile - fixes infinite loop!
+
+  // Complete OAuth sign-in after returning to the app (iOS custom scheme).
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    let removeUrlListener: (() => void) | undefined;
+
+    (async () => {
+      const handle = await CapacitorApp.addListener('appUrlOpen', async ({ url }) => {
+        try {
+          if (!url) return;
+          console.log('🔗 [Auth] appUrlOpen:', url);
+
+          // Accept both movee://auth/callback and any URL containing auth/callback
+          if (!url.includes('auth/callback')) return;
+
+          // UX: Let user know we're finishing sign-in
+          addToast({ message: 'Signing you in…', type: 'info', duration: 8000 });
+
+          const parsed = new URL(url);
+
+          // PKCE flow: ?code=...
+          const code = parsed.searchParams.get('code');
+
+          // Fallback: implicit-like flow sometimes uses fragment
+          const fragment = parsed.hash?.startsWith('#') ? parsed.hash.slice(1) : '';
+          const fragmentParams = new URLSearchParams(fragment);
+          const accessToken = fragmentParams.get('access_token');
+          const refreshToken = fragmentParams.get('refresh_token');
+
+          if (code) {
+            const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+            if (error) {
+              console.error('❌ [Auth] Failed to exchange code for session:', error);
+              addToast({ message: 'Sign-in failed. Please try again.', type: 'error' });
+              return;
+            }
+            if (data.session) {
+              console.log('✅ [Auth] OAuth session established (PKCE)');
+            }
+          } else if (accessToken && refreshToken) {
+            const { data, error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+            if (error) {
+              console.error('❌ [Auth] Failed to set session from tokens:', error);
+              addToast({ message: 'Sign-in failed. Please try again.', type: 'error' });
+              return;
+            }
+            if (data.session) {
+              console.log('✅ [Auth] OAuth session established (tokens)');
+            }
+          } else {
+            console.warn('⚠️ [Auth] OAuth callback missing code/tokens');
+            addToast({ message: 'Sign-in failed. Please try again.', type: 'error' });
+            return;
+          }
+
+          // Force-refresh profile after OAuth completes (so UI leaves Guest instantly)
+          const profile = await authService.getUserProfile();
+          if (profile) {
+            console.log('✅ [Auth] Profile refreshed after OAuth:', {
+              id: profile.id,
+              email: profile.email,
+              is_guest: profile.is_guest,
+              tier: profile.tier,
+            });
+            setUserProfile(profile);
+            setUserTier(profile.tier);
+            setDailyStepGoal(profile.daily_step_goal);
+            addToast({ message: 'Signed in', type: 'success', duration: 2500 });
+          }
+        } catch (e) {
+          console.error('❌ [Auth] appUrlOpen handler error:', e);
+          addToast({ message: 'Sign-in failed. Please try again.', type: 'error' });
+        }
+      });
+
+      removeUrlListener = () => handle.remove();
+    })();
+
+    return () => {
+      removeUrlListener?.();
+    };
+  }, [addToast, setDailyStepGoal, setUserProfile, setUserTier]);
 
   // ✅ FAILSAFE: Force unlock app after 5 seconds if it gets stuck
   useEffect(() => {

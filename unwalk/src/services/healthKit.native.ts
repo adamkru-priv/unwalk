@@ -1,16 +1,9 @@
-import { Capacitor, registerPlugin } from '@capacitor/core';
-
-// Rejestrujemy nasz natywny plugin
-export interface HealthKitPluginInterface {
-  isAvailable(): Promise<{ available: boolean }>;
-  requestAuthorization(): Promise<{ authorized: boolean }>;
-  getSteps(options: { startDate: string; endDate: string }): Promise<{ steps: number }>;
-}
-
-const HealthKitNative = registerPlugin<HealthKitPluginInterface>('HealthKitPlugin');
+import { Capacitor } from '@capacitor/core';
+import { MoveeHealthKit } from 'capacitor-movee-healthkit';
 
 // Types dla HealthKit
 export interface HealthKitService {
+  echo: () => Promise<string>;
   isAvailable: () => Promise<boolean>;
   requestAuthorization: () => Promise<boolean>;
   getStepCount: (startDate: Date, endDate: Date) => Promise<number>;
@@ -19,6 +12,17 @@ export interface HealthKitService {
 
 // Native implementation używając naszego custom pluginu
 class HealthKitNativeService implements HealthKitService {
+  async echo(): Promise<string> {
+    try {
+      const result = await MoveeHealthKit.echo({ value: 'ping' });
+      console.log('✅ HealthKit Native Echo:', result.value);
+      return result.value;
+    } catch (error) {
+      console.error('❌ HealthKit Native Echo failed:', error);
+      return '';
+    }
+  }
+
   async isAvailable(): Promise<boolean> {
     if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'ios') {
       console.log('❌ HealthKit: Not iOS platform');
@@ -26,7 +30,7 @@ class HealthKitNativeService implements HealthKitService {
     }
 
     try {
-      const result = await HealthKitNative.isAvailable();
+      const result = await MoveeHealthKit.isAvailable();
       console.log('✅ HealthKit available:', result.available);
       return result.available;
     } catch (error) {
@@ -38,7 +42,7 @@ class HealthKitNativeService implements HealthKitService {
   async requestAuthorization(): Promise<boolean> {
     try {
       console.log('🔐 Requesting HealthKit authorization...');
-      const result = await HealthKitNative.requestAuthorization();
+      const result = await MoveeHealthKit.requestAuthorization();
       console.log('✅ HealthKit authorization result:', result.authorized);
       return result.authorized;
     } catch (error) {
@@ -54,7 +58,7 @@ class HealthKitNativeService implements HealthKitService {
         to: endDate.toISOString() 
       });
 
-      const result = await HealthKitNative.getSteps({
+      const result = await MoveeHealthKit.getSteps({
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
       });
@@ -79,6 +83,10 @@ class HealthKitNativeService implements HealthKitService {
 
 // Fallback dla web/development
 class HealthKitMockService implements HealthKitService {
+  async echo(): Promise<string> {
+    return 'pong';
+  }
+
   async isAvailable(): Promise<boolean> {
     console.log('⚠️ HealthKit Mock: Running on web/simulator');
     return false;

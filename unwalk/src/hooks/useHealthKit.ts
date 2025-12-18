@@ -1,27 +1,38 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { healthKitService } from '../services/healthKit';
+import { useChallengeStore } from '../stores/useChallengeStore';
 
 export function useHealthKit() {
+  const setHealthConnected = useChallengeStore((s) => s.setHealthConnected);
+
   const [isAvailable, setIsAvailable] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [todaySteps, setTodaySteps] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    checkAvailability();
-  }, []);
+    (async () => {
+      const available = await healthKitService.isAvailable();
+      setIsAvailable(available);
 
-  async function checkAvailability() {
-    const available = await healthKitService.isAvailable();
-    setIsAvailable(available);
-  }
+      // If available, attempt authorization once so we can persist a meaningful "connected" flag.
+      if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios' && available) {
+        const granted = await healthKitService.requestAuthorization();
+        setIsAuthorized(granted);
+        setHealthConnected(granted);
+      } else {
+        setHealthConnected(false);
+      }
+    })();
+  }, [setHealthConnected]);
 
   const requestPermission = useCallback(async (): Promise<boolean> => {
     setIsLoading(true);
     try {
       const granted = await healthKitService.requestAuthorization();
       setIsAuthorized(granted);
+      setHealthConnected(granted);
       if (granted) {
         await syncSteps();
       }
@@ -29,7 +40,7 @@ export function useHealthKit() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [setHealthConnected]);
 
   const syncSteps = useCallback(async (): Promise<number> => {
     if (!isAuthorized && isAvailable) {
@@ -45,7 +56,19 @@ export function useHealthKit() {
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthorized, isAvailable]);
+  }, [isAuthorized, isAvailable, requestPermission]);
+
+  const getSteps = useCallback(
+    async (startDate: Date, endDate: Date): Promise<number> => {
+      if (!isAuthorized && isAvailable) {
+        const granted = await requestPermission();
+        if (!granted) return 0;
+      }
+
+      return healthKitService.getSteps(startDate, endDate);
+    },
+    [isAuthorized, isAvailable, requestPermission],
+  );
 
   return {
     isAvailable,
@@ -55,5 +78,6 @@ export function useHealthKit() {
     isNative: Capacitor.isNativePlatform(),
     requestPermission,
     syncSteps,
+    getSteps,
   };
 }

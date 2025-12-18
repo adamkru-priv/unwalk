@@ -10,6 +10,7 @@ import { ThemeSelector } from './ThemeSelector';
 import { DailyStepGoalSection } from './DailyStepGoalSection';
 import { PausedChallengesWarning } from './PausedChallengesWarning';
 import { APP_VERSION, BUILD_DATE } from '../../version';
+import { useHealthKit } from '../../hooks/useHealthKit';
 
 export function ProfileScreen() {
   const userTier = useChallengeStore((s) => s.userTier);
@@ -25,6 +26,17 @@ export function ProfileScreen() {
   const resetToInitialState = useChallengeStore((s) => s.resetToInitialState);
   const userProfile = useChallengeStore((s) => s.userProfile); // ✅ Read from store
   const setUserProfile = useChallengeStore((s) => s.setUserProfile); // For updates
+  const isHealthConnected = useChallengeStore((s) => s.isHealthConnected);
+
+  const {
+    isNative,
+    isAvailable: healthKitAvailable,
+    isAuthorized: healthKitAuthorized,
+    isLoading: healthKitLoading,
+    requestPermission: connectHealthKit,
+    syncSteps: refreshHealthKitSteps,
+    todaySteps,
+  } = useHealthKit();
 
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'email' | 'verify-otp'>('email');
@@ -239,6 +251,17 @@ export function ProfileScreen() {
     }
   };
 
+  const handleSignInWithApple = async () => {
+    try {
+      const { error } = await authService.signInWithApple();
+      if (error) {
+        alert(error.message);
+      }
+    } catch (e: any) {
+      alert(e?.message || 'Apple sign-in failed');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0B101B] text-gray-900 dark:text-white pb-20 font-sans">
       <AppHeader showBackButton={true} />
@@ -274,6 +297,27 @@ export function ProfileScreen() {
           onShowAuthModal={() => setShowAuthModal(true)}
         />
 
+        {/* Apple auth/link */}
+        {isGuest ? (
+          <button
+            onClick={handleSignInWithApple}
+            className="w-full bg-black text-white rounded-2xl p-4 shadow-sm border border-black/10 transition-colors text-left flex items-center justify-between"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
+                <span className="text-lg"></span>
+              </div>
+              <div>
+                <div className="text-sm font-semibold">Continue with Apple</div>
+                <div className="text-xs text-white/70">Create / sign in with Apple ID</div>
+              </div>
+            </div>
+            <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        ) : null}
+
         <AccountTypeCards
           isGuest={isGuest}
           userTier={userTier}
@@ -292,6 +336,41 @@ export function ProfileScreen() {
             onSave={setDailyStepGoal}
           />
         )}
+
+        {/* Apple Health status */}
+        <div className="w-full bg-white dark:bg-[#151A25] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-white/5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-sm font-semibold text-gray-900 dark:text-white">Apple Health</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Status:{' '}
+                {isNative && healthKitAvailable
+                  ? isHealthConnected
+                    ? 'Connected'
+                    : 'Not connected'
+                  : 'Unavailable'}
+              </div>
+              {isNative && healthKitAvailable && isHealthConnected && (
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Today: {todaySteps.toLocaleString()} steps
+                </div>
+              )}
+            </div>
+
+            {isNative && healthKitAvailable && (
+              <button
+                disabled={healthKitLoading}
+                onClick={async () => {
+                  const ok = await connectHealthKit();
+                  if (ok) await refreshHealthKitSteps();
+                }}
+                className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-xs font-semibold"
+              >
+                {healthKitAuthorized ? 'Refresh' : 'Connect'}
+              </button>
+            )}
+          </div>
+        </div>
 
         <button
           onClick={() => {

@@ -104,9 +104,9 @@ export const WhoToChallengeScreen = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#0B101B] to-[#151A25] flex flex-col">
+    <div className="h-[100dvh] bg-gradient-to-b from-[#0B101B] to-[#151A25] flex flex-col overflow-hidden pt-safe">
       {/* Header */}
-      <div className="px-6 pt-12 pb-8">
+      <div className="px-6 pt-10 pb-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -124,7 +124,7 @@ export const WhoToChallengeScreen = () => {
       </div>
 
       {/* Target Options Grid */}
-      <div className="flex-1 px-6 pb-8">
+      <div className="flex-1 px-6 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] overflow-y-auto scrollbar-hide">
         <div className="grid grid-cols-1 gap-4">
           {targetOptions.map((option, index) => (
             <motion.button

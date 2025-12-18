@@ -266,6 +266,53 @@ class AuthService {
   }
 
   /**
+   * Sign in with Apple (OAuth) - intended for native app usage.
+   */
+  async signInWithApple(): Promise<{ error: Error | null }> {
+    try {
+      console.log('🍎 [Auth] signInWithApple: starting');
+      console.log('🍎 [Auth] supabase url:', import.meta.env.VITE_SUPABASE_URL);
+
+      const redirectTo = 'movee://auth/callback';
+      console.log('🍎 [Auth] signInWithApple redirectTo:', redirectTo);
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'apple',
+        options: {
+          redirectTo,
+        },
+      });
+
+      console.log('🍎 [Auth] signInWithApple result:', {
+        hasData: !!data,
+        url: (data as any)?.url,
+        error: error ? { name: error.name, message: error.message } : null,
+      });
+
+      if (error) throw error;
+      return { error: null };
+    } catch (error) {
+      console.error('❌ [Auth] Apple sign-in error:', error);
+      return { error: error as Error };
+    }
+  }
+
+  /**
+   * Link Apple identity to the currently signed-in account.
+   * Use this when the user is already logged in (e.g., via Email OTP) and wants to connect Apple.
+   */
+  async linkApple(): Promise<{ error: Error | null }> {
+    try {
+      const { error } = await supabase.auth.linkIdentity({ provider: 'apple' });
+      if (error) throw error;
+      return { error: null };
+    } catch (error) {
+      console.error('❌ [Auth] Apple link error:', error);
+      return { error: error as Error };
+    }
+  }
+
+  /**
    * Sign out
    */
   async signOut(): Promise<{ error: Error | null }> {
@@ -311,27 +358,25 @@ class AuthService {
   async getUserProfile(): Promise<UserProfile | null> {
     try {
       console.log('🔍 [Auth] getUserProfile: Starting...');
-      
-      // ✅ FIX: Use getSession() instead of getUser() to avoid API timeout
-      // getSession() reads from localStorage (instant), getUser() makes API call (can hang)
+
       console.log('🔍 [Auth] Getting session...');
       const sessionResponse = await supabase.auth.getSession();
       console.log('🔍 [Auth] Session response:', {
         hasData: !!sessionResponse.data,
         hasSession: !!sessionResponse.data?.session,
         userId: sessionResponse.data?.session?.user?.id,
-        email: sessionResponse.data?.session?.user?.email
+        email: sessionResponse.data?.session?.user?.email,
       });
-      
+
       const session = sessionResponse.data?.session;
       const user = session?.user || null;
-      
+
       console.log('🔍 [Auth] getUserProfile: User ID:', user?.id, 'Email:', user?.email);
-      
-      if (user && user.email) {
-        // ✅ Authenticated user (has email) - get from users table
+
+      // ✅ Authenticated user = we have a Supabase user id (email may be null for Apple)
+      if (user?.id) {
         console.log('🔍 [Auth] Fetching authenticated user profile...');
-        
+
         const { data, error } = await supabase
           .from('users')
           .select('*')
@@ -344,15 +389,17 @@ class AuthService {
         }
 
         if (!data) {
-          // User doesn't exist in users table - create it!
           console.log('⚠️ [Auth] Authenticated user not in users table, creating profile...');
-          
+
+          const email = user.email || null;
+          const displayName = email ? email.split('@')[0] : 'User';
+
           const { data: newUser, error: insertError } = await supabase
             .from('users')
             .insert({
               id: user.id,
-              email: user.email,
-              display_name: user.email.split('@')[0] || 'User',
+              email,
+              display_name: displayName,
               is_guest: false,
               tier: 'pro',
               daily_step_goal: 10000,
@@ -369,65 +416,85 @@ class AuthService {
           console.log('✅ [Auth] Created user profile:', newUser.email);
           return newUser as UserProfile;
         }
-        
-        console.log('✅ [Auth] Authenticated profile loaded:', data.email);
-        return data as UserProfile;
-      } else {
-        // ✅ Guest user - get by device_id
-        const deviceId = getDeviceId();
-        console.log('👤 [Auth] Fetching guest profile for device:', deviceId);
-        
-        const { data, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('device_id', deviceId)
-          .eq('is_guest', true)
-          .maybeSingle();
 
-        if (error) {
-          console.error('❌ [Auth] Error fetching guest profile:', error);
-          throw error;
-        }
-
-        if (!data) {
-          // ✅ Guest doesn't exist yet - create via RPC function
-          console.log('⚠️ [Auth] Guest profile not found, creating via RPC...');
-          
-          const { data: guestId, error: rpcError } = await supabase.rpc('create_guest_user', {
-            p_device_id: deviceId
-          });
-
-          if (rpcError) {
-            console.error('❌ [Auth] Error creating guest user:', rpcError);
-            throw rpcError;
-          }
-
-          if (!guestId) {
-            console.error('❌ [Auth] create_guest_user returned null');
-            return null;
-          }
-
-          // ✅ Fetch the newly created guest profile
-          const { data: guestData, error: guestError } = await supabase
+        // If we have an authenticated session but profile is still marked as guest, fix it.
+        if (data.is_guest) {
+          console.log('🔄 [Auth] Profile is marked as guest but session is authenticated. Fixing...');
+          const { data: fixed, error: fixError } = await supabase
             .from('users')
-            .select('*')
-            .eq('id', guestId)
+            .update({
+              is_guest: false,
+              email: data.email ?? user.email ?? null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', user.id)
+            .select()
             .single();
 
-          if (guestError) {
-            console.error('❌ [Auth] Error fetching newly created guest:', guestError);
-            throw guestError;
+          if (fixError) {
+            console.error('❌ [Auth] Failed to fix guest flag:', fixError);
+            return data as UserProfile;
           }
 
-          console.log('✅ [Auth] Guest profile created and loaded');
-          this.guestUserId = guestId;
-          return guestData as UserProfile;
+          return fixed as UserProfile;
         }
 
-        console.log('✅ [Auth] Guest profile found');
-        this.guestUserId = data.id;
+        console.log('✅ [Auth] Authenticated profile loaded:', data.email);
         return data as UserProfile;
       }
+
+      // ✅ Guest user - get by device_id
+      const deviceId = getDeviceId();
+      console.log('👤 [Auth] Fetching guest profile for device:', deviceId);
+
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('device_id', deviceId)
+        .eq('is_guest', true)
+        .maybeSingle();
+
+      if (error) {
+        console.error('❌ [Auth] Error fetching guest profile:', error);
+        throw error;
+      }
+
+      if (!data) {
+        console.log('⚠️ [Auth] Guest profile not found, creating via RPC...');
+
+        const { data: guestId, error: rpcError } = await supabase.rpc('create_guest_user', {
+          p_device_id: deviceId,
+        });
+
+        if (rpcError) {
+          console.error('❌ [Auth] Error creating guest user:', rpcError);
+          throw rpcError;
+        }
+
+        if (!guestId) {
+          console.error('❌ [Auth] create_guest_user returned null');
+          return null;
+        }
+
+        const { data: guestData, error: guestError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', guestId)
+          .single();
+
+        if (guestError) {
+          console.error('❌ [Auth] Error fetching newly created guest:', guestError);
+          throw guestError;
+        }
+
+        console.log('✅ [Auth] Guest profile created and loaded');
+        this.guestUserId = guestId;
+        return guestData as UserProfile;
+      }
+
+      console.log('✅ [Auth] Guest profile found');
+      this.guestUserId = data.id;
+      return data as UserProfile;
     } catch (error) {
       console.error('❌ [Auth] Get profile error:', error);
       console.error('❌ [Auth] Error stack:', error instanceof Error ? error.stack : 'No stack');

@@ -2,7 +2,7 @@ import { useChallengeStore } from '../../stores/useChallengeStore';
 import { useEffect, useState } from 'react';
 import { AppHeader } from '../common/AppHeader';
 import { BottomNavigation } from '../common/BottomNavigation';
-import { getActiveUserChallenge } from '../../lib/api';
+import { getActiveUserChallenge, updateChallengeProgress } from '../../lib/api';
 import type { UserChallenge } from '../../types';
 import { CelebrationModal } from './CelebrationModal';
 import { supabase } from '../../lib/supabase';
@@ -38,6 +38,7 @@ export function HomeScreen() {
     todaySteps: healthKitSteps, 
     requestPermission: requestHealthKitPermission,
     syncSteps,
+    getSteps, // ✅ Added getSteps
     isNative
   } = useHealthKit();
 
@@ -48,13 +49,15 @@ export function HomeScreen() {
     loadActiveChallenge();
     loadUnclaimedChallenges();
     loadTeamChallenges();
-    
-    // ✅ Request HealthKit permission przy pierwszym uruchomieniu
+  }, []);
+
+  // ✅ Request HealthKit permission gdy plugin zgłosi gotowość
+  useEffect(() => {
     if (isNative && healthKitAvailable && !healthKitAuthorized) {
       console.log('🔐 [HomeScreen] Requesting HealthKit permission...');
       requestHealthKitPermission();
     }
-  }, []);
+  }, [isNative, healthKitAvailable, healthKitAuthorized, requestHealthKitPermission]);
 
   // ✅ Auto-sync kroków co 5 minut jeśli mamy dostęp do HealthKit
   useEffect(() => {
@@ -73,6 +76,54 @@ export function HomeScreen() {
       return () => clearInterval(interval);
     }
   }, [healthKitAuthorized, isNative]);
+
+  // ✅ NEW: Sync active challenge progress with HealthKit
+  useEffect(() => {
+    if (isNative && healthKitAuthorized && activeUserChallenge) {
+      const syncChallengeProgress = async () => {
+        try {
+          console.log('🔄 [HomeScreen] Syncing challenge progress with HealthKit...');
+          const startDate = new Date(activeUserChallenge.started_at);
+          const now = new Date();
+          
+          // Get total steps since challenge started
+          const steps = await getSteps(startDate, now);
+          console.log(`📊 [HomeScreen] Steps for challenge "${activeUserChallenge.admin_challenge?.title}": ${steps}`);
+          
+          // Only update if steps have increased
+          if (steps > activeUserChallenge.current_steps) {
+            console.log(`📈 [HomeScreen] Updating challenge progress: ${activeUserChallenge.current_steps} -> ${steps}`);
+            
+            // Update DB
+            await updateChallengeProgress(activeUserChallenge.id, steps);
+            
+            // Update local store
+            setActiveChallenge({
+              ...activeUserChallenge,
+              current_steps: steps
+            });
+            
+            // Check for completion
+            if (activeUserChallenge.admin_challenge?.goal_steps && steps >= activeUserChallenge.admin_challenge.goal_steps) {
+               console.log('🎉 [HomeScreen] Challenge completed via HealthKit sync!');
+               // Reload to trigger completion logic/modal
+               loadActiveChallenge();
+               loadUnclaimedChallenges();
+            }
+          }
+        } catch (error) {
+          console.error('❌ [HomeScreen] Failed to sync challenge progress:', error);
+        }
+      };
+
+      // Sync immediately
+      syncChallengeProgress();
+
+      // And sync periodically
+      const interval = setInterval(syncChallengeProgress, 2 * 60 * 1000); // Every 2 mins
+      return () => clearInterval(interval);
+    }
+  }, [isNative, healthKitAuthorized, activeUserChallenge?.id, getSteps]);
 
   const loadActiveChallenge = async () => {
     try {

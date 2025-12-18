@@ -160,7 +160,8 @@ export const useChallengeStore = create<ChallengeStore>()(
       
       setOnboardingComplete: (complete) => set({ 
         isOnboardingComplete: complete,
-        currentScreen: complete ? 'home' : 'onboarding'
+        // When finishing onboarding, send user to the next step (whoToChallenge)
+        currentScreen: complete ? 'whoToChallenge' : 'onboarding'
       }),
       
       setHealthConnected: (connected) => set({ isHealthConnected: connected }),

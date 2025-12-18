@@ -1,0 +1,23 @@
+# macOS
+.DS_Store
+
+# Node
+unwalk/node_modules/
+
+# Vite/TS build output
+unwalk/dist/
+
+# Capacitor
+unwalk/ios/App/App/public/
+
+# Xcode
+**/DerivedData/
+**/*.xcuserstate
+**/*.xcuserdata/
+**/*.xccheckout
+**/*.xcscmblueprint
+unwalk/ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/WorkspaceSettings.xcsettings
+
+# CocoaPods (if ever used)
+**/Pods/
+**/Podfile.lock

@@ -114,7 +114,7 @@ export function AppHeader({ title, showBackButton = false, subtitle }: AppHeader
   };
 
   return (
-    <header className="bg-gray-50/80 dark:bg-[#0B101B]/80 backdrop-blur-md sticky top-0 z-20 px-6 py-4 border-b border-gray-200 dark:border-transparent">
+    <header className="bg-gray-50/80 dark:bg-[#0B101B]/80 backdrop-blur-md sticky top-0 z-20 px-6 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)] border-b border-gray-200 dark:border-transparent transition-all duration-300">
       <div className="flex items-center justify-between">
         {/* Left side - Back button or Logo */}
         <div className="flex items-center gap-3">

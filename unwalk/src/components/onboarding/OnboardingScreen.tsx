@@ -102,13 +102,13 @@ export function OnboardingScreen() {
 
   return (
     <div 
-      className="min-h-screen bg-gradient-to-b from-[#0B101B] to-[#151A25] flex flex-col relative overflow-hidden"
+      className="h-[100dvh] bg-gradient-to-b from-[#0B101B] to-[#151A25] flex flex-col relative overflow-hidden pt-safe"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
       {/* Skip button - Top Right */}
-      <div className="absolute top-4 right-4 z-30">
+      <div className="absolute right-4 z-30 top-[calc(env(safe-area-inset-top)+1rem)]">
         <button
           onClick={handleSkip}
           className="bg-gray-900/90 hover:bg-gray-900 backdrop-blur-lg text-white font-bold text-base px-7 py-3.5 rounded-full transition-all border-2 border-white/50 shadow-2xl"
@@ -143,7 +143,7 @@ export function OnboardingScreen() {
             </div>
 
             {/* Text Content - Scrollable with safe padding */}
-            <div className="flex-1 overflow-y-auto scrollbar-hide px-6 pt-6 pb-28">
+            <div className="flex-1 overflow-y-auto scrollbar-hide px-6 pt-6 pb-20">
               <motion.h1
                 className="text-3xl font-black text-white mb-2 leading-tight"
                 initial={{ opacity: 0, y: 20 }}
@@ -223,7 +223,7 @@ export function OnboardingScreen() {
             </div>
 
             {/* Pagination dots - Fixed at bottom */}
-            <div className="absolute bottom-8 left-0 right-0 flex justify-center gap-2 z-10">
+            <div className="absolute left-0 right-0 flex justify-center gap-2 z-10 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)]">
               {slides.map((_, index) => (
                 <button
                   key={index}

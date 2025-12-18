@@ -21,37 +21,48 @@ export function Toast({ message, type = 'info', duration = 3000, onClose }: Toas
   }, [duration, onClose]);
 
   const icons = {
-    success: '✅',
-    info: '🎯',
-    warning: '⚠️',
-    error: '❌',
+    success: '✓',
+    info: '…',
+    warning: '!',
+    error: '×',
   };
 
   const colors = {
-    success: 'from-green-500 to-emerald-600',
-    info: 'from-blue-500 to-purple-600',
-    warning: 'from-amber-500 to-orange-600',
-    error: 'from-red-500 to-rose-600',
+    success: 'bg-emerald-600/90',
+    info: 'bg-slate-900/90',
+    warning: 'bg-amber-600/90',
+    error: 'bg-rose-600/90',
   };
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: -50, scale: 0.9 }}
+      initial={{ opacity: 0, y: -20, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -50, scale: 0.9 }}
-      className="fixed top-20 left-1/2 transform -translate-x-1/2 z-[60] max-w-sm w-full mx-4"
+      exit={{ opacity: 0, y: -20, scale: 0.98 }}
+      className="fixed left-0 right-0 z-[60] px-4 top-[calc(env(safe-area-inset-top)+0.75rem)]"
     >
-      <div className={`bg-gradient-to-r ${colors[type]} rounded-2xl shadow-2xl p-4 flex items-center gap-3 border border-white/20`}>
-        <div className="text-2xl flex-shrink-0">{icons[type]}</div>
-        <p className="text-white font-bold text-sm flex-1">{message}</p>
-        <button
-          onClick={onClose}
-          className="text-white/80 hover:text-white transition-colors flex-shrink-0"
+      <div className="mx-auto w-full max-w-md">
+        <div
+          className={`${colors[type]} text-white rounded-2xl shadow-xl px-4 py-3 flex items-start gap-3 border border-white/10 backdrop-blur-md`}
+          role="status"
+          aria-live="polite"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
+          <div className="mt-0.5 h-6 w-6 rounded-full bg-white/15 flex items-center justify-center flex-shrink-0 text-sm font-bold">
+            {icons[type]}
+          </div>
+          <p className="text-white/95 text-sm leading-snug flex-1 break-words">
+            {message}
+          </p>
+          <button
+            onClick={onClose}
+            className="text-white/70 hover:text-white transition-colors flex-shrink-0 -mt-0.5"
+            aria-label="Close"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
       </div>
     </motion.div>
   );

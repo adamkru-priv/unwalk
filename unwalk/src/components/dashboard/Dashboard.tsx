@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { updateChallengeProgress, getActiveUserChallenge, deleteUserChallenge } from '../../lib/api';
 import { BottomNavigation } from '../common/BottomNavigation';
 import { useToastStore } from '../../stores/useToastStore';
+import { useHealthKit } from '../../hooks/useHealthKit';
 
 export function Dashboard() {
   const [isUpdating, setIsUpdating] = useState(false);
@@ -18,6 +19,68 @@ export function Dashboard() {
   const userTier = userProfile?.tier || 'basic';
   const isGuest = userProfile?.is_guest || false;
   const toast = useToastStore((s) => s);
+
+  // ✅ HealthKit integration
+  const { 
+    isAvailable: healthKitAvailable, 
+    isAuthorized: healthKitAuthorized,
+    requestPermission: requestHealthKitPermission,
+    getSteps,
+    isNative
+  } = useHealthKit();
+
+  // ✅ Request permission on mount if needed
+  useEffect(() => {
+    if (isNative && healthKitAvailable && !healthKitAuthorized) {
+      requestHealthKitPermission();
+    }
+  }, [isNative, healthKitAvailable, healthKitAuthorized]);
+
+  // ✅ Sync active challenge progress with HealthKit
+  useEffect(() => {
+    if (isNative && healthKitAuthorized && activeUserChallenge) {
+      const syncChallengeProgress = async () => {
+        try {
+          console.log('🔄 [Dashboard] Syncing challenge progress with HealthKit...');
+          const startDate = new Date(activeUserChallenge.started_at);
+          const now = new Date();
+          
+          // Get total steps since challenge started
+          const steps = await getSteps(startDate, now);
+          
+          // Only update if steps have increased
+          if (steps > activeUserChallenge.current_steps) {
+            console.log(`📈 [Dashboard] Updating challenge progress: ${activeUserChallenge.current_steps} -> ${steps}`);
+            
+            // Update DB
+            await updateChallengeProgress(activeUserChallenge.id, steps);
+            
+            // Update local store
+            setActiveChallenge({
+              ...activeUserChallenge,
+              current_steps: steps
+            });
+            
+            // Check for completion
+            if (activeUserChallenge.admin_challenge?.goal_steps && steps >= activeUserChallenge.admin_challenge.goal_steps) {
+               console.log('🎉 [Dashboard] Challenge completed via HealthKit sync!');
+               // Redirect to home for claim flow
+               setCurrentScreen('home');
+            }
+          }
+        } catch (error) {
+          console.error('❌ [Dashboard] Failed to sync challenge progress:', error);
+        }
+      };
+
+      // Sync immediately
+      syncChallengeProgress();
+
+      // And sync periodically (every 10s on dashboard for responsiveness)
+      const interval = setInterval(syncChallengeProgress, 10 * 1000); 
+      return () => clearInterval(interval);
+    }
+  }, [isNative, healthKitAuthorized, activeUserChallenge?.id, getSteps]);
 
   // LOAD ACTIVE CHALLENGE on mount if not in store
   useEffect(() => {
@@ -177,9 +240,9 @@ export function Dashboard() {
       </div>
 
       {/* CONTENT */}
-      <div className="relative z-10 flex flex-col h-screen pb-20">
+      <div className="relative z-10 flex flex-col h-screen pb-[calc(80px+env(safe-area-inset-bottom))]">
         {/* Header */}
-        <header className="flex items-center justify-between px-6 py-4 flex-shrink-0">
+        <header className="flex items-center justify-between px-6 py-4 flex-shrink-0 pt-[calc(env(safe-area-inset-top)+0.5rem)]">
           <button 
             onClick={() => setCurrentScreen('home')}
             className="text-2xl font-bold flex items-center gap-2"
@@ -331,11 +394,11 @@ export function Dashboard() {
           </div>
         )}
 
-        {/* TEST Simulator - Only visible when not completed */}
-        {progress < 100 && (
+        {/* TEST Simulator - Only visible when not completed AND not using HealthKit */}
+        {progress < 100 && !isNative && (
           <div className="px-6 pb-3 flex-shrink-0">
             <div className="bg-blue-900/80 backdrop-blur-sm rounded-lg p-3 border border-blue-700/50">
-              <p className="text-xs font-semibold text-blue-200 mb-2">Step Simulator (TEST MODE)</p>
+              <p className="text-xs font-semibold text-blue-200 mb-2">Step Simulator (Web/Test Only)</p>
               <div className="grid grid-cols-4 gap-2">
                 <button
                   onClick={() => handleAddSteps(100)}
