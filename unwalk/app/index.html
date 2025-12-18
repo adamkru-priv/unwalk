@@ -94,9 +94,29 @@
         <div class="muted">Open the web app:</div>
 
         <div class="actions">
-          <a class="btn primary" href="/app/">Open web app</a>
+          <a id="openWebApp" class="btn primary" href="/app/">Open web app</a>
         </div>
       </section>
     </main>
+
+    <script>
+      (function () {
+        const a = document.getElementById('openWebApp');
+        if (!a) return;
+
+        const isLocalhost =
+          location.hostname === 'localhost' ||
+          location.hostname === '127.0.0.1' ||
+          location.hostname === '0.0.0.0';
+
+        // In dev, open the SPA entry directly.
+        // In production, keep current behavior (web app under /app/).
+        if (isLocalhost) {
+          a.href = '/app/app.html';
+        } else {
+          a.href = '/app/';
+        }
+      })();
+    </script>
   </body>
 </html>

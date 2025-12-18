@@ -286,6 +286,41 @@ export function HomeScreen() {
           onSlideChange={setCurrentSlide}
         />
 
+        {/* Tesla challenge promo box (coming soon) */}
+        <section className="px-4">
+          <div
+            className="relative overflow-hidden rounded-2xl border border-white/10 bg-gray-900 shadow-lg"
+            aria-label="EV challenge coming soon"
+          >
+            <div
+              className="absolute inset-0 bg-cover bg-center"
+              style={{
+                backgroundImage:
+                  "url('https://images.unsplash.com/photo-1542362567-b07e54358753?auto=format&fit=crop&w=1600&q=80')",
+              }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/50 to-black/20" />
+
+            <div className="relative p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-xs uppercase tracking-wider text-white/70">Special</div>
+                  <h3 className="mt-1 text-2xl font-black tracking-tight text-white">Move Your EV</h3>
+                  <p className="mt-1 text-sm text-white/80">Move smarter. Move electric.</p>
+                </div>
+
+                <div className="shrink-0">
+                  <span className="inline-flex items-center rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white ring-1 ring-white/20 backdrop-blur">
+                    Coming soon
+                  </span>
+                </div>
+              </div>
+
+              {/* No extra CTA while in coming-soon state */}
+            </div>
+          </div>
+        </section>
+
         <TodayActivity
           todaySteps={todaySteps}
           dailyStepGoal={dailyStepGoal}

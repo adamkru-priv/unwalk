@@ -263,7 +263,8 @@
           </div>
         </div>
 
-        <a class="cta" href="https://www.movee.one/app/app.html">MOVEE APP</a>
+        <!-- Use local /app/ when developing on localhost; fall back to production otherwise -->
+        <a id="moveeAppLink" class="cta" href="/app/">MOVEE APP</a>
       </div>
     </header>
 
@@ -357,5 +358,23 @@
         </article>
       </section>
     </main>
+
+    <script>
+      (function () {
+        const a = document.getElementById('moveeAppLink');
+        if (!a) return;
+
+        const isLocalhost =
+          location.hostname === 'localhost' ||
+          location.hostname === '127.0.0.1' ||
+          location.hostname === '0.0.0.0';
+
+        if (isLocalhost) {
+          a.href = '/app/';
+        } else {
+          a.href = 'https://www.movee.one/app/app.html';
+        }
+      })();
+    </script>
   </body>
 </html>
