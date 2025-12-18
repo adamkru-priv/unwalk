@@ -42,11 +42,8 @@ export function ChallengeLibrary() {
             className="space-y-5"
           >
             {/* Hero Section */}
-            <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold text-white mb-2">Explore Challenges</h1>
-              <p className="text-white/60 text-sm">
-                Choose how you want to start your walking adventure
-              </p>
+            <div className="text-center mb-4">
+              <h1 className="text-3xl font-bold text-white mb-0">Explore Challenges</h1>
             </div>
 
             {/* Card 1: Browse Challenges */}

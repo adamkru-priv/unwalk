@@ -1,6 +1,8 @@
 import { SoloCard } from './SoloCard';
 import { SocialCard } from './SocialCard';
 import type { UserChallenge } from '../../../types';
+import type { TeamMember } from '../../../lib/auth';
+import type { ChallengeAssignmentWithProgress } from '../../../lib/api';
 
 interface HeroCarouselProps {
   activeChallenge: UserChallenge | null;
@@ -10,6 +12,11 @@ interface HeroCarouselProps {
   onSoloClick: () => void;
   onTeamClick: () => void;
   onSlideChange: (slide: number) => void;
+  variant?: 'carousel' | 'stack';
+  teamMembers?: TeamMember[];
+  isGuest?: boolean;
+  onQuickAssign?: (member: TeamMember) => void;
+  sentAssignments?: ChallengeAssignmentWithProgress[];
 }
 
 export function HeroCarousel({
@@ -20,7 +27,29 @@ export function HeroCarousel({
   onSoloClick,
   onTeamClick,
   onSlideChange,
+  variant = 'carousel',
+  teamMembers = [],
+  isGuest = false,
+  onQuickAssign,
+  sentAssignments = [],
 }: HeroCarouselProps) {
+  if (variant === 'stack') {
+    return (
+      <section className="space-y-4">
+        <SoloCard activeChallenge={activeChallenge} progress={progress} onClick={onSoloClick} variant="stack" />
+        <SocialCard
+          teamActiveChallenges={teamActiveChallenges}
+          onTeamClick={onTeamClick}
+          variant="stack"
+          teamMembers={teamMembers}
+          isGuest={isGuest}
+          onQuickAssign={onQuickAssign}
+          sentAssignments={sentAssignments}
+        />
+      </section>
+    );
+  }
+
   return (
     <section className="relative">
       <div className="overflow-hidden">

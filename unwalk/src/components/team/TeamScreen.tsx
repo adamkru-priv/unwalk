@@ -11,7 +11,9 @@ import { MemberDetail } from './MemberDetail';
 
 export function TeamScreen() {
   const setCurrentScreen = useChallengeStore((state) => state.setCurrentScreen);
-  const userProfile = useChallengeStore((s) => s.userProfile); // ✅ Read from store
+  const userProfile = useChallengeStore((s) => s.userProfile);
+  const assignTarget = useChallengeStore((s) => s.assignTarget);
+  const setAssignTarget = useChallengeStore((s) => s.setAssignTarget);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [receivedInvitations, setReceivedInvitations] = useState<TeamInvitation[]>([]);
   const [sentInvitations, setSentInvitations] = useState<TeamInvitation[]>([]);
@@ -28,6 +30,20 @@ export function TeamScreen() {
       loadTeamData();
     }
   }, [userProfile?.id]);
+
+  // When coming from Home quick-assign, open member details automatically
+  useEffect(() => {
+    if (!assignTarget?.id) return;
+    if (loading) return;
+    if (userProfile?.is_guest) return;
+
+    const m = teamMembers.find((tm) => tm.member_id === assignTarget.id);
+    if (m) {
+      setSelectedMember(m);
+      // Clear to avoid reopening on back
+      setAssignTarget(null);
+    }
+  }, [assignTarget?.id, loading, userProfile?.is_guest, teamMembers]);
 
   const loadTeamData = async () => {
     setLoading(true);

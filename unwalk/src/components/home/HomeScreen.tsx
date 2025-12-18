@@ -2,7 +2,7 @@ import { useChallengeStore } from '../../stores/useChallengeStore';
 import { useEffect, useState } from 'react';
 import { AppHeader } from '../common/AppHeader';
 import { BottomNavigation } from '../common/BottomNavigation';
-import { getActiveUserChallenge, updateChallengeProgress } from '../../lib/api';
+import { getActiveUserChallenge, updateChallengeProgress, getChallengeAssignmentsWithProgress, type ChallengeAssignmentWithProgress } from '../../lib/api';
 import type { UserChallenge } from '../../types';
 import { CelebrationModal } from './CelebrationModal';
 import { supabase } from '../../lib/supabase';
@@ -13,6 +13,7 @@ import { HeroCarousel } from './sections/HeroCarousel';
 import { TodayActivity } from './sections/TodayActivity';
 import { PausedChallengesGrid } from './sections/PausedChallengesGrid';
 import { useHealthKit } from '../../hooks/useHealthKit';
+import { teamService, type TeamMember } from '../../lib/auth';
 
 export function HomeScreen() {
   const [unclaimedChallenges, setUnclaimedChallenges] = useState<UserChallenge[]>([]);
@@ -21,7 +22,9 @@ export function HomeScreen() {
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
   const [teamActiveChallenges, setTeamActiveChallenges] = useState<any[]>([]);
-  
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [sentAssignments, setSentAssignments] = useState<ChallengeAssignmentWithProgress[]>([]);
+
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
   const pausedChallenges = useChallengeStore((s) => s.pausedChallenges);
   const userProfile = useChallengeStore((s) => s.userProfile);
@@ -30,6 +33,7 @@ export function HomeScreen() {
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
   const dailyStepGoal = useChallengeStore((s) => s.dailyStepGoal);
   const setActiveChallenge = useChallengeStore((s) => s.setActiveChallenge);
+  const setAssignTarget = useChallengeStore((s) => s.setAssignTarget);
 
   // ✅ HealthKit integration - prawdziwe kroki z Apple Health!
   const { 
@@ -124,6 +128,46 @@ export function HomeScreen() {
       return () => clearInterval(interval);
     }
   }, [isNative, healthKitAuthorized, activeUserChallenge?.id, getSteps]);
+
+  // Load team members for basic/pro (authenticated) users only
+  useEffect(() => {
+    const load = async () => {
+      if (!userProfile || userProfile.is_guest) {
+        setTeamMembers([]);
+        return;
+      }
+
+      try {
+        const members = await teamService.getTeamMembers();
+        setTeamMembers(members || []);
+      } catch (e) {
+        console.error('❌ [HomeScreen] Failed to load team members:', e);
+        setTeamMembers([]);
+      }
+    };
+
+    load();
+  }, [userProfile?.id, userProfile?.is_guest]);
+
+  // Load progress for challenges YOU sent (basic/pro only)
+  useEffect(() => {
+    const load = async () => {
+      if (!userProfile || userProfile.is_guest) {
+        setSentAssignments([]);
+        return;
+      }
+
+      try {
+        const data = await getChallengeAssignmentsWithProgress();
+        setSentAssignments(data || []);
+      } catch (e) {
+        console.error('❌ [HomeScreen] Failed to load sent assignments progress:', e);
+        setSentAssignments([]);
+      }
+    };
+
+    load();
+  }, [userProfile?.id, userProfile?.is_guest]);
 
   const loadActiveChallenge = async () => {
     try {
@@ -227,6 +271,16 @@ export function HomeScreen() {
     }
   };
 
+  const handleQuickAssign = (member: TeamMember) => {
+    // Navigate to Team and open member details
+    setAssignTarget({
+      id: member.member_id,
+      name: member.custom_name || member.display_name || member.email || 'Team member',
+      email: member.email,
+    });
+    setCurrentScreen('team');
+  };
+
   const handleTouchStart = (e: React.TouchEvent) => {
     setTouchStart(e.targetTouches[0].clientX);
     setTouchEnd(e.targetTouches[0].clientX);
@@ -268,7 +322,7 @@ export function HomeScreen() {
       )}
 
       <main className="pt-6 pb-6 space-y-5">
-        <HeroHeader date={new Date()} />
+        <HeroHeader />
         
         <CompletedChallengesList
           challenges={unclaimedChallenges}
@@ -284,12 +338,17 @@ export function HomeScreen() {
           onSoloClick={handleSoloClick}
           onTeamClick={() => setCurrentScreen('team')}
           onSlideChange={setCurrentSlide}
+          variant="stack"
+          teamMembers={teamMembers}
+          isGuest={userProfile?.is_guest || false}
+          onQuickAssign={handleQuickAssign}
+          sentAssignments={sentAssignments}
         />
 
         {/* Tesla challenge promo box (coming soon) */}
         <section className="px-4">
           <div
-            className="relative overflow-hidden rounded-2xl border border-white/10 bg-gray-900 shadow-lg"
+            className="relative overflow-hidden rounded-2xl border border-white/10 bg-gray-900 shadow-lg aspect-[16/9]"
             aria-label="EV challenge coming soon"
           >
             <div
@@ -299,24 +358,28 @@ export function HomeScreen() {
                   "url('https://images.unsplash.com/photo-1542362567-b07e54358753?auto=format&fit=crop&w=1600&q=80')",
               }}
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/50 to-black/20" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-black/20" />
 
-            <div className="relative p-5">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="text-xs uppercase tracking-wider text-white/70">Special</div>
-                  <h3 className="mt-1 text-2xl font-black tracking-tight text-white">Move Your EV</h3>
-                  <p className="mt-1 text-sm text-white/80">Move smarter. Move electric.</p>
-                </div>
-
-                <div className="shrink-0">
-                  <span className="inline-flex items-center rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white ring-1 ring-white/20 backdrop-blur">
-                    Coming soon
-                  </span>
-                </div>
+            <div className="absolute inset-0 p-6 flex flex-col justify-between">
+              {/* Top row */}
+              <div className="flex items-start justify-between">
+                <div className="text-xs font-bold text-white/70 uppercase tracking-wide">Special</div>
+                <span className="inline-flex items-center rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white ring-1 ring-white/20 backdrop-blur">
+                  Coming soon
+                </span>
               </div>
 
-              {/* No extra CTA while in coming-soon state */}
+              {/* Center title */}
+              <div className="flex-1 flex items-center justify-center">
+                <h3 className="text-3xl font-black text-white text-center leading-tight uppercase drop-shadow-2xl">
+                  Move Your<br />EV
+                </h3>
+              </div>
+
+              {/* Bottom subtitle */}
+              <div className="text-white/80 text-sm font-semibold">
+                Move smarter. Move electric.
+              </div>
             </div>
           </div>
         </section>

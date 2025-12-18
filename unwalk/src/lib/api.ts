@@ -548,3 +548,51 @@ export async function getTeamMemberStats(): Promise<{
     return null;
   }
 }
+
+// ===== Social: progress for challenges you sent (delegated) =====
+export type ChallengeAssignmentWithProgress = {
+  id: string;
+  sender_id: string;
+  recipient_id: string;
+  status: string;
+  sent_at: string;
+  user_challenge_status?: string | null;
+  current_steps?: number | null;
+  // column in view: challenge_goal_steps
+  goal_steps?: number | null;
+};
+
+// Get accepted assignments (with progress) SENT by current user
+export async function getChallengeAssignmentsWithProgress(): Promise<ChallengeAssignmentWithProgress[]> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const { data, error } = await supabase
+      .from('challenge_assignments_with_progress')
+      .select('id, recipient_id, user_challenge_status, current_steps, challenge_goal_steps, sent_at')
+      .eq('sender_id', user.id)
+      .eq('status', 'accepted')
+      .not('user_challenge_id', 'is', null)
+      .order('sent_at', { ascending: false });
+
+    if (error) {
+      console.error('❌ [API] Failed to load challenge_assignments_with_progress:', error);
+      return [];
+    }
+
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      sender_id: user.id,
+      recipient_id: row.recipient_id,
+      status: 'accepted',
+      sent_at: row.sent_at,
+      user_challenge_status: row.user_challenge_status,
+      current_steps: row.current_steps,
+      goal_steps: row.challenge_goal_steps,
+    }));
+  } catch (e) {
+    console.error('❌ [API] getChallengeAssignmentsWithProgress error:', e);
+    return [];
+  }
+}
