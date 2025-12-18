@@ -4,127 +4,208 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0B101B" />
-    <title>Movee</title>
-    <meta name="description" content="Movee" />
+    <title>MOVEE</title>
+    <meta name="description" content="MOVEE" />
     <style>
       :root {
-        --bg: #0B101B;
-        --card: rgba(255,255,255,0.06);
-        --border: rgba(255,255,255,0.12);
-        --text: rgba(255,255,255,0.92);
-        --muted: rgba(255,255,255,0.6);
-        --accent: #7C3AED;
-        --accent2: #06B6D4;
+        --bg: #0b101b;
+        --card: rgba(255, 255, 255, 0.06);
+        --border: rgba(255, 255, 255, 0.12);
+        --text: rgba(255, 255, 255, 0.92);
+        --muted: rgba(255, 255, 255, 0.62);
+        --accent: #7c3aed;
+        --accent2: #06b6d4;
       }
-      * { box-sizing: border-box; }
+
+      * {
+        box-sizing: border-box;
+      }
+
       body {
         margin: 0;
         font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-        background: radial-gradient(900px 600px at 20% 0%, rgba(124,58,237,0.22), transparent 60%),
-                    radial-gradient(900px 600px at 90% 30%, rgba(6,182,212,0.16), transparent 60%),
-                    var(--bg);
+        background:
+          radial-gradient(900px 600px at 20% 0%, rgba(124, 58, 237, 0.22), transparent 60%),
+          radial-gradient(900px 600px at 90% 30%, rgba(6, 182, 212, 0.16), transparent 60%),
+          var(--bg);
         color: var(--text);
         min-height: 100svh;
         display: grid;
         place-items: center;
         padding: 24px;
       }
-      .wrap { width: 100%; max-width: 840px; }
-      .card {
-        border: 1px solid var(--border);
-        background: var(--card);
-        border-radius: 24px;
-        padding: 28px;
-        backdrop-filter: blur(14px);
-        box-shadow: 0 18px 60px rgba(0,0,0,0.35);
+
+      .wrap {
+        width: 100%;
+        max-width: 980px;
+        display: grid;
+        gap: 18px;
       }
-      .top {
+
+      header {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        gap: 16px;
-        margin-bottom: 20px;
+        justify-content: center;
+        gap: 12px;
       }
-      .brand { display: flex; align-items: center; gap: 12px; }
-      .logo {
-        width: 40px;
-        height: 40px;
-        border-radius: 14px;
-        background: linear-gradient(135deg, rgba(124,58,237,0.9), rgba(6,182,212,0.8));
+
+      .mark {
+        width: 44px;
+        height: 44px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, rgba(124, 58, 237, 0.95), rgba(6, 182, 212, 0.85));
         display: grid;
         place-items: center;
         font-weight: 900;
-        color: white;
+        letter-spacing: 0.3px;
       }
-      h1 { margin: 0; font-size: 20px; letter-spacing: 0.2px; }
-      .muted { color: var(--muted); font-size: 14px; }
-      .grid { display: grid; gap: 14px; grid-template-columns: 1fr; margin-top: 18px; }
-      @media (min-width: 740px) { .grid { grid-template-columns: 1fr 1fr; } }
-      .item {
-        border: 1px solid rgba(255,255,255,0.10);
-        border-radius: 18px;
-        padding: 16px;
-        background: rgba(0,0,0,0.18);
+
+      .brand {
+        font-size: 22px;
+        letter-spacing: 2px;
+        font-weight: 900;
       }
-      .item .k { font-weight: 700; font-size: 14px; margin-bottom: 6px; }
-      .item .v { font-size: 13px; color: var(--muted); line-height: 1.4; }
-      .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+
+      .card {
+        border: 1px solid var(--border);
+        background: var(--card);
+        border-radius: 26px;
+        padding: 22px;
+        backdrop-filter: blur(14px);
+        box-shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
+        overflow: hidden;
+        position: relative;
+      }
+
+      .hero {
+        display: grid;
+        gap: 16px;
+        align-items: center;
+      }
+
+      @media (min-width: 860px) {
+        .hero {
+          grid-template-columns: 1.05fr 0.95fr;
+          gap: 22px;
+        }
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 32px;
+        line-height: 1.15;
+        letter-spacing: -0.2px;
+      }
+
+      .lead {
+        margin: 10px 0 0;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.55;
+      }
+
       .btn {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 8px;
-        border-radius: 14px;
-        padding: 11px 14px;
+        gap: 10px;
+        border-radius: 16px;
+        padding: 14px 18px;
         text-decoration: none;
-        font-weight: 800;
-        font-size: 14px;
-        border: 1px solid rgba(255,255,255,0.14);
-        color: white;
-        background: rgba(255,255,255,0.06);
+        font-weight: 900;
+        font-size: 15px;
+        color: #fff;
+        background: linear-gradient(90deg, rgba(124, 58, 237, 0.98), rgba(6, 182, 212, 0.92));
+        border: none;
+        width: fit-content;
       }
-      .btn.primary { border: none; background: linear-gradient(90deg, rgba(124,58,237,0.95), rgba(6,182,212,0.9)); }
-      .footer { margin-top: 18px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-      .footer a { color: rgba(255,255,255,0.75); text-decoration: none; font-size: 12px; }
-      .footer a:hover { text-decoration: underline; }
-      code { color: rgba(255,255,255,0.88); }
+
+      .btn:focus-visible {
+        outline: 3px solid rgba(124, 58, 237, 0.5);
+        outline-offset: 3px;
+      }
+
+      .image {
+        border-radius: 22px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background:
+          radial-gradient(900px 380px at 30% 20%, rgba(124, 58, 237, 0.28), transparent 55%),
+          radial-gradient(900px 380px at 70% 60%, rgba(6, 182, 212, 0.22), transparent 55%),
+          rgba(0, 0, 0, 0.22);
+        min-height: 260px;
+        position: relative;
+        overflow: hidden;
+        display: grid;
+        place-items: center;
+      }
+
+      /* Use existing app icon as a "hero" illustration (no new assets needed). */
+      .image::before {
+        content: "";
+        position: absolute;
+        inset: -10%;
+        background-image: url('/icon-512.png');
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: 62%;
+        opacity: 0.92;
+        filter: drop-shadow(0 18px 40px rgba(0, 0, 0, 0.45));
+        transform: rotate(-6deg);
+      }
+
+      .image::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(11, 16, 27, 0.0), rgba(11, 16, 27, 0.55));
+      }
+
+      .fineprint {
+        margin-top: 14px;
+        color: rgba(255, 255, 255, 0.45);
+        font-size: 12px;
+      }
+
+      /* Hide everything else on the LP */
+      .hidden-links {
+        display: none;
+      }
     </style>
   </head>
   <body>
     <main class="wrap">
+      <header aria-label="MOVEE">
+        <div class="mark" aria-hidden="true">M</div>
+        <div class="brand">MOVEE</div>
+      </header>
+
       <section class="card">
-        <div class="top">
-          <div class="brand">
-            <div class="logo">M</div>
-            <div>
-              <h1>Movee</h1>
-              <div class="muted">Landing page + app links.</div>
+        <div class="hero">
+          <div>
+            <h1>Move more. Challenge friends.</h1>
+            <p class="lead">
+              Welcome to MOVEE. Open the web app to sign in, start challenges and track your progress.
+            </p>
+
+            <div style="margin-top: 16px">
+              <a class="btn" href="/app">
+                Open web app
+                <span aria-hidden="true">→</span>
+              </a>
+            </div>
+
+            <div class="fineprint">
+              If you are trying to sign in on iOS, return to the MOVEE app.
             </div>
           </div>
-          <div class="muted" aria-hidden="true">movee.one</div>
+
+          <div class="image" role="img" aria-label="MOVEE preview"></div>
         </div>
 
-        <div class="muted">
-          This is a minimal placeholder. The product lives in the Movee mobile app.
-        </div>
-
-        <div class="grid" role="list">
-          <div class="item" role="listitem">
-            <div class="k">Mobile app</div>
-            <div class="v">Open the iOS app to sign in, start challenges and track progress.</div>
-          </div>
-          <div class="item" role="listitem">
-            <div class="k">Sign-in callback</div>
-            <div class="v">OAuth might land on <code>/auth/callback</code> and then return you to the app.</div>
-          </div>
-        </div>
-
-        <div class="actions">
-          <a class="btn primary" href="movee://auth/callback">Open Movee app</a>
-          <a class="btn" href="/app">Open web app</a>
-        </div>
-
-        <div class="footer">
+        <!-- Keep legacy links available for debugging, but hidden for users -->
+        <div class="hidden-links">
+          <a href="movee://auth/callback">Open Movee app</a>
+          <a href="/auth/callback">Auth callback</a>
           <a href="/privacy">Privacy</a>
           <a href="/terms">Terms</a>
         </div>
