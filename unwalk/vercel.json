@@ -3,6 +3,18 @@
   "outputDirectory": "dist",
   "installCommand": "npm install",
   "devCommand": "npm run dev",
+  "redirects": [
+    {
+      "source": "/app",
+      "destination": "/app/app.html",
+      "permanent": true
+    },
+    {
+      "source": "/app/",
+      "destination": "/app/app.html",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/auth/callback",
@@ -15,14 +27,6 @@
     {
       "source": "/app/assets/(.*)",
       "destination": "/assets/$1"
-    },
-    {
-      "source": "/app",
-      "destination": "/app/app.html"
-    },
-    {
-      "source": "/app/",
-      "destination": "/app/app.html"
     },
     {
       "source": "/app/(.*)",
