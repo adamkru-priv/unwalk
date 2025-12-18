@@ -11,11 +11,11 @@
       :root {
         --bgTop: #0b101b;
         --bgBottom: #151a25;
-        --card: rgba(255, 255, 255, 0.06);
-        --border: rgba(255, 255, 255, 0.12);
         --text: rgba(255, 255, 255, 0.92);
         --muted: rgba(255, 255, 255, 0.66);
         --brandBlue: #3b82f6;
+        --accentA: #7c3aed;
+        --accentB: #06b6d4;
       }
 
       * {
@@ -31,7 +31,10 @@
         margin: 0;
         font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
         color: var(--text);
-        background: linear-gradient(180deg, var(--bgTop), var(--bgBottom));
+        background:
+          radial-gradient(900px 600px at 20% 0%, rgba(124, 58, 237, 0.20), transparent 60%),
+          radial-gradient(900px 600px at 90% 30%, rgba(6, 182, 212, 0.14), transparent 60%),
+          linear-gradient(180deg, var(--bgTop), var(--bgBottom));
       }
 
       /* Header (inspired by AppHeader) */
@@ -58,12 +61,14 @@
         display: flex;
         align-items: center;
         gap: 10px;
+        min-width: 0;
       }
 
       .brandIcon {
         color: var(--brandBlue);
-        font-size: 1.2rem;
+        font-size: 1.25rem;
         transform: scaleX(-1);
+        flex: none;
       }
 
       .brandTitle {
@@ -71,19 +76,15 @@
         align-items: baseline;
         gap: 10px;
         line-height: 1.1;
+        min-width: 0;
       }
 
       .brandTitle h1 {
         margin: 0;
         font-size: 22px;
         font-weight: 900;
-        letter-spacing: 0.5px;
-      }
-
-      .brandTitle .sub {
-        color: rgba(255, 255, 255, 0.50);
-        font-size: 12px;
-        font-weight: 600;
+        letter-spacing: 0.6px;
+        white-space: nowrap;
       }
 
       .cta {
@@ -97,16 +98,21 @@
         font-weight: 900;
         font-size: 14px;
         color: #fff;
-        border: 1px solid rgba(255, 255, 255, 0.16);
-        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: linear-gradient(90deg, rgba(124, 58, 237, 0.95), rgba(6, 182, 212, 0.9));
+        box-shadow: 0 14px 40px rgba(0, 0, 0, 0.35);
       }
 
       .cta:hover {
-        background: rgba(255, 255, 255, 0.10);
+        filter: brightness(1.06);
+      }
+
+      .cta:active {
+        transform: translateY(1px);
       }
 
       .cta:focus-visible {
-        outline: 3px solid rgba(59, 130, 246, 0.45);
+        outline: 3px solid rgba(124, 58, 237, 0.45);
         outline-offset: 3px;
       }
 
@@ -118,12 +124,12 @@
       }
 
       .hero {
-        padding: 8px 2px 12px;
+        padding: 10px 2px 10px;
       }
 
       .hero h2 {
         margin: 0;
-        font-size: 22px;
+        font-size: 26px;
         font-weight: 900;
         letter-spacing: -0.2px;
       }
@@ -135,7 +141,7 @@
         font-size: 14px;
       }
 
-      /* Onboarding-style cards */
+      /* Cards */
       .cards {
         display: grid;
         gap: 14px;
@@ -152,91 +158,97 @@
       .card {
         border: 1px solid rgba(255, 255, 255, 0.12);
         background: rgba(255, 255, 255, 0.04);
-        border-radius: 18px;
+        border-radius: 22px;
         overflow: hidden;
-        box-shadow: 0 18px 60px rgba(0, 0, 0, 0.25);
+        box-shadow: 0 18px 70px rgba(0, 0, 0, 0.35);
       }
 
       .cardImg {
         position: relative;
-        height: 160px;
+        height: 190px;
         overflow: hidden;
+        background: rgba(0, 0, 0, 0.4);
       }
 
       .cardImg::after {
         content: "";
         position: absolute;
         inset: 0;
-        background: linear-gradient(180deg, rgba(0, 0, 0, 0), rgba(11, 16, 27, 0.95));
+        background:
+          linear-gradient(180deg, rgba(0, 0, 0, 0.0), rgba(11, 16, 27, 0.70)),
+          radial-gradient(900px 220px at 20% 10%, rgba(124, 58, 237, 0.18), transparent 55%),
+          radial-gradient(900px 220px at 80% 30%, rgba(6, 182, 212, 0.14), transparent 55%);
+        pointer-events: none;
       }
 
       .cardImg img {
         width: 100%;
         height: 100%;
         object-fit: cover;
-        transform: scale(1.05);
+        transform: scale(1.06);
+        filter: saturate(1.05) contrast(1.02);
       }
 
       .cardBody {
-        padding: 14px 14px 16px;
+        padding: 16px 16px 18px;
       }
 
       .cardBody h3 {
         margin: 0;
-        font-size: 18px;
+        font-size: 20px;
         font-weight: 900;
+        letter-spacing: -0.1px;
       }
 
       .cardBody .subtitle {
         margin: 6px 0 0;
         font-size: 13px;
-        font-weight: 800;
+        font-weight: 900;
         color: rgba(96, 165, 250, 0.92);
       }
 
       .cardBody .desc {
-        margin: 8px 0 0;
+        margin: 10px 0 0;
         color: rgba(255, 255, 255, 0.70);
         font-size: 13px;
-        line-height: 1.55;
+        line-height: 1.6;
       }
 
       .features {
-        margin-top: 12px;
+        margin-top: 14px;
         display: grid;
-        gap: 8px;
+        gap: 10px;
       }
 
+      /* Modern pill like in the screenshot */
       .feature {
         display: flex;
         align-items: center;
-        gap: 10px;
-        padding: 10px 11px;
-        border-radius: 14px;
+        gap: 12px;
+        padding: 12px 12px;
+        border-radius: 16px;
         border: 1px solid rgba(255, 255, 255, 0.10);
-        background: rgba(255, 255, 255, 0.04);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03));
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
       }
 
       .feature .icon {
-        width: 28px;
-        height: 28px;
+        width: 34px;
+        height: 34px;
         display: grid;
         place-items: center;
-        border-radius: 10px;
-        background: rgba(59, 130, 246, 0.12);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.10);
         font-size: 16px;
+        flex: none;
       }
 
       .feature span {
-        color: rgba(255, 255, 255, 0.88);
-        font-weight: 700;
+        color: rgba(255, 255, 255, 0.90);
+        font-weight: 800;
         font-size: 13px;
-      }
-
-      .note {
-        margin-top: 18px;
-        color: rgba(255, 255, 255, 0.45);
-        font-size: 12px;
+        line-height: 1.25;
       }
     </style>
   </head>
@@ -248,7 +260,6 @@
           <div class="brandIcon" aria-hidden="true">🚶</div>
           <div class="brandTitle">
             <h1>MOVEE</h1>
-            <div class="sub">Step challenges</div>
           </div>
         </div>
 
@@ -258,11 +269,11 @@
 
     <main class="page">
       <section class="hero">
-        <h2>Onboarding</h2>
-        <p>Explore what MOVEE does. When you’re ready, open the app from the top-right button.</p>
+        <h2>Move more. Challenge friends.</h2>
+        <p>Track steps automatically, start challenges, and unlock rewards.</p>
       </section>
 
-      <section class="cards" aria-label="Onboarding cards">
+      <section class="cards" aria-label="Feature cards">
         <article class="card">
           <div class="cardImg">
             <img
@@ -345,8 +356,6 @@
           </div>
         </article>
       </section>
-
-      <div class="note">If you’re signing in on iOS, this page may open briefly and then return you to the app.</div>
     </main>
   </body>
 </html>
