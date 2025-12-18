@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "build:ios": "npm run build && npx cap sync ios",
+    "build:web": "tsc -b && vite build",
+    "build:ios": "npm run build:ios:web && npx cap sync ios",
+    "build:ios:web": "tsc -b && vite build -c vite.ios.config.ts",
     "open:ios": "npx cap open ios",
     "sync:ios": "npx cap sync ios",
     "lint": "eslint .",

@@ -9,6 +9,14 @@
       "destination": "/auth/callback/index.html"
     },
     {
+      "source": "/app/manifest.json",
+      "destination": "/manifest.json"
+    },
+    {
+      "source": "/app/assets/(.*)",
+      "destination": "/assets/$1"
+    },
+    {
       "source": "/app/(.*)",
       "destination": "/app/index.html"
     }
