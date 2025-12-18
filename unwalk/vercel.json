@@ -17,8 +17,16 @@
       "destination": "/assets/$1"
     },
     {
+      "source": "/app",
+      "destination": "/app/app.html"
+    },
+    {
+      "source": "/app/",
+      "destination": "/app/app.html"
+    },
+    {
       "source": "/app/(.*)",
-      "destination": "/app/index.html"
+      "destination": "/app/app.html"
     }
   ],
   "headers": [
