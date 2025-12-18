@@ -9,16 +9,8 @@
       "destination": "/auth/callback/index.html"
     },
     {
-      "source": "/",
-      "destination": "/lp/index.html"
-    },
-    {
-      "source": "/lp",
-      "destination": "/lp/index.html"
-    },
-    {
       "source": "/app/(.*)",
-      "destination": "/index.html"
+      "destination": "/app/index.html"
     }
   ],
   "headers": [
