@@ -5,7 +5,19 @@
   "devCommand": "npm run dev",
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/auth/callback",
+      "destination": "/auth/callback/index.html"
+    },
+    {
+      "source": "/",
+      "destination": "/lp/index.html"
+    },
+    {
+      "source": "/lp",
+      "destination": "/lp/index.html"
+    },
+    {
+      "source": "/app/(.*)",
       "destination": "/index.html"
     }
   ],

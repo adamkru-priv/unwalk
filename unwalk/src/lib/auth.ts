@@ -273,7 +273,8 @@ class AuthService {
       console.log('🍎 [Auth] signInWithApple: starting');
       console.log('🍎 [Auth] supabase url:', import.meta.env.VITE_SUPABASE_URL);
 
-      const redirectTo = 'movee://auth/callback';
+      // Use custom domain callback so Safari shows movee.one instead of supabase.co
+      const redirectTo = 'https://movee.one/auth/callback';
       console.log('🍎 [Auth] signInWithApple redirectTo:', redirectTo);
 
       const { data, error } = await supabase.auth.signInWithOAuth({
