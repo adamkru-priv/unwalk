@@ -1,5 +1,10 @@
 import { Capacitor } from '@capacitor/core';
-import { MoveeHealthKit } from 'capacitor-movee-healthkit';
+
+// Native-only plugin loader (prevents Vercel/web builds from failing when the
+// local Capacitor plugin isn't present in the build environment).
+async function loadMoveeHealthKit() {
+  return import('capacitor-movee-healthkit');
+}
 
 export const healthKitService = {
   async isAvailable(): Promise<boolean> {
@@ -8,6 +13,7 @@ export const healthKitService = {
       return false;
     }
     try {
+      const { MoveeHealthKit } = await loadMoveeHealthKit();
       const result = await MoveeHealthKit.isAvailable();
       console.log('✅ HealthKit available:', result.available);
       return result.available;
@@ -19,6 +25,7 @@ export const healthKitService = {
 
   async requestAuthorization(): Promise<boolean> {
     try {
+      const { MoveeHealthKit } = await loadMoveeHealthKit();
       console.log('🔐 Requesting HealthKit authorization...');
       const result = await MoveeHealthKit.requestAuthorization();
       console.log('✅ Authorization result:', result.authorized);
@@ -31,6 +38,7 @@ export const healthKitService = {
 
   async getSteps(startDate: Date, endDate: Date): Promise<number> {
     try {
+      const { MoveeHealthKit } = await loadMoveeHealthKit();
       const result = await MoveeHealthKit.getSteps({
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),

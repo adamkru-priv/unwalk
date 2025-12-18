@@ -1,5 +1,10 @@
 import { Capacitor } from '@capacitor/core';
-import { MoveeHealthKit } from 'capacitor-movee-healthkit';
+
+// Native-only plugin loader (prevents web/Vercel builds from failing when the
+// local Capacitor plugin isn't present in the build environment).
+async function loadMoveeHealthKit() {
+  return import('capacitor-movee-healthkit');
+}
 
 // Types dla HealthKit
 export interface HealthKitService {
@@ -14,6 +19,7 @@ export interface HealthKitService {
 class HealthKitNativeService implements HealthKitService {
   async echo(): Promise<string> {
     try {
+      const { MoveeHealthKit } = await loadMoveeHealthKit();
       const result = await MoveeHealthKit.echo({ value: 'ping' });
       console.log('✅ HealthKit Native Echo:', result.value);
       return result.value;
@@ -30,6 +36,7 @@ class HealthKitNativeService implements HealthKitService {
     }
 
     try {
+      const { MoveeHealthKit } = await loadMoveeHealthKit();
       const result = await MoveeHealthKit.isAvailable();
       console.log('✅ HealthKit available:', result.available);
       return result.available;
@@ -41,6 +48,7 @@ class HealthKitNativeService implements HealthKitService {
 
   async requestAuthorization(): Promise<boolean> {
     try {
+      const { MoveeHealthKit } = await loadMoveeHealthKit();
       console.log('🔐 Requesting HealthKit authorization...');
       const result = await MoveeHealthKit.requestAuthorization();
       console.log('✅ HealthKit authorization result:', result.authorized);
@@ -53,11 +61,12 @@ class HealthKitNativeService implements HealthKitService {
 
   async getStepCount(startDate: Date, endDate: Date): Promise<number> {
     try {
-      console.log('📊 Fetching steps:', { 
-        from: startDate.toISOString(), 
-        to: endDate.toISOString() 
+      console.log('📊 Fetching steps:', {
+        from: startDate.toISOString(),
+        to: endDate.toISOString(),
       });
 
+      const { MoveeHealthKit } = await loadMoveeHealthKit();
       const result = await MoveeHealthKit.getSteps({
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
@@ -76,7 +85,7 @@ class HealthKitNativeService implements HealthKitService {
     const startOfDay = new Date(now);
     startOfDay.setHours(0, 0, 0, 0);
 
-    console.log('📅 Getting today\'s steps:', startOfDay.toISOString());
+    console.log("📅 Getting today's steps:", startOfDay.toISOString());
     return this.getStepCount(startOfDay, now);
   }
 }
@@ -109,7 +118,6 @@ class HealthKitMockService implements HealthKitService {
 }
 
 // Export odpowiedniej implementacji
-export const healthKitService: HealthKitService = 
-  Capacitor.isNativePlatform() 
-    ? new HealthKitNativeService() 
-    : new HealthKitMockService();
+export const healthKitService: HealthKitService = Capacitor.isNativePlatform()
+  ? new HealthKitNativeService()
+  : new HealthKitMockService();
