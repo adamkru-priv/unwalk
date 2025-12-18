@@ -273,13 +273,9 @@ class AuthService {
       console.log('🍎 [Auth] signInWithApple: starting');
       console.log('🍎 [Auth] supabase url:', import.meta.env.VITE_SUPABASE_URL);
 
-      const isNative = typeof window !== 'undefined' && !!(window as any).Capacitor;
-
-      // On native (Capacitor), always redirect back via custom scheme.
-      // On web, use the hosted callback page.
-      const redirectTo = isNative
-        ? 'movee://auth/callback'
-        : 'https://movee.one/auth/callback';
+      // Always use the hosted callback page (custom domain). It immediately deep-links back
+      // into the iOS app (movee://auth/callback...) and looks better than a supabase.co page.
+      const redirectTo = 'https://movee.one/auth/callback';
 
       console.log('🍎 [Auth] signInWithApple redirectTo:', redirectTo);
 

@@ -6,210 +6,347 @@
     <meta name="theme-color" content="#0B101B" />
     <title>MOVEE</title>
     <meta name="description" content="MOVEE" />
+
     <style>
       :root {
-        --bg: #0b101b;
+        --bgTop: #0b101b;
+        --bgBottom: #151a25;
         --card: rgba(255, 255, 255, 0.06);
         --border: rgba(255, 255, 255, 0.12);
         --text: rgba(255, 255, 255, 0.92);
-        --muted: rgba(255, 255, 255, 0.62);
-        --accent: #7c3aed;
-        --accent2: #06b6d4;
+        --muted: rgba(255, 255, 255, 0.66);
+        --brandBlue: #3b82f6;
       }
 
       * {
         box-sizing: border-box;
       }
 
+      html,
+      body {
+        height: 100%;
+      }
+
       body {
         margin: 0;
         font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-        background:
-          radial-gradient(900px 600px at 20% 0%, rgba(124, 58, 237, 0.22), transparent 60%),
-          radial-gradient(900px 600px at 90% 30%, rgba(6, 182, 212, 0.16), transparent 60%),
-          var(--bg);
         color: var(--text);
-        min-height: 100svh;
-        display: grid;
-        place-items: center;
-        padding: 24px;
+        background: linear-gradient(180deg, var(--bgTop), var(--bgBottom));
       }
 
-      .wrap {
-        width: 100%;
-        max-width: 980px;
-        display: grid;
-        gap: 18px;
+      /* Header (inspired by AppHeader) */
+      .header {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        padding: calc(env(safe-area-inset-top) + 1rem) 1.25rem 1rem;
+        background: rgba(11, 16, 27, 0.78);
+        backdrop-filter: blur(14px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       }
 
-      header {
+      .headerRow {
+        max-width: 1024px;
+        margin: 0 auto;
         display: flex;
         align-items: center;
-        justify-content: center;
-        gap: 12px;
-      }
-
-      .mark {
-        width: 44px;
-        height: 44px;
-        border-radius: 16px;
-        background: linear-gradient(135deg, rgba(124, 58, 237, 0.95), rgba(6, 182, 212, 0.85));
-        display: grid;
-        place-items: center;
-        font-weight: 900;
-        letter-spacing: 0.3px;
+        justify-content: space-between;
+        gap: 16px;
       }
 
       .brand {
-        font-size: 22px;
-        letter-spacing: 2px;
-        font-weight: 900;
-      }
-
-      .card {
-        border: 1px solid var(--border);
-        background: var(--card);
-        border-radius: 26px;
-        padding: 22px;
-        backdrop-filter: blur(14px);
-        box-shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
-        overflow: hidden;
-        position: relative;
-      }
-
-      .hero {
-        display: grid;
-        gap: 16px;
+        display: flex;
         align-items: center;
+        gap: 10px;
       }
 
-      @media (min-width: 860px) {
-        .hero {
-          grid-template-columns: 1.05fr 0.95fr;
-          gap: 22px;
-        }
+      .brandIcon {
+        color: var(--brandBlue);
+        font-size: 1.2rem;
+        transform: scaleX(-1);
       }
 
-      h1 {
+      .brandTitle {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        line-height: 1.1;
+      }
+
+      .brandTitle h1 {
         margin: 0;
-        font-size: 32px;
-        line-height: 1.15;
-        letter-spacing: -0.2px;
+        font-size: 22px;
+        font-weight: 900;
+        letter-spacing: 0.5px;
       }
 
-      .lead {
-        margin: 10px 0 0;
-        color: var(--muted);
-        font-size: 15px;
-        line-height: 1.55;
+      .brandTitle .sub {
+        color: rgba(255, 255, 255, 0.50);
+        font-size: 12px;
+        font-weight: 600;
       }
 
-      .btn {
+      .cta {
         display: inline-flex;
         align-items: center;
         justify-content: center;
         gap: 10px;
-        border-radius: 16px;
-        padding: 14px 18px;
+        padding: 12px 16px;
+        border-radius: 9999px;
         text-decoration: none;
         font-weight: 900;
-        font-size: 15px;
+        font-size: 14px;
         color: #fff;
-        background: linear-gradient(90deg, rgba(124, 58, 237, 0.98), rgba(6, 182, 212, 0.92));
-        border: none;
-        width: fit-content;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        background: rgba(255, 255, 255, 0.06);
       }
 
-      .btn:focus-visible {
-        outline: 3px solid rgba(124, 58, 237, 0.5);
+      .cta:hover {
+        background: rgba(255, 255, 255, 0.10);
+      }
+
+      .cta:focus-visible {
+        outline: 3px solid rgba(59, 130, 246, 0.45);
         outline-offset: 3px;
       }
 
-      .image {
-        border-radius: 22px;
-        border: 1px solid rgba(255, 255, 255, 0.14);
-        background:
-          radial-gradient(900px 380px at 30% 20%, rgba(124, 58, 237, 0.28), transparent 55%),
-          radial-gradient(900px 380px at 70% 60%, rgba(6, 182, 212, 0.22), transparent 55%),
-          rgba(0, 0, 0, 0.22);
-        min-height: 260px;
-        position: relative;
-        overflow: hidden;
+      /* Page */
+      .page {
+        max-width: 1024px;
+        margin: 0 auto;
+        padding: 18px 16px 56px;
+      }
+
+      .hero {
+        padding: 8px 2px 12px;
+      }
+
+      .hero h2 {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 900;
+        letter-spacing: -0.2px;
+      }
+
+      .hero p {
+        margin: 8px 0 0;
+        color: var(--muted);
+        line-height: 1.6;
+        font-size: 14px;
+      }
+
+      /* Onboarding-style cards */
+      .cards {
         display: grid;
-        place-items: center;
+        gap: 14px;
+        margin-top: 16px;
+        grid-template-columns: 1fr;
       }
 
-      /* Use existing app icon as a "hero" illustration (no new assets needed). */
-      .image::before {
-        content: "";
-        position: absolute;
-        inset: -10%;
-        background-image: url('/icon-512.png');
-        background-repeat: no-repeat;
-        background-position: center;
-        background-size: 62%;
-        opacity: 0.92;
-        filter: drop-shadow(0 18px 40px rgba(0, 0, 0, 0.45));
-        transform: rotate(-6deg);
+      @media (min-width: 860px) {
+        .cards {
+          grid-template-columns: 1fr 1fr;
+        }
       }
 
-      .image::after {
+      .card {
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 18px 60px rgba(0, 0, 0, 0.25);
+      }
+
+      .cardImg {
+        position: relative;
+        height: 160px;
+        overflow: hidden;
+      }
+
+      .cardImg::after {
         content: "";
         position: absolute;
         inset: 0;
-        background: linear-gradient(180deg, rgba(11, 16, 27, 0.0), rgba(11, 16, 27, 0.55));
+        background: linear-gradient(180deg, rgba(0, 0, 0, 0), rgba(11, 16, 27, 0.95));
       }
 
-      .fineprint {
-        margin-top: 14px;
+      .cardImg img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transform: scale(1.05);
+      }
+
+      .cardBody {
+        padding: 14px 14px 16px;
+      }
+
+      .cardBody h3 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 900;
+      }
+
+      .cardBody .subtitle {
+        margin: 6px 0 0;
+        font-size: 13px;
+        font-weight: 800;
+        color: rgba(96, 165, 250, 0.92);
+      }
+
+      .cardBody .desc {
+        margin: 8px 0 0;
+        color: rgba(255, 255, 255, 0.70);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .features {
+        margin-top: 12px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .feature {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 11px;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .feature .icon {
+        width: 28px;
+        height: 28px;
+        display: grid;
+        place-items: center;
+        border-radius: 10px;
+        background: rgba(59, 130, 246, 0.12);
+        font-size: 16px;
+      }
+
+      .feature span {
+        color: rgba(255, 255, 255, 0.88);
+        font-weight: 700;
+        font-size: 13px;
+      }
+
+      .note {
+        margin-top: 18px;
         color: rgba(255, 255, 255, 0.45);
         font-size: 12px;
       }
-
-      /* Hide everything else on the LP */
-      .hidden-links {
-        display: none;
-      }
     </style>
   </head>
+
   <body>
-    <main class="wrap">
-      <header aria-label="MOVEE">
-        <div class="mark" aria-hidden="true">M</div>
-        <div class="brand">MOVEE</div>
-      </header>
+    <header class="header">
+      <div class="headerRow">
+        <div class="brand" aria-label="MOVEE">
+          <div class="brandIcon" aria-hidden="true">🚶</div>
+          <div class="brandTitle">
+            <h1>MOVEE</h1>
+            <div class="sub">Step challenges</div>
+          </div>
+        </div>
 
-      <section class="card">
-        <div class="hero">
-          <div>
-            <h1>Move more. Challenge friends.</h1>
-            <p class="lead">
-              Welcome to MOVEE. Open the web app to sign in, start challenges and track your progress.
-            </p>
+        <a class="cta" href="https://www.movee.one/app/app.html">MOVEE APP</a>
+      </div>
+    </header>
 
-            <div style="margin-top: 16px">
-              <a class="btn" href="/app">
-                Open web app
-                <span aria-hidden="true">→</span>
-              </a>
+    <main class="page">
+      <section class="hero">
+        <h2>Onboarding</h2>
+        <p>Explore what MOVEE does. When you’re ready, open the app from the top-right button.</p>
+      </section>
+
+      <section class="cards" aria-label="Onboarding cards">
+        <article class="card">
+          <div class="cardImg">
+            <img
+              src="https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=1200&q=80&auto=format&fit=crop"
+              alt="Get Your Kids Moving"
+              loading="lazy"
+            />
+          </div>
+          <div class="cardBody">
+            <h3>Get Your Kids Moving</h3>
+            <div class="subtitle">Away from screens, into the world</div>
+            <div class="desc">
+              Turn screen time into active adventures. Challenge your children to explore the outdoors and build healthy habits together.
             </div>
-
-            <div class="fineprint">
-              If you are trying to sign in on iOS, return to the MOVEE app.
+            <div class="features">
+              <div class="feature"><div class="icon">🏃</div><span>Replace screen time with active time</span></div>
+              <div class="feature"><div class="icon">🌳</div><span>Discover the outdoors together</span></div>
+              <div class="feature"><div class="icon">💪</div><span>Build lifelong healthy habits</span></div>
             </div>
           </div>
+        </article>
 
-          <div class="image" role="img" aria-label="MOVEE preview"></div>
-        </div>
+        <article class="card">
+          <div class="cardImg">
+            <img
+              src="https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=1200&q=80&auto=format&fit=crop"
+              alt="Move at Your Own Pace"
+              loading="lazy"
+            />
+          </div>
+          <div class="cardBody">
+            <h3>Move at Your Own Pace</h3>
+            <div class="subtitle">Challenge yourself or friends & family</div>
+            <div class="desc">Solo walks or team adventures — you decide how to stay active.</div>
+            <div class="features">
+              <div class="feature"><div class="icon">🎯</div><span>Personal challenges</span></div>
+              <div class="feature"><div class="icon">👥</div><span>Family & friends</span></div>
+            </div>
+          </div>
+        </article>
 
-        <!-- Keep legacy links available for debugging, but hidden for users -->
-        <div class="hidden-links">
-          <a href="movee://auth/callback">Open Movee app</a>
-          <a href="/auth/callback">Auth callback</a>
-          <a href="/privacy">Privacy</a>
-          <a href="/terms">Terms</a>
-        </div>
+        <article class="card">
+          <div class="cardImg">
+            <img
+              src="https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=1200&q=80&auto=format&fit=crop"
+              alt="Unlock Rewards & Badges"
+              loading="lazy"
+            />
+          </div>
+          <div class="cardBody">
+            <h3>Unlock Rewards & Badges</h3>
+            <div class="subtitle">Every step brings you closer</div>
+            <div class="desc">Reveal beautiful images, earn badges, and track your progress.</div>
+            <div class="features">
+              <div class="feature"><div class="icon">🖼️</div><span>Hidden images</span></div>
+              <div class="feature"><div class="icon">🏆</div><span>Achievement badges</span></div>
+              <div class="feature"><div class="icon">⭐</div><span>Earn points</span></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="cardImg">
+            <img
+              src="https://images.unsplash.com/photo-1434494878577-86c23bcb06b9?w=1200&q=80&auto=format&fit=crop"
+              alt="Connect Your Device"
+              loading="lazy"
+            />
+          </div>
+          <div class="cardBody">
+            <h3>Connect Your Device</h3>
+            <div class="subtitle">Automatic step tracking</div>
+            <div class="desc">
+              Sync with your fitness tracker or health app to count your steps automatically. Your data stays private and secure.
+            </div>
+            <div class="features">
+              <div class="feature"><div class="icon">📱</div><span>Auto sync steps</span></div>
+              <div class="feature"><div class="icon">🔒</div><span>Private & secure</span></div>
+            </div>
+          </div>
+        </article>
       </section>
+
+      <div class="note">If you’re signing in on iOS, this page may open briefly and then return you to the app.</div>
     </main>
   </body>
 </html>
