@@ -4,13 +4,11 @@ const config: CapacitorConfig = {
   appId: 'com.movee.app',
   appName: 'MOVEE',
   webDir: 'dist',
-  // Use a custom scheme so OAuth providers (Apple) can redirect back into the app.
-  // You'll also need to add the same scheme under iOS Target -> Info -> URL Types.
-  // Example redirect URL: movee://auth/callback
-  appScheme: 'movee',
   server: {
     androidScheme: 'https',
     iosScheme: 'https',
+    // Ensure native app starts in the SPA (LP lives at /)
+    appStartPath: 'app/app.html',
   },
   plugins: {
     SplashScreen: {

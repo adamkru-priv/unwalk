@@ -266,15 +266,21 @@ class AuthService {
   }
 
   /**
-   * Sign in with Apple (OAuth) - intended for native app usage.
+   * Sign in with Apple (OAuth)
    */
   async signInWithApple(): Promise<{ error: Error | null }> {
     try {
       console.log('🍎 [Auth] signInWithApple: starting');
       console.log('🍎 [Auth] supabase url:', import.meta.env.VITE_SUPABASE_URL);
 
-      // Use custom domain callback so Safari shows movee.one instead of supabase.co
-      const redirectTo = 'https://movee.one/auth/callback';
+      const isNative = typeof window !== 'undefined' && !!(window as any).Capacitor;
+
+      // On native (Capacitor), always redirect back via custom scheme.
+      // On web, use the hosted callback page.
+      const redirectTo = isNative
+        ? 'movee://auth/callback'
+        : 'https://movee.one/auth/callback';
+
       console.log('🍎 [Auth] signInWithApple redirectTo:', redirectTo);
 
       const { data, error } = await supabase.auth.signInWithOAuth({

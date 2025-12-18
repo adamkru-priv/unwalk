@@ -19,6 +19,8 @@ export default defineConfig({
         index: 'index.html',
         // SPA entry (served at /app)
         app: 'app/index.html',
+        // SPA entry for web (served at /app/app.html)
+        spa: 'app/app.html',
       },
       // This is a local/native-only Capacitor plugin. It won't exist in the web
       // bundle, so we externalize it to avoid Rollup resolution errors on Vercel.

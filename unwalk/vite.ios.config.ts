@@ -10,6 +10,7 @@ export default defineConfig({
       input: {
         index: 'index.html',
         app: 'app/index.html',
+        spa: 'app/app.html',
       },
       external: ['capacitor-movee-healthkit'],
     },

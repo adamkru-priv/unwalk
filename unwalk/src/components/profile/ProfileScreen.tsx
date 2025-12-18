@@ -59,19 +59,19 @@ export function ProfileScreen() {
 
   const handleSignOut = async () => {
     if (!confirm('Sign out from your account?')) return;
-    
+
     try {
       console.log('🔓 [ProfileScreen] Signing out...');
-      
+
       // 1. Clear store FIRST
       console.log('🧹 [ProfileScreen] Clearing store...');
       setUserProfile(null);
       resetToInitialState();
-      
+
       // 2. Clear ALL localStorage (including Supabase auth cache)
       console.log('🧹 [ProfileScreen] Clearing localStorage...');
       localStorage.clear();
-      
+
       // 3. Sign out from Supabase
       const { error } = await authService.signOut();
       if (error) {
@@ -79,20 +79,31 @@ export function ProfileScreen() {
         alert('Failed to sign out. Please try again.');
         return;
       }
-      
+
       console.log('✅ [ProfileScreen] Supabase sign out successful');
-      
+
       // 4. Small delay to ensure cleanup completes
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // 5. Hard reload to root
-      console.log('🔄 [ProfileScreen] Reloading page...');
-      window.location.href = '/';
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // 5. Navigate back to onboarding inside the SPA (don't hard-navigate to '/',
+      // because '/' is now the landing page and would exit the app UI.)
+      setOnboardingComplete(false);
+      setCurrentScreen('onboarding');
+
+      // Web-only fallback: ensure URL is under /app so refresh stays in SPA.
+      // (Safe on native too, but not required.)
+      try {
+        if (window.location.pathname === '/') {
+          window.history.replaceState({}, '', '/app');
+        }
+      } catch {
+        // ignore
+      }
     } catch (err) {
       console.error('❌ Unexpected error during sign out:', err);
-      // W przypadku błędu - wyczyść wszystko i reload
       localStorage.clear();
-      window.location.href = '/';
+      setOnboardingComplete(false);
+      setCurrentScreen('onboarding');
     }
   };
 
