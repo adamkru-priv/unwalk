@@ -49,7 +49,7 @@ export function MemberDetail({ member, onBack, onRemoved }: MemberDetailProps) {
 
   return (
     <div className="min-h-screen bg-[#0B101B] text-white pb-24 font-sans">
-      <AppHeader showBackButton />
+      <AppHeader />
       
       {showEditModal && (
         <EditMemberModal

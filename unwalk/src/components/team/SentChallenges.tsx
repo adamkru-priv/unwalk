@@ -20,6 +20,31 @@ export function SentChallenges({ challenges, onRefresh }: SentChallengesProps) {
     }
   };
 
+  const getCategoryRank = (assignment: ChallengeAssignment) => {
+    const isCompleted = assignment.user_challenge_status === 'completed' || assignment.user_challenge_status === 'claimed';
+    const isActive = assignment.status === 'accepted' && !!assignment.user_challenge_id && !isCompleted;
+
+    // active -> pending -> completed -> rejected
+    if (isActive) return 0;
+    if (assignment.status === 'pending') return 1;
+    if (assignment.status === 'accepted' && isCompleted) return 2;
+    if (assignment.status === 'rejected') return 3;
+
+    // accepted but not started (no user_challenge_id) should sit between pending and completed
+    if (assignment.status === 'accepted') return 1.5;
+
+    return 99;
+  };
+
+  const sortedChallenges = [...challenges].sort((a, b) => {
+    const ra = getCategoryRank(a);
+    const rb = getCategoryRank(b);
+    if (ra !== rb) return ra - rb;
+
+    // tie-breaker: by title (stable-ish)
+    return (a.challenge_title || '').localeCompare(b.challenge_title || '');
+  });
+
   if (challenges.length === 0) {
     return (
       <div className="text-center py-16">
@@ -34,7 +59,7 @@ export function SentChallenges({ challenges, onRefresh }: SentChallengesProps) {
 
   return (
     <div className="space-y-3">
-      {challenges.map((assignment) => {
+      {sortedChallenges.map((assignment) => {
         const progress = assignment.current_steps && assignment.challenge_goal_steps
           ? Math.round((assignment.current_steps / assignment.challenge_goal_steps) * 100)
           : 0;

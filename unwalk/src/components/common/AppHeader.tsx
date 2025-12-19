@@ -6,12 +6,11 @@ import { getUnclaimedChallenges } from '../../lib/api';
 
 interface AppHeaderProps {
   title?: string;
-  showBackButton?: boolean;
   subtitle?: string;
   onProfileClick?: () => void;
 }
 
-export function AppHeader({ title, showBackButton = false, subtitle }: AppHeaderProps) {
+export function AppHeader({ title, subtitle }: AppHeaderProps) {
   const [receivedInvitations, setReceivedInvitations] = useState<TeamInvitation[]>([]);
   const [unclaimedChallenges, setUnclaimedChallenges] = useState<any[]>([]);
   const [pendingChallengesCount, setPendingChallengesCount] = useState(0);
@@ -20,6 +19,8 @@ export function AppHeader({ title, showBackButton = false, subtitle }: AppHeader
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
   const userProfile = useChallengeStore((s) => s.userProfile); // ✅ Read from store instead of loading
+  const currentScreen = useChallengeStore((s) => s.currentScreen);
+  const previousScreen = useChallengeStore((s) => s.previousScreen);
 
   useEffect(() => {
     loadNotifications();
@@ -115,21 +116,13 @@ export function AppHeader({ title, showBackButton = false, subtitle }: AppHeader
 
   return (
     <header className="bg-gray-50/80 dark:bg-[#0B101B]/80 backdrop-blur-md sticky top-0 z-20 px-6 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)] border-b border-gray-200 dark:border-transparent transition-all duration-300">
+      {/* Back button removed by design: header must never show a back arrow */}
+
       <div className="flex items-center justify-between">
         {/* Left side - Back button or Logo */}
         <div className="flex items-center gap-3">
-          {showBackButton && (
-            <button
-              onClick={() => setCurrentScreen('home')}
-              className="text-gray-600 dark:text-white/80 hover:text-gray-900 dark:hover:text-white transition-colors"
-              aria-label="Back to home"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-          )}
-          
+          {/* Back button moved to overlay above */}
+
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <span className="text-blue-600 dark:text-blue-400 inline-block" style={{ transform: 'scaleX(-1)' }}>🚶</span>
@@ -163,19 +156,6 @@ export function AppHeader({ title, showBackButton = false, subtitle }: AppHeader
             </button>
           )}
 
-          {/* Stats Button */}
-          {!isGuest && (
-            <button
-              onClick={() => setCurrentScreen('stats')}
-              className="relative text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white transition-colors"
-              title="Statistics & History"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-            </button>
-          )}
-
           {/* Active Challenge Indicator */}
           {activeUserChallenge && (
             <button
@@ -190,16 +170,44 @@ export function AppHeader({ title, showBackButton = false, subtitle }: AppHeader
             </button>
           )}
 
-          {/* Settings Button */}
+          {/* Profile / Close Settings Button */}
           <button
-            onClick={() => setCurrentScreen('profile')}
+            onClick={() => {
+              if (currentScreen === 'profile') {
+                const target = previousScreen || 'home';
+                if (target && target !== 'profile') setCurrentScreen(target);
+                else setCurrentScreen('home');
+                return;
+              }
+              setCurrentScreen('profile');
+            }}
             className="relative text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white transition-colors"
-            title="Settings"
+            title={currentScreen === 'profile' ? 'Close' : 'Profile & Settings'}
+            aria-label={currentScreen === 'profile' ? 'Close settings' : 'Profile & Settings'}
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
+            {currentScreen === 'profile' ? (
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (() => {
+              const name = (userProfile as any)?.display_name || (userProfile as any)?.full_name || (userProfile as any)?.email || '';
+              const initial = typeof name === 'string' && name.length > 0 ? name.trim()[0]?.toUpperCase() : null;
+
+              // If we have an initial, show a compact avatar circle; otherwise show a user icon.
+              if (initial) {
+                return (
+                  <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-white/10 flex items-center justify-center text-xs font-bold text-gray-800 dark:text-white">
+                    {initial}
+                  </div>
+                );
+              }
+
+              return (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              );
+            })()}
           </button>
         </div>
       </div>

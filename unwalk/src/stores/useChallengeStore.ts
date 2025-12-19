@@ -4,7 +4,7 @@ import type { Challenge, UserChallenge, UserTier } from '../types';
 import type { AdminChallenge } from '../types';
 import type { UserProfile } from '../lib/auth';
 
-type Screen = 'onboarding' | 'whoToChallenge' | 'auth' | 'home' | 'dashboard' | 'library' | 'team' | 'stats' | 'profile' | 'badges' | 'challengeSelection';
+type Screen = 'onboarding' | 'whoToChallenge' | 'auth' | 'home' | 'dashboard' | 'library' | 'team' | 'profile' | 'badges' | 'challengeSelection';
 type Theme = 'light' | 'dark';
 
 interface ChallengeStore {
@@ -12,6 +12,7 @@ interface ChallengeStore {
   activeUserChallenge: UserChallenge | null;
   pausedChallenges: UserChallenge[];
   currentScreen: Screen;
+  previousScreen: Screen | null;
   isOnboardingComplete: boolean;
   hasSeenWhoToChallenge: boolean;
   isHealthConnected: boolean;
@@ -57,6 +58,7 @@ export const useChallengeStore = create<ChallengeStore>()(
       activeUserChallenge: null,
       pausedChallenges: [],
       currentScreen: 'onboarding',
+      previousScreen: null,
       isOnboardingComplete: false,
       hasSeenWhoToChallenge: false, // New: track if user saw target selection
       isHealthConnected: false,
@@ -130,7 +132,11 @@ export const useChallengeStore = create<ChallengeStore>()(
 
       clearPausedChallenges: () => set({ pausedChallenges: [] }),
       
-      setCurrentScreen: (screen) => set({ currentScreen: screen }),
+      setCurrentScreen: (screen) =>
+        set((state) => ({
+          previousScreen: state.currentScreen,
+          currentScreen: screen,
+        })),
       
       updateChallengeProgress: (steps) =>
         set((state) => {
@@ -199,6 +205,7 @@ export const useChallengeStore = create<ChallengeStore>()(
         activeUserChallenge: null,
         pausedChallenges: [],
         currentScreen: 'onboarding',
+        previousScreen: null,
         isOnboardingComplete: false,
         hasSeenWhoToChallenge: false, // New: track if user saw target selection
         isHealthConnected: false,
@@ -221,6 +228,7 @@ export const useChallengeStore = create<ChallengeStore>()(
         activeUserChallenge: state.activeUserChallenge,
         pausedChallenges: state.pausedChallenges,
         currentScreen: state.currentScreen,
+        previousScreen: state.previousScreen,
         isOnboardingComplete: state.isOnboardingComplete,
         hasSeenWhoToChallenge: state.hasSeenWhoToChallenge,
         isHealthConnected: state.isHealthConnected,

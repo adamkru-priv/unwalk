@@ -70,9 +70,34 @@ export function ReceivedChallenges({ challenges, onRefresh }: ReceivedChallenges
     }
   };
 
-  // Separate pending and accepted challenges
-  const pendingChallenges = challenges.filter(c => c.status === 'pending');
-  const acceptedChallenges = challenges.filter(c => c.status === 'accepted' || c.status === 'rejected');
+  const getCategoryRank = (assignment: ChallengeAssignment) => {
+    const isCompleted = assignment.user_challenge_status === 'completed' || assignment.user_challenge_status === 'claimed';
+    const hasStarted = !!assignment.user_challenge_id;
+    const isActive = assignment.status === 'accepted' && hasStarted && !isCompleted && assignment.user_challenge_status === 'active';
+
+    // active - pending - completed - rejected
+    if (isActive) return 0;
+    if (assignment.status === 'pending') return 1;
+    if (assignment.status === 'accepted' && isCompleted) return 2;
+    if (assignment.status === 'rejected') return 3;
+
+    // accepted but not started
+    if (assignment.status === 'accepted') return 1.5;
+
+    return 99;
+  };
+
+  const sortedChallenges = [...challenges].sort((a, b) => {
+    const ra = getCategoryRank(a);
+    const rb = getCategoryRank(b);
+    if (ra !== rb) return ra - rb;
+
+    // tie-breaker: by title (stable-ish)
+    return (a.challenge_title || '').localeCompare(b.challenge_title || '');
+  });
+
+  const pendingChallenges = sortedChallenges.filter((c) => c.status === 'pending');
+  const acceptedChallenges = sortedChallenges.filter((c) => c.status !== 'pending');
 
   if (challenges.length === 0) {
     return (

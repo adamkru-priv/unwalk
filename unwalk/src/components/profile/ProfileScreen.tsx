@@ -11,6 +11,7 @@ import { DailyStepGoalSection } from './DailyStepGoalSection';
 import { PausedChallengesWarning } from './PausedChallengesWarning';
 import { APP_VERSION, BUILD_DATE } from '../../version';
 import { useHealthKit } from '../../hooks/useHealthKit';
+import { StatsScreen } from '../stats/StatsScreen';
 
 export function ProfileScreen() {
   const userTier = useChallengeStore((s) => s.userTier);
@@ -27,6 +28,7 @@ export function ProfileScreen() {
   const userProfile = useChallengeStore((s) => s.userProfile); // ✅ Read from store
   const setUserProfile = useChallengeStore((s) => s.setUserProfile); // For updates
   const isHealthConnected = useChallengeStore((s) => s.isHealthConnected);
+  // removed: currentScreen/previousScreen (handled by AppHeader close button)
 
   const {
     isNative,
@@ -46,6 +48,7 @@ export function ProfileScreen() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [authSuccess, setAuthSuccess] = useState<string | null>(null);
   const [showPausedWarning, setShowPausedWarning] = useState(false);
+  const [showStats, setShowStats] = useState(false);
 
   // ✅ Sync local state when profile changes in store (no auth listener needed - App.tsx handles it)
   useEffect(() => {
@@ -275,7 +278,7 @@ export function ProfileScreen() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0B101B] text-gray-900 dark:text-white pb-20 font-sans">
-      <AppHeader showBackButton={true} />
+      <AppHeader />
 
       <AuthModal
         isOpen={showAuthModal}
@@ -301,6 +304,8 @@ export function ProfileScreen() {
       />
 
       <main className="px-5 py-6 max-w-md mx-auto space-y-4">
+        {/* Close Settings button (X) moved into header */}
+
         <AccountSection
           userProfile={userProfile}
           isGuest={isGuest}
@@ -336,16 +341,38 @@ export function ProfileScreen() {
           onShowAuthModal={() => setShowAuthModal(true)}
         />
 
-        <ThemeSelector
-          theme={theme}
-          onThemeChange={setTheme}
-        />
-
         {!isGuest && (
           <DailyStepGoalSection
             dailyStepGoal={dailyStepGoal}
             onSave={setDailyStepGoal}
           />
+        )}
+
+        {/* Stats moved here from the top header */}
+        {!isGuest && (
+          <section className="w-full bg-white dark:bg-[#151A25] rounded-2xl shadow-sm border border-gray-100 dark:border-white/5 overflow-hidden">
+            <button
+              onClick={() => setShowStats((v) => !v)}
+              className="w-full p-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-[#1a1f2e] transition-colors"
+              aria-expanded={showStats}
+            >
+              <div className="flex items-center gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-gray-900 dark:text-white">Statistics</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Your stats & challenge history</div>
+                </div>
+              </div>
+              <svg className={`w-5 h-5 text-gray-400 transition-transform ${showStats ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {showStats && (
+              <div className="px-4 pb-4">
+                <StatsScreen embedded={true} />
+              </div>
+            )}
+          </section>
         )}
 
         {/* Apple Health status */}
@@ -391,9 +418,6 @@ export function ProfileScreen() {
           className="w-full bg-white dark:bg-[#151A25] hover:bg-gray-50 dark:hover:bg-[#1a1f2e] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-white/5 transition-colors text-left flex items-center justify-between"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-              <span className="text-lg">ℹ️</span>
-            </div>
             <div>
               <div className="text-sm font-semibold text-gray-900 dark:text-white">View Tutorial</div>
               <div className="text-xs text-gray-500 dark:text-gray-400">See how Movee works</div>
@@ -406,6 +430,11 @@ export function ProfileScreen() {
 
         {/* Footer Links - Small text at bottom */}
         <div className="pt-8 pb-4 flex flex-col items-center gap-3">
+          {/* Centered Theme toggle above links */}
+          <div className="flex justify-center">
+            <ThemeSelector theme={theme} onThemeChange={setTheme} />
+          </div>
+
           <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-white/40">
             <button
               onClick={() => window.open('https://movee.app/privacy', '_blank')}
@@ -421,7 +450,7 @@ export function ProfileScreen() {
               Terms of Service
             </button>
           </div>
-          
+
           {!isGuest && (
             <button
               onClick={handleDeleteAccount}
@@ -430,7 +459,7 @@ export function ProfileScreen() {
               Delete Account
             </button>
           )}
-          
+
           <div className="text-xs text-gray-400 dark:text-white/30">
             Movee v{APP_VERSION} • {BUILD_DATE}
           </div>

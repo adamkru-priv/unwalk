@@ -10,51 +10,53 @@ interface AccountSectionProps {
 
 export function AccountSection({ userProfile, isGuest, onSignOut, onShowAuthModal }: AccountSectionProps) {
   return (
-    <section className="bg-white dark:bg-[#151A25] rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-white/5">
-      <h2 className="text-base font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-        <span>👤</span>
-        <span>Account</span>
-      </h2>
-      
-      {userProfile && !isGuest ? (
-        <div className="space-y-3">
-          <div className="text-sm font-semibold text-gray-900 dark:text-white">
-            {userProfile.email}
-          </div>
-          
-          <button
-            onClick={onSignOut}
-            className="w-full bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors"
-          >
-            Sign Out
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          <div className="flex items-start gap-3 mb-3">
-            <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
-              <svg className="w-5 h-5 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
+    <section className="relative overflow-hidden bg-white dark:bg-[#151A25] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-white/5">
+      {/* subtle gradient / shine */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-24 -right-24 w-56 h-56 rounded-full bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-transparent blur-2xl" />
+        <div className="absolute -bottom-24 -left-24 w-56 h-56 rounded-full bg-gradient-to-tr from-emerald-400/10 via-cyan-400/10 to-transparent blur-2xl" />
+        <div className="absolute inset-0 bg-gradient-to-b from-white/40 to-transparent dark:from-white/5" />
+      </div>
+
+      <div className="relative">
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Account</h2>
+
+        {userProfile && !isGuest ? (
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                {userProfile.email}
+              </div>
+              <div className="text-xs text-gray-500 dark:text-white/40">Signed in</div>
             </div>
-            <div className="flex-1">
-              <div className="text-sm font-semibold text-gray-900 dark:text-white">
+
+            <button
+              onClick={onSignOut}
+              className="shrink-0 px-3 py-2 rounded-xl bg-white/60 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/10 border border-gray-200/60 dark:border-white/10 text-gray-800 dark:text-gray-200 text-xs font-semibold transition-colors"
+            >
+              Sign Out
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-gray-900 dark:text-white truncate">
                 {userProfile?.display_name || getGuestDisplayName()}
               </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                Sign in to sync & unlock Pro features
+              <div className="text-xs text-gray-500 dark:text-white/40 truncate">
+                Sign in to sync & unlock Pro
               </div>
             </div>
+
+            <button
+              onClick={onShowAuthModal}
+              className="shrink-0 px-3 py-2 rounded-xl text-xs font-semibold text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition-all shadow-sm"
+            >
+              Sign In
+            </button>
           </div>
-          
-          <button
-            onClick={onShowAuthModal}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
-          >
-            Sign In
-          </button>
-        </div>
-      )}
+        )}
+      </div>
     </section>
   );
 }
