@@ -8,10 +8,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
-        
-        print("🚀 App launching...")
-        print("🔧 HealthKitPlugin should auto-register via .m file")
-        
+
+        print("[App] didFinishLaunching")
+        print("[App] Bundle identifier: \(Bundle.main.bundleIdentifier ?? "unknown")")
+        print("[App] HealthKitPlugin should auto-register via .m file")
+
         return true
     }
 

@@ -78,8 +78,12 @@ export function SocialCard({
         />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/95 via-slate-700/45 to-blue-500/25" />
 
+        {/*
+          Main content layer: hero is centered within the full card height (top-to-bottom),
+          independent of the Quick Assign overlay.
+        */}
         <div className="absolute inset-0 p-6 flex flex-col justify-between">
-          {/* Top - Label */}
+          {/* Top */}
           <div className="flex items-start justify-between">
             <div className="text-xs font-bold text-purple-200 uppercase tracking-wide">Social</div>
             {teamActiveChallenges.length > 0 && (
@@ -89,30 +93,25 @@ export function SocialCard({
             )}
           </div>
 
-          {/* Middle - Title */}
-          <div className="flex-1 flex items-center justify-center">
+          {/* Middle - Hero centered in full card */}
+          <div className="flex-1 flex items-center justify-center min-h-[4.5rem]">
             <h3
-              className={`text-white text-center leading-tight uppercase drop-shadow-2xl ${
+              className={`text-white text-center leading-tight uppercase drop-shadow-2xl whitespace-nowrap ${
                 variant === 'stack' ? 'text-3xl font-black' : 'text-4xl font-black'
               }`}
             >
-              Move a<br />friend
+              Move a friend
             </h3>
           </div>
 
-          {/* Bottom - CTA */}
-          <div className="flex items-center justify-between text-white text-sm font-bold">
-            <span>{teamActiveChallenges.length > 0 ? 'View challenges' : 'Invite family'}</span>
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </div>
+          {/* Bottom (no CTA, keep consistent spacing) */}
+          <div className="h-5" />
         </div>
 
         {/* Quick assign (basic/pro only) */}
         {showQuickAssign && (
           <div
-            className="absolute left-4 right-4 bottom-4 rounded-3xl bg-gradient-to-r from-black/55 via-[#0B101B]/55 to-black/55 backdrop-blur-xl border border-white/10 px-4 py-3 shadow-[0_18px_55px_-35px_rgba(139,92,246,0.85)]"
+            className="absolute left-4 right-4 bottom-4 rounded-3xl bg-transparent backdrop-blur-md border border-white/0 px-4 py-3 sm:py-3.5 shadow-none"
             onClick={(e) => {
               // Prevent card click (onTeamClick) when interacting with quick-assign
               e.stopPropagation();
@@ -127,9 +126,6 @@ export function SocialCard({
                   <div className="min-w-0">
                     <div className="text-[11px] font-black text-white/80 uppercase tracking-[0.24em]">
                       Quick assign
-                    </div>
-                    <div className="text-[11px] text-white/50 truncate">
-                      Tap an avatar to send a challenge
                     </div>
                   </div>
                 </div>

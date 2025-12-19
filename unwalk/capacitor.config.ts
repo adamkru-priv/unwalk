@@ -6,8 +6,7 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     androidScheme: 'https',
-    iosScheme: 'https',
-    // Ensure native app starts in the SPA (LP lives at /)
+    // iOS: start inside the SPA bundle
     appStartPath: 'app/app.html',
   },
   plugins: {

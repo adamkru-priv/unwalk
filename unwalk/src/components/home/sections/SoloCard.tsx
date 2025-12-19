@@ -99,23 +99,18 @@ export function SoloCard({ activeChallenge, progress, onClick, variant = 'carous
               </div>
 
               {/* Middle - Title */}
-              <div className="flex-1 flex items-center justify-center">
+              <div className="flex-1 flex items-center justify-center min-h-[4.5rem]">
                 <h3
-                  className={`text-white text-center leading-tight uppercase drop-shadow-2xl ${
+                  className={`text-white text-center leading-tight uppercase drop-shadow-2xl whitespace-nowrap ${
                     variant === 'stack' ? 'text-3xl font-black' : 'text-4xl font-black'
                   }`}
                 >
-                  Move for<br />Yourself
+                  Move for Yourself
                 </h3>
               </div>
 
               {/* Bottom - CTA */}
-              <div className="flex items-center justify-between text-white text-sm font-bold">
-                <span>Start challenge</span>
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
+              <div className="h-5" />
             </div>
           </>
         )}
