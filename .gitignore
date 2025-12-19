@@ -24,3 +24,6 @@ unwalk/ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/WorkspaceSettings.
 
 # Local plugin repo (embedded git repository)
 unwalk/plugins/movee-healthkit/
+
+# Local packaged artifacts (Capacitor plugins)
+*.tgz
