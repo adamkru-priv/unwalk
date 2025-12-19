@@ -13,7 +13,71 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         print("[App] Bundle identifier: \(Bundle.main.bundleIdentifier ?? "unknown")")
         print("[App] HealthKitPlugin should auto-register via .m file")
 
+        // Helpful for diagnosing missing APNs token.
+        print("[APNs] Notifications enabled (user setting): \(UIApplication.shared.isRegisteredForRemoteNotifications)")
+
+        // MARK: - Capacitor plugin diagnostics
+        // Confirms whether the APNs token plugin class is linked into the app and visible at runtime.
+        let candidates = [
+            // Expected plugin class names (Swift)
+            "ApnsTokenPlugin",
+            "App.ApnsTokenPlugin",
+            "CapacitorApnsToken.ApnsTokenPlugin",
+
+            // Legacy/experimental bridge class (should be absent)
+            "ApnsTokenPluginBridge",
+            "App.ApnsTokenPluginBridge",
+            "CapApp_SPM.ApnsTokenPluginBridge",
+            "CapApp-SPM.ApnsTokenPluginBridge"
+        ]
+        for name in candidates {
+            let cls = NSClassFromString(name)
+            print("[Capacitor] NSClassFromString(\(name)) -> \(cls != nil ? "FOUND" : "nil")")
+        }
+
+        // MARK: - Capacitor config diagnostics
+        if let url = Bundle.main.url(forResource: "capacitor.config", withExtension: "json"),
+           let data = try? Data(contentsOf: url),
+           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let pcl = obj["packageClassList"] as? [String] {
+            print("[Capacitor] capacitor.config.json packageClassList: \(pcl)")
+
+            let legacyBridgeEntries = ["App.ApnsTokenPluginBridge", "ApnsTokenPluginBridge"]
+            let hasLegacyBridge = legacyBridgeEntries.contains(where: { pcl.contains($0) })
+            print("[Capacitor] packageClassList contains ApnsToken bridge entry: \(hasLegacyBridge)")
+        } else {
+            print("[Capacitor] ⚠️ Could not read bundled capacitor.config.json")
+        }
+
+        // MARK: - ApnsToken plugin sanity check
+        // We no longer use a CAPBridgedPlugin bridge class; the plugin is registered via the Objective-C
+        // CAP_PLUGIN shim (ApnsTokenPlugin.m) + the Swift plugin class.
+        if let cls = NSClassFromString("ApnsTokenPlugin") as? NSObject.Type {
+            _ = cls.init()
+            print("[Capacitor] ✅ Instantiated ApnsTokenPlugin")
+        } else if let cls = NSClassFromString("App.ApnsTokenPlugin") as? NSObject.Type {
+            _ = cls.init()
+            print("[Capacitor] ✅ Instantiated App.ApnsTokenPlugin")
+        } else {
+            print("[Capacitor] ❌ ApnsTokenPlugin class not found at runtime")
+        }
+
         return true
+    }
+
+    // MARK: - APNs diagnostics
+
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        // Convert token to hex string (for logs + optional fallback storage)
+        let tokenParts = deviceToken.map { data in String(format: "%02.2hhx", data) }
+        let token = tokenParts.joined()
+        print("[APNs] ✅ didRegisterForRemoteNotificationsWithDeviceToken: \(token)")
+
+        UserDefaults.standard.set(token, forKey: "apns_device_token")
+    }
+
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        print("[APNs] ❌ didFailToRegisterForRemoteNotificationsWithError: \(error)")
     }
 
     func applicationWillResignActive(_ application: UIApplication) {
@@ -39,15 +103,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
-        // Called when the app was launched with a url. Feel free to add additional processing here,
-        // but if you want the App API to support tracking app url opens, make sure to keep this call
         return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
     }
 
     func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
-        // Called when the app was launched with an activity, including Universal Links.
-        // Feel free to add additional processing here, but if you want the App API to support
-        // tracking app url opens, make sure to keep this call
         return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
     }
 

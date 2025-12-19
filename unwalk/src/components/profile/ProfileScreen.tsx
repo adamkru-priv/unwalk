@@ -30,6 +30,8 @@ export function ProfileScreen() {
   const isHealthConnected = useChallengeStore((s) => s.isHealthConnected);
   // removed: currentScreen/previousScreen (handled by AppHeader close button)
 
+  const isGuest = userProfile?.is_guest || false;
+
   const {
     isNative,
     isAvailable: healthKitAvailable,
@@ -50,6 +52,9 @@ export function ProfileScreen() {
   const [showPausedWarning, setShowPausedWarning] = useState(false);
   const [showStats, setShowStats] = useState(false);
 
+  const [pushEnabled, setPushEnabled] = useState<boolean>(true);
+  const [pushSaving, setPushSaving] = useState(false);
+
   // ✅ Sync local state when profile changes in store (no auth listener needed - App.tsx handles it)
   useEffect(() => {
     if (userProfile) {
@@ -58,7 +63,12 @@ export function ProfileScreen() {
     }
   }, [userProfile, setUserTier, setDailyStepGoal]);
 
-  const isGuest = userProfile?.is_guest || false;
+  useEffect(() => {
+    if (userProfile && !isGuest) {
+      // default true if column not present yet
+      setPushEnabled(userProfile.push_enabled ?? true);
+    }
+  }, [userProfile, isGuest]);
 
   const handleSignOut = async () => {
     if (!confirm('Sign out from your account?')) return;
@@ -276,6 +286,26 @@ export function ProfileScreen() {
     }
   };
 
+  const handleTogglePushEnabled = async (next: boolean) => {
+    if (!userProfile || isGuest) return;
+
+    setPushEnabled(next);
+    setPushSaving(true);
+
+    try {
+      const { error } = await authService.updateProfile({ push_enabled: next } as any);
+      if (error) throw error;
+
+      setUserProfile({ ...userProfile, push_enabled: next });
+    } catch (e) {
+      // rollback
+      setPushEnabled(userProfile.push_enabled ?? true);
+      alert('Failed to update notification settings. Please try again.');
+    } finally {
+      setPushSaving(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0B101B] text-gray-900 dark:text-white pb-20 font-sans">
       <AppHeader />
@@ -409,6 +439,37 @@ export function ProfileScreen() {
             )}
           </div>
         </div>
+
+        {!isGuest && (
+          <section className="w-full bg-white dark:bg-[#151A25] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-white/5">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <div className="text-sm font-semibold text-gray-900 dark:text-white">Powiadomienia</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Push notifications: {pushEnabled ? 'ON' : 'OFF'}
+                  {pushSaving ? ' (saving...)' : ''}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={pushSaving}
+                onClick={() => handleTogglePushEnabled(!pushEnabled)}
+                className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
+                  pushEnabled ? 'bg-green-600' : 'bg-gray-300 dark:bg-white/20'
+                } ${pushSaving ? 'opacity-60' : ''}`}
+                aria-pressed={pushEnabled}
+                aria-label="Toggle push notifications"
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                    pushEnabled ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+          </section>
+        )}
 
         <button
           onClick={() => {

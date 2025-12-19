@@ -27,3 +27,5 @@ unwalk/plugins/movee-healthkit/
 
 # Local packaged artifacts (Capacitor plugins)
 *.tgz
+.DS_Store
+.vscode/

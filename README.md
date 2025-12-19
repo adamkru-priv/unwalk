@@ -245,6 +245,61 @@ Kiedy gość się rejestruje:
 
 ---
 
+## 🔔 Push notifications (iOS / APNs)
+
+### Co jest gdzie (ważne)
+- **iOS app** nie przechowuje kluczy APNs (.p8). Aplikacja dostaje tylko **device token** od APNs i wysyła go do backendu.
+- **Klucze APNs** (TEAM/KEY/P8) są używane wyłącznie po stronie **Supabase Edge Functions** do wysyłki powiadomień do Apple.
+
+### Wymagane sekrety w Supabase (Edge Functions → Secrets)
+- `APPLE_TEAM_ID`
+- `APPLE_KEY_ID`
+- `APPLE_APNS_PRIVATE_KEY` (zawartość pliku `.p8`)
+- `APPLE_BUNDLE_ID` (np. `com.adamkruszewski.movee`)
+- `APPLE_APNS_HOST`:
+  - **dev/Xcode**: `api.sandbox.push.apple.com`
+  - **TestFlight/App Store**: `api.push.apple.com`
+
+### Dev vs Production (najczęstsza pułapka)
+APNs token z:
+- **Xcode / debug build** → zwykle **sandbox**
+- **TestFlight/App Store** → **production**
+
+Jeśli pomylisz środowisko:
+- sandbox token + production host → `400 BadDeviceToken`
+- production key/token mismatch na sandbox host → `403 BadEnvironmentKeyInToken`
+
+### Przepływ rejestracji tokena
+1. iOS dostaje APNs device token.
+2. Aplikacja rejestruje token w DB przez funkcję `register_push_token`.
+3. Worker `process_push_outbox` pobiera tokeny z `public.device_push_tokens` i wysyła do APNs.
+
+Uwaga: po `SIGNED_IN` aplikacja wykonuje rejestrację przez Edge Function z wymuszoną autoryzacją (żeby przepiąć token z guest → user).
+
+### Outbox / Worker
+- tabela: `public.push_outbox`
+- worker: Edge Function `process_push_outbox`
+
+Tip: jeśli testujesz, resetuj wpis:
+```sql
+update public.push_outbox
+set status='pending', last_error=null
+where id = '<PUSH_OUTBOX_ID>';
+```
+
+### Bezpieczniki w DB (żeby nie wróciło `platform='ios '`)
+Dodana migracja:
+- `docs/database/039_device_push_tokens_constraints.sql`
+
+Wprowadza:
+- normalizację `platform = trim(lower(platform))`
+- CHECK constraint blokujący brudne wartości
+- unique index na `token` (stabilny `upsert` po tokenie)
+
+Uruchom w Supabase SQL Editor.
+
+---
+
 ## 🎯 Kluczowe Funkcje i Zasady
 
 ### 1. **Synchronizacja Kroków (Health Data)**

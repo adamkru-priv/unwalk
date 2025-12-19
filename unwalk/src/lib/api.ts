@@ -284,7 +284,9 @@ export async function claimCompletedChallenge(userChallengeId: string): Promise<
     console.error('⚠️ [API] Failed to check achievements:', achievementError);
     // Don't throw - claiming challenge is more important than badge checking
   }
-  
+
+  // TODO(push): call Supabase Edge Function to notify about claimed rewards (e.g., sender in challenge assignment)
+
   return data;
 }
 

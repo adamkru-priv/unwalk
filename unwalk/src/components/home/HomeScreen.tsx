@@ -345,45 +345,6 @@ export function HomeScreen() {
           sentAssignments={sentAssignments}
         />
 
-        {/* Tesla challenge promo box (coming soon) */}
-        <section className="px-4">
-          <div
-            className="relative overflow-hidden rounded-2xl border border-white/10 bg-gray-900 shadow-lg aspect-[16/9]"
-            aria-label="EV challenge coming soon"
-          >
-            <div
-              className="absolute inset-0 bg-cover bg-center"
-              style={{
-                backgroundImage:
-                  "url('https://images.unsplash.com/photo-1542362567-b07e54358753?auto=format&fit=crop&w=1600&q=80')",
-              }}
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-black/20" />
-
-            <div className="absolute inset-0 p-6 flex flex-col justify-between">
-              {/* Top row */}
-              <div className="flex items-start justify-between">
-                <div className="text-xs font-bold text-white/70 uppercase tracking-wide">Special</div>
-                <span className="inline-flex items-center rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white ring-1 ring-white/20 backdrop-blur">
-                  Coming soon
-                </span>
-              </div>
-
-              {/* Center title */}
-              <div className="flex-1 flex items-center justify-center">
-                <h3 className="text-3xl font-black text-white text-center leading-tight uppercase drop-shadow-2xl">
-                  Move Your<br />EV
-                </h3>
-              </div>
-
-              {/* Bottom subtitle */}
-              <div className="text-white/80 text-sm font-semibold">
-                Move smarter. Move electric.
-              </div>
-            </div>
-          </div>
-        </section>
-
         <TodayActivity
           todaySteps={todaySteps}
           dailyStepGoal={dailyStepGoal}

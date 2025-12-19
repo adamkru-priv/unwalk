@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.movee.app',
+  appId: 'com.adamkruszewski.movee',
   appName: 'MOVEE',
   webDir: 'dist',
   server: {

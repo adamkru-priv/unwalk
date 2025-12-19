@@ -10,4 +10,7 @@
 }
 @end
 
-// NOTE: Do not register custom plugins here; APNS token bridge is handled elsewhere.
+// Register ApnsTokenPlugin (Swift) for the web layer
+CAP_PLUGIN(ApnsTokenPlugin, "ApnsToken",
+           CAP_PLUGIN_METHOD(getToken, CAPPluginReturnPromise)
+)

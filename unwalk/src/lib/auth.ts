@@ -13,6 +13,7 @@ export interface UserProfile {
   onboarding_target?: 'self' | 'spouse' | 'child' | 'friend' | null;
   is_guest: boolean;
   device_id: string | null;
+  push_enabled?: boolean;
   total_points?: number;
   created_at: string;
   updated_at: string;
@@ -896,9 +897,9 @@ class TeamService {
       if (error) throw error;
 
       console.log('🎯 [Team] Challenge assigned');
-      
-      // TODO: Send push notification
-      
+
+      // TODO(push): call Supabase Edge Function to notify recipient about new challenge assignment
+
       return { error: null };
     } catch (error) {
       console.error('❌ [Team] Assign challenge error:', error);
