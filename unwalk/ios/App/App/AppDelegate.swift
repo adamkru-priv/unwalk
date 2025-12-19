@@ -1,10 +1,10 @@
 import UIKit
 import Capacitor
 
-@UIApplicationMain
+@main
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
-    var window: UIWindow?
+    // NOTE: With UIScene lifecycle (iOS 13+), window is managed by SceneDelegate / storyboard.
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
@@ -63,6 +63,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
 
         return true
+    }
+
+    // ✅ Required for UIScene lifecycle. Ensures the Main storyboard scene is created.
+    func application(_ application: UIApplication, configurationForConnecting connectingSceneSession: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
+        let config = UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
+        config.storyboard = UIStoryboard(name: "Main", bundle: nil)
+        return config
     }
 
     // MARK: - APNs diagnostics
