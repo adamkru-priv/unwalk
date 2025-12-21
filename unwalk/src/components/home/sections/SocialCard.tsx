@@ -108,7 +108,7 @@ export function SocialCard({
           <div className="h-5" />
         </div>
 
-        {/* Quick assign (basic/pro only) */}
+        {/* Quick assign (signed-in users only) */}
         {showQuickAssign && (
           <div
             className="absolute left-4 right-4 bottom-4 rounded-3xl bg-transparent backdrop-blur-md border border-white/0 px-4 py-3 sm:py-3.5 shadow-none"

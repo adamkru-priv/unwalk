@@ -73,4 +73,4 @@ export interface AppState {
 }
 
 // User subscription type
-export type UserTier = 'basic' | 'pro';
+export type UserTier = 'pro';

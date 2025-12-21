@@ -11,6 +11,7 @@ type ExploreMode = 'menu' | 'browse' | 'custom';
 export function ChallengeLibrary() {
   const [mode, setMode] = useState<ExploreMode>('menu'); // Start with menu view
   const exploreResetTrigger = useChallengeStore((s) => s.exploreResetTrigger);
+  const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
   const userProfile = useChallengeStore((s) => s.userProfile); // ✅ Read from store
   const isGuest = userProfile?.is_guest ?? false;
 
@@ -23,7 +24,7 @@ export function ChallengeLibrary() {
 
   const handleCustomClick = () => {
     if (isGuest) {
-      alert('Sign up to create custom challenges!\n\nCustom challenges are available for registered users.');
+      setCurrentScreen('profile');
       return;
     }
     setMode('custom');
@@ -91,13 +92,12 @@ export function ChallengeLibrary() {
 
             {/* Card 2: Create Custom */}
             <motion.button
-              whileHover={{ scale: isGuest ? 1 : 1.01 }}
-              whileTap={{ scale: isGuest ? 1 : 0.99 }}
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
               onClick={handleCustomClick}
-              disabled={isGuest}
               className={`relative w-full bg-gradient-to-br from-[#1A1F2E] to-[#151A25] border-2 rounded-3xl p-8 text-left transition-all overflow-hidden ${
                 isGuest 
-                  ? 'border-white/5 opacity-40 cursor-not-allowed' 
+                  ? 'border-white/10 hover:border-amber-500/30 group' 
                   : 'border-white/10 hover:border-amber-500/30 group'
               }`}
             >

@@ -63,7 +63,7 @@ export const useChallengeStore = create<ChallengeStore>()(
       hasSeenWhoToChallenge: false, // New: track if user saw target selection
       isHealthConnected: false,
       userProfile: null, // ✅ NEW: Full user profile
-      userTier: 'basic',
+      userTier: 'pro',
       dailyStepGoal: 0,
       exploreResetTrigger: 0,
       dailyChallenge: null,
@@ -210,7 +210,7 @@ export const useChallengeStore = create<ChallengeStore>()(
         hasSeenWhoToChallenge: false, // New: track if user saw target selection
         isHealthConnected: false,
         userProfile: null, // ✅ NEW: Full user profile
-        userTier: 'basic',
+        userTier: 'pro',
         dailyStepGoal: 0,
         dailyChallenge: null,
         dailyChallengeDate: null,

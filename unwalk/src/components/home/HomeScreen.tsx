@@ -28,7 +28,6 @@ export function HomeScreen() {
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
   const pausedChallenges = useChallengeStore((s) => s.pausedChallenges);
   const userProfile = useChallengeStore((s) => s.userProfile);
-  const userTier = useChallengeStore((s) => s.userTier);
   const resumeChallenge = useChallengeStore((s) => s.resumeChallenge);
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
   const dailyStepGoal = useChallengeStore((s) => s.dailyStepGoal);
@@ -129,7 +128,7 @@ export function HomeScreen() {
     }
   }, [isNative, healthKitAuthorized, activeUserChallenge?.id, getSteps]);
 
-  // Load team members for basic/pro (authenticated) users only
+  // Load team members for signed-in users only
   useEffect(() => {
     const load = async () => {
       if (!userProfile || userProfile.is_guest) {
@@ -149,7 +148,7 @@ export function HomeScreen() {
     load();
   }, [userProfile?.id, userProfile?.is_guest]);
 
-  // Load progress for challenges YOU sent (basic/pro only)
+  // Load progress for challenges you sent (signed-in users only)
   useEffect(() => {
     const load = async () => {
       if (!userProfile || userProfile.is_guest) {
@@ -326,7 +325,7 @@ export function HomeScreen() {
         
         <CompletedChallengesList
           challenges={unclaimedChallenges}
-          userTier={userTier}
+          isGuest={userProfile?.is_guest || false}
           onChallengeClick={setSelectedCompletedChallenge}
         />
 
@@ -353,7 +352,7 @@ export function HomeScreen() {
 
         <PausedChallengesGrid
           challenges={pausedChallenges}
-          userTier={userTier}
+          isGuest={userProfile?.is_guest || false}
           onResumeChallenge={handleResumeChallenge}
           formatActiveTime={formatChallengeActiveTime}
           calculateProgress={calculateProgressForChallenge}

@@ -89,7 +89,6 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
 
   // Check if user is guest
   const isGuest = userProfile?.is_guest || false;
-  const userTier = userProfile?.tier || 'basic';
 
   // Determine account type display
   const getAccountTypeBadge = () => {
@@ -99,19 +98,13 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
           Guest
         </span>
       );
-    } else if (userTier === 'pro') {
-      return (
-        <span className="text-amber-500 dark:text-amber-400 text-sm font-light tracking-wide" style={{ fontFamily: 'Georgia, serif' }}>
-          Pro
-        </span>
-      );
-    } else {
-      return (
-        <span className="text-blue-500 dark:text-blue-400 text-sm font-light tracking-wide" style={{ fontFamily: 'Georgia, serif' }}>
-          Basic
-        </span>
-      );
     }
+
+    return (
+      <span className="text-amber-500 dark:text-amber-400 text-sm font-light tracking-wide" style={{ fontFamily: 'Georgia, serif' }}>
+        Pro
+      </span>
+    );
   };
 
   return (
@@ -189,25 +182,38 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
-            ) : (() => {
-              const name = (userProfile as any)?.display_name || (userProfile as any)?.full_name || (userProfile as any)?.email || '';
-              const initial = typeof name === 'string' && name.length > 0 ? name.trim()[0]?.toUpperCase() : null;
+            ) : (
+              (() => {
+                const name = (userProfile as any)?.display_name || (userProfile as any)?.full_name || (userProfile as any)?.email || '';
+                const initial = typeof name === 'string' && name.length > 0 ? name.trim()[0]?.toUpperCase() : null;
 
-              // If we have an initial, show a compact avatar circle; otherwise show a user icon.
-              if (initial) {
+                // Extract a stable suffix from common guest names like "Guest_1234".
+                const suffixMatch = typeof name === 'string' ? /(guest[_-]?)(\w{3,8})/i.exec(name) : null;
+                const suffix = suffixMatch?.[2]?.toUpperCase() ?? '';
+
                 return (
-                  <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-white/10 flex items-center justify-center text-xs font-bold text-gray-800 dark:text-white">
-                    {initial}
+                  <div className="flex items-center gap-2">
+                    {/* Avatar circle (consistent shape) */}
+                    <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-white/10 flex items-center justify-center">
+                      {initial ? (
+                        <span className="text-xs font-bold text-gray-800 dark:text-white">{initial}</span>
+                      ) : (
+                        <svg className="w-4 h-4 text-gray-600 dark:text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      )}
+                    </div>
+
+                    {/* Sub-label (no big pill) */}
+                    {isGuest && (
+                      <span className="text-[11px] font-black tracking-[0.16em] uppercase text-gray-500 dark:text-white/45">
+                        {suffix ? `G-${suffix}` : 'Guest'}
+                      </span>
+                    )}
                   </div>
                 );
-              }
-
-              return (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              );
-            })()}
+              })()
+            )}
           </button>
         </div>
       </div>

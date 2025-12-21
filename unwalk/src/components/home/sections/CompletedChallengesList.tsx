@@ -3,11 +3,11 @@ import type { UserChallenge } from '../../../types';
 
 interface CompletedChallengesListProps {
   challenges: UserChallenge[];
-  userTier: 'basic' | 'pro';
+  isGuest: boolean;
   onChallengeClick: (challenge: UserChallenge) => void;
 }
 
-export function CompletedChallengesList({ challenges, userTier, onChallengeClick }: CompletedChallengesListProps) {
+export function CompletedChallengesList({ challenges, isGuest, onChallengeClick }: CompletedChallengesListProps) {
   if (challenges.length === 0) return null;
 
   return (
@@ -20,11 +20,11 @@ export function CompletedChallengesList({ challenges, userTier, onChallengeClick
         <div className="relative flex items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-3">
             <div className="grid h-11 w-11 place-items-center rounded-2xl border border-purple-400/30 bg-purple-500/10 text-purple-200">
-              <span className="text-xl">{userTier === 'pro' ? '🎁' : '✓'}</span>
+              <span className="text-xl">🎁</span>
             </div>
             <div>
               <h2 className="text-sm font-black text-purple-200 uppercase tracking-[0.18em]">
-                {userTier === 'pro' ? 'Rewards Ready' : 'Ready to Claim'}
+                Ready to Claim
               </h2>
               <div className="text-[11px] text-white/50">
                 {challenges.length} {challenges.length === 1 ? 'challenge' : 'challenges'} completed
@@ -32,7 +32,7 @@ export function CompletedChallengesList({ challenges, userTier, onChallengeClick
             </div>
           </div>
 
-          {userTier === 'pro' && (
+          {!isGuest && (
             <div className="rounded-full bg-gradient-to-r from-purple-500 to-indigo-400 px-3 py-1 text-[10px] font-black text-[#0B101B] shadow-lg">
               CLAIM
             </div>
@@ -74,7 +74,7 @@ export function CompletedChallengesList({ challenges, userTier, onChallengeClick
 
                 <div className="mt-2 flex items-center justify-between">
                   <div className="text-xs font-bold text-purple-200/90 group-hover:text-purple-100 transition-colors">
-                    {userTier === 'pro' ? 'Tap to claim reward' : 'Tap to view completion'}
+                    {isGuest ? 'Sign up to claim rewards' : 'Tap to claim reward'}
                   </div>
                   <div className="text-purple-200/60 group-hover:text-purple-100 transition-colors">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -2,7 +2,7 @@ import type { UserChallenge } from '../../../types';
 
 interface PausedChallengesGridProps {
   challenges: UserChallenge[];
-  userTier: 'basic' | 'pro';
+  isGuest: boolean;
   onResumeChallenge: (challenge: UserChallenge) => void;
   formatActiveTime: (challenge: UserChallenge) => string;
   calculateProgress: (challenge: UserChallenge) => number;
@@ -10,12 +10,12 @@ interface PausedChallengesGridProps {
 
 export function PausedChallengesGrid({ 
   challenges, 
-  userTier, 
+  isGuest, 
   onResumeChallenge,
   formatActiveTime,
   calculateProgress 
 }: PausedChallengesGridProps) {
-  if (userTier !== 'pro' || challenges.length === 0) return null;
+  if (isGuest || challenges.length === 0) return null;
 
   return (
     <section className="px-5">

@@ -15,8 +15,8 @@ export function StatsScreen({ embedded = false }: StatsScreenProps) {
   const [loading, setLoading] = useState(true);
   const [selectedChallenge, setSelectedChallenge] = useState<UserChallenge | null>(null);
   const [showAllHistory, setShowAllHistory] = useState(false);
-  const userTier = useChallengeStore((s) => s.userTier);
   const userProfile = useChallengeStore((s) => s.userProfile);
+  const isGuest = userProfile?.is_guest ?? true;
 
   useEffect(() => {
     loadCompletedChallenges();
@@ -161,8 +161,8 @@ export function StatsScreen({ embedded = false }: StatsScreenProps) {
             </div>
           </div>
 
-          {/* Points for Pro users */}
-          {userTier === 'pro' && totalPoints > 0 && (
+          {/* Points for signed-in users */}
+          {!isGuest && totalPoints > 0 && (
             <div className="mt-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border border-amber-300 dark:border-amber-500/30 rounded-xl p-3 text-center">
               <div className="text-xl font-extrabold text-amber-900 dark:text-amber-400 mb-0.5">
                 {totalPoints} Points
@@ -271,7 +271,7 @@ export function StatsScreen({ embedded = false }: StatsScreenProps) {
                             CUSTOM
                           </span>
                         )}
-                        {!challenge.admin_challenge?.is_custom && userTier === 'pro' && (
+                        {!challenge.admin_challenge?.is_custom && !isGuest && (
                           <span className="bg-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30">
                             +{(() => {
                               const goalSteps = challenge.admin_challenge?.goal_steps || 0;

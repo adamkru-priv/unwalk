@@ -27,7 +27,7 @@ export function PausedChallengesWarning({ isOpen, pausedChallenges, onConfirm, o
         </p>
         
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Downgrading to Basic will <span className="font-bold text-orange-600 dark:text-orange-400">permanently delete</span> all paused challenges. This action cannot be undone.
+          Account downgrade is not available.
         </p>
 
         <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800/50 rounded-lg p-3 mb-4">
@@ -58,7 +58,7 @@ export function PausedChallengesWarning({ isOpen, pausedChallenges, onConfirm, o
             onClick={onConfirm}
             className="flex-1 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
           >
-            Delete & Downgrade
+            OK
           </button>
         </div>
       </div>

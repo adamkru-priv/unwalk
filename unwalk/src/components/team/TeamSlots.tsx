@@ -11,8 +11,8 @@ interface TeamSlotsProps {
 }
 
 export function TeamSlots({ teamMembers, userProfile, onInviteClick, onMemberClick, invitedCount }: TeamSlotsProps) {
-  const tier = userProfile?.tier || 'basic';
-  const maxSlots = tier === 'pro' ? 5 : 1;
+  const isGuest = userProfile?.is_guest ?? true;
+  const maxSlots = isGuest ? 1 : 5;
   const usedSlots = teamMembers.length;
   const pendingSlots = invitedCount;
   const availableSlots = maxSlots - usedSlots - pendingSlots;
@@ -48,11 +48,11 @@ export function TeamSlots({ teamMembers, userProfile, onInviteClick, onMemberCli
           </p>
         </div>
         <div className={`px-3 py-1.5 rounded-full font-bold text-xs ${
-          tier === 'pro' 
+          !isGuest
             ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white'
             : 'bg-white/10 text-white/70'
         }`}>
-          {tier === 'pro' ? '⭐ PRO' : 'BASIC'}
+          {!isGuest ? '⭐ PRO' : 'GUEST'}
         </div>
       </div>
 
@@ -70,10 +70,10 @@ export function TeamSlots({ teamMembers, userProfile, onInviteClick, onMemberCli
             transition={{ duration: 0.5, ease: 'easeOut' }}
           />
         </div>
-        {isAtLimit && tier === 'basic' && (
+        {isAtLimit && isGuest && (
           <p className="text-xs text-amber-400 mt-2 flex items-center gap-1">
-            <span>💎</span>
-            <span>Upgrade to PRO for 5 team slots</span>
+            <span>⭐</span>
+            <span>Sign up to unlock 5 team slots</span>
           </p>
         )}
       </div>
