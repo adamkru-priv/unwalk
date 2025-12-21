@@ -864,6 +864,7 @@ class TeamService {
       if (error) throw error;
 
       console.log('🗑️ [Team] Member removed');
+      return { error: null }; // ✅ FIXED: Added missing return
     } catch (error) {
       console.error('❌ [Team] Remove member error:', error);
       return { error: error as Error };
