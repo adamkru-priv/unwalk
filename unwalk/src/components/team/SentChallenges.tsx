@@ -1,5 +1,6 @@
 import { teamService, type ChallengeAssignment } from '../../lib/auth';
 import { getInitials, getColorFromName } from './utils';
+import { useEffect, useRef } from 'react';
 
 interface SentChallengesProps {
   challenges: ChallengeAssignment[];
@@ -7,16 +8,28 @@ interface SentChallengesProps {
 }
 
 export function SentChallenges({ challenges, onRefresh }: SentChallengesProps) {
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
   const handleCancelChallenge = async (assignmentId: string) => {
     if (!confirm('Cancel this challenge assignment?')) return;
     
     try {
       const { error } = await teamService.cancelChallengeAssignment(assignmentId);
       if (error) throw error;
-      onRefresh();
+      if (isMounted.current) {
+        onRefresh();
+      }
     } catch (err) {
       console.error('Failed to cancel challenge:', err);
-      alert('Failed to cancel challenge. It may have been already accepted.');
+      if (isMounted.current) {
+        alert('Failed to cancel challenge. It may have been already accepted.');
+      }
     }
   };
 

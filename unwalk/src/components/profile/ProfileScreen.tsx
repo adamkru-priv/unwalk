@@ -1,10 +1,9 @@
 import { BottomNavigation } from '../common/BottomNavigation';
 import { AppHeader } from '../common/AppHeader';
 import { useChallengeStore } from '../../stores/useChallengeStore';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { authService } from '../../lib/auth';
 import { AccountSection } from './AccountSection';
-import { AccountTypeCards } from './AccountTypeCards';
 import { AuthModal } from './AuthModal';
 import { ThemeSelector } from './ThemeSelector';
 import { DailyStepGoalSection } from './DailyStepGoalSection';
@@ -14,10 +13,8 @@ import { useHealthKit } from '../../hooks/useHealthKit';
 import { StatsScreen } from '../stats/StatsScreen';
 
 export function ProfileScreen() {
-  const userTier = useChallengeStore((s) => s.userTier);
   const setUserTier = useChallengeStore((s) => s.setUserTier);
   const pausedChallenges = useChallengeStore((s) => s.pausedChallenges);
-  const clearPausedChallenges = useChallengeStore((s) => s.clearPausedChallenges);
   const dailyStepGoal = useChallengeStore((s) => s.dailyStepGoal);
   const setDailyStepGoal = useChallengeStore((s) => s.setDailyStepGoal);
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
@@ -54,11 +51,19 @@ export function ProfileScreen() {
 
   const [pushEnabled, setPushEnabled] = useState<boolean>(true);
   const [pushSaving, setPushSaving] = useState(false);
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   // ✅ Sync local state when profile changes in store (no auth listener needed - App.tsx handles it)
   useEffect(() => {
     if (userProfile) {
-      setUserTier(userProfile.tier);
+      // Authenticated users are always Pro; guests can be treated as Pro internally too.
+      setUserTier('pro');
       setDailyStepGoal(userProfile.daily_step_goal);
     }
   }, [userProfile, setUserTier, setDailyStepGoal]);
@@ -132,15 +137,22 @@ export function ProfileScreen() {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) throw new Error('Please enter a valid email');
 
+      // Send OTP (requires Email OTP enabled in Supabase Auth settings)
       const { error } = await authService.signInWithOTP(email);
       if (error) throw error;
-      
-      setAuthSuccess('🔢 Check your email! We sent you an 8-digit code.');
-      setAuthMode('verify-otp');
+
+      if (isMounted.current) {
+        setAuthSuccess('Check your email. We sent you a 6-digit code.');
+        setAuthMode('verify-otp');
+      }
     } catch (err: any) {
-      setAuthError(err.message || 'Something went wrong');
+      if (isMounted.current) {
+        setAuthError(err.message || 'Something went wrong');
+      }
     } finally {
-      setAuthLoading(false);
+      if (isMounted.current) {
+        setAuthLoading(false);
+      }
     }
   };
 
@@ -150,26 +162,25 @@ export function ProfileScreen() {
     setAuthLoading(true);
 
     try {
-      if (!otpCode || otpCode.length !== 8) throw new Error('Please enter the 8-digit code');
+      if (!otpCode || otpCode.length !== 6) throw new Error('Please enter the 6-digit code');
 
       const { session, error } = await authService.verifyOTP(email, otpCode);
       if (error) throw error;
 
-      if (session) {
-        console.log('✅ [Auth] OTP verified successfully');
-        
-        setAuthLoading(false);
+      if (session && isMounted.current) {
         setAuthSuccess('✅ Welcome! Loading your data...');
-        
-        // ✅ FIX: Don't reload - let App.tsx handle data loading via onAuthStateChange
         setTimeout(() => {
-          setShowAuthModal(false);
-          // Removed: window.location.reload()
-        }, 1000);
+          if (isMounted.current) setShowAuthModal(false);
+        }, 800);
       }
     } catch (err: any) {
-      setAuthError(err.message || 'Invalid code. Please try again.');
-      setAuthLoading(false);
+      if (isMounted.current) {
+        setAuthError(err.message || 'Invalid code. Please try again.');
+      }
+    } finally {
+      if (isMounted.current) {
+        setAuthLoading(false);
+      }
     }
   };
 
@@ -178,71 +189,6 @@ export function ProfileScreen() {
     setOtpCode('');
     setAuthError(null);
     setAuthSuccess(null);
-  };
-
-  const handleTierChange = async (tier: 'basic' | 'pro') => {
-    if (isGuest && tier === 'pro') {
-      alert('Sign in to upgrade to Pro');
-      return;
-    }
-
-    if (userTier === 'pro' && tier === 'basic' && pausedChallenges.length > 0) {
-      setShowPausedWarning(true);
-      return;
-    }
-
-    setUserTier(tier);
-
-    try {
-      const { error } = await authService.updateProfile({ tier });
-      if (error) {
-        console.error('Failed to update tier:', error);
-        alert('Failed to update account type. Please try again.');
-        setUserTier(userProfile?.tier || 'basic'); // Rollback on error
-        return;
-      }
-      
-      // ✅ Update userProfile in store to persist the change
-      if (userProfile) {
-        setUserProfile({
-          ...userProfile,
-          tier
-        });
-      }
-      
-      console.log('✅ Tier updated in database and store:', tier);
-    } catch (err) {
-      console.error('Failed to update tier:', err);
-      alert('Failed to update account type. Please try again.');
-      setUserTier(userProfile?.tier || 'basic'); // Rollback on error
-    }
-  };
-
-  const handleConfirmDowngrade = async () => {
-    clearPausedChallenges();
-    setUserTier('basic');
-
-    try {
-      const { error } = await authService.updateProfile({ tier: 'basic' });
-      if (error) {
-        console.error('Failed to downgrade tier:', error);
-        return;
-      }
-      
-      // ✅ Update userProfile in store
-      if (userProfile) {
-        setUserProfile({
-          ...userProfile,
-          tier: 'basic'
-        });
-      }
-      
-      console.log('✅ Downgraded to basic in database and store');
-    } catch (err) {
-      console.error('Failed to downgrade tier:', err);
-    }
-
-    setShowPausedWarning(false);
   };
 
   const handleDeleteAccount = async () => {
@@ -296,13 +242,19 @@ export function ProfileScreen() {
       const { error } = await authService.updateProfile({ push_enabled: next } as any);
       if (error) throw error;
 
-      setUserProfile({ ...userProfile, push_enabled: next });
+      if (isMounted.current) {
+        setUserProfile({ ...userProfile, push_enabled: next });
+      }
     } catch (e) {
       // rollback
-      setPushEnabled(userProfile.push_enabled ?? true);
+      if (isMounted.current) {
+        setPushEnabled(userProfile.push_enabled ?? true);
+      }
       alert('Failed to update notification settings. Please try again.');
     } finally {
-      setPushSaving(false);
+      if (isMounted.current) {
+        setPushSaving(false);
+      }
     }
   };
 
@@ -329,7 +281,7 @@ export function ProfileScreen() {
       <PausedChallengesWarning
         isOpen={showPausedWarning}
         pausedChallenges={pausedChallenges}
-        onConfirm={handleConfirmDowngrade}
+        onConfirm={() => setShowPausedWarning(false)}
         onCancel={() => setShowPausedWarning(false)}
       />
 
@@ -340,35 +292,10 @@ export function ProfileScreen() {
           userProfile={userProfile}
           isGuest={isGuest}
           onSignOut={handleSignOut}
-          onShowAuthModal={() => setShowAuthModal(true)}
-        />
-
-        {/* Apple auth/link */}
-        {isGuest ? (
-          <button
-            onClick={handleSignInWithApple}
-            className="w-full bg-black text-white rounded-2xl p-4 shadow-sm border border-black/10 transition-colors text-left flex items-center justify-between"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
-                <span className="text-lg"></span>
-              </div>
-              <div>
-                <div className="text-sm font-semibold">Continue with Apple</div>
-                <div className="text-xs text-white/70">Create / sign in with Apple ID</div>
-              </div>
-            </div>
-            <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        ) : null}
-
-        <AccountTypeCards
-          isGuest={isGuest}
-          userTier={userTier}
-          onTierChange={handleTierChange}
-          onShowAuthModal={() => setShowAuthModal(true)}
+          onEmailSignIn={() => setShowAuthModal(true)}
+          onAppleSignIn={handleSignInWithApple}
+          // Google sign-in disabled
+          onGoogleSignIn={undefined}
         />
 
         {!isGuest && (
@@ -444,7 +371,7 @@ export function ProfileScreen() {
           <section className="w-full bg-white dark:bg-[#151A25] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-white/5">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <div className="text-sm font-semibold text-gray-900 dark:text-white">Powiadomienia</div>
+                <div className="text-sm font-semibold text-gray-900 dark:text-white">Notifications</div>
                 <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   Push notifications: {pushEnabled ? 'ON' : 'OFF'}
                   {pushSaving ? ' (saving...)' : ''}
@@ -485,7 +412,7 @@ export function ProfileScreen() {
             </div>
           </div>
           <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7-7" />
           </svg>
         </button>
 

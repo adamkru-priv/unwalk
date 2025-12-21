@@ -6,16 +6,24 @@ interface WeeklyStatsProps {
 
 export function WeeklyStats({ dailyGoal = 10000 }: WeeklyStatsProps) {
   // Mock data - later from Apple Health / Google Fit
+  // Move random generation to state to avoid impure render
   const weekData = useMemo(() => {
     const today = new Date();
     const days = [];
+    
+    // Use a simple pseudo-random generator based on date to be deterministic for the same day
+    // or just use Math.random() inside useMemo is technically impure but cached. 
+    // The linter is strict. Let's make it deterministic based on date.
     
     for (let i = 6; i >= 0; i--) {
       const date = new Date(today);
       date.setDate(date.getDate() - i);
       
-      // Mock steps data - replace with real data from Health API
-      const steps = Math.floor(Math.random() * 15000);
+      // Deterministic mock steps based on date timestamp
+      const seed = date.getDate() + date.getMonth() * 31;
+      const pseudoRandom = Math.sin(seed) * 10000; 
+      const steps = Math.floor(Math.abs(pseudoRandom) + 5000); // Range 5000-15000
+      
       const distance = (steps * 0.8 / 1000).toFixed(1); // km
       
       days.push({

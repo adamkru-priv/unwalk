@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { useChallengeStore } from '../../stores/useChallengeStore';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { getCompletedChallenges } from '../../lib/api';
 import type { UserChallenge } from '../../types';
 
@@ -12,23 +12,31 @@ interface ProfileModalProps {
 export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const [completedChallenges, setCompletedChallenges] = useState<UserChallenge[]>([]);
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
-  const userTier = useChallengeStore((s) => s.userTier);
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  const loadCompletedChallenges = useCallback(async () => {
+    try {
+      const data = await getCompletedChallenges();
+      if (isMounted.current) {
+        setCompletedChallenges(data);
+      }
+    } catch (err) {
+      console.error('Failed to load completed challenges:', err);
+    }
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
       loadCompletedChallenges();
     }
-  }, [isOpen]);
-
-  const loadCompletedChallenges = async () => {
-    try {
-      const data = await getCompletedChallenges();
-      setCompletedChallenges(data);
-    } catch (err) {
-      console.error('Failed to load completed challenges:', err);
-    }
-  };
+  }, [isOpen, loadCompletedChallenges]);
 
   const calculateDaysActive = () => {
     if (!activeUserChallenge?.started_at) return 0;
@@ -86,101 +94,39 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
         {/* Tier Toggle */}
         <div className="mb-6">
           <div className="text-sm text-gray-600 mb-3 font-medium">Account Type</div>
-          <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1 mb-4">
-            <button
-              onClick={() => useChallengeStore.getState().setUserTier('basic')}
-              className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                userTier === 'basic' 
-                  ? 'bg-white text-gray-900 shadow-sm' 
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Basic
-            </button>
-            <button
-              onClick={() => useChallengeStore.getState().setUserTier('pro')}
-              className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                userTier === 'pro' 
-                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-sm' 
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Pro ⭐
-            </button>
-          </div>
 
-          {/* Plan Features Comparison */}
-          {userTier === 'basic' ? (
-            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-              <div className="text-sm font-semibold text-gray-900 mb-3">Basic Plan</div>
-              <div className="space-y-2 text-sm">
-                {/* All items with warning triangle */}
-                <div className="flex items-start gap-2 text-gray-600">
-                  <svg className="w-5 h-5 flex-shrink-0 mt-0.5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                  <span>Contains ads</span>
-                </div>
-                <div className="flex items-start gap-2 text-gray-600">
-                  <svg className="w-5 h-5 flex-shrink-0 mt-0.5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                  <span>Can't pause challenges</span>
-                </div>
-                <div className="flex items-start gap-2 text-gray-600">
-                  <svg className="w-5 h-5 flex-shrink-0 mt-0.5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                  <span>Only 1 person per challenge</span>
-                </div>
-                <div className="flex items-start gap-2 text-gray-600">
-                  <svg className="w-5 h-5 flex-shrink-0 mt-0.5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                  <span>Only 1 active challenge at a time</span>
-                </div>
-              </div>
-              <button
-                onClick={() => useChallengeStore.getState().setUserTier('pro')}
-                className="w-full mt-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white px-4 py-2.5 rounded-lg font-semibold text-sm transition-all shadow-md hover:shadow-lg"
-              >
-                Upgrade to Pro ⭐
-              </button>
+          <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4 border border-amber-200">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-2xl">⭐</span>
+              <div className="text-sm font-semibold text-amber-900">Pro</div>
             </div>
-          ) : (
-            <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4 border border-amber-200">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-2xl">⭐</span>
-                <div className="text-sm font-semibold text-amber-900">Pro Plan</div>
+            <div className="space-y-2 text-sm text-amber-900">
+              <div className="flex items-start gap-2">
+                <svg className="w-5 h-5 flex-shrink-0 mt-0.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span className="font-medium">No Ads</span>
               </div>
-              <div className="space-y-2 text-sm text-amber-900">
-                <div className="flex items-start gap-2">
-                  <svg className="w-5 h-5 flex-shrink-0 mt-0.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="font-medium">No Ads</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <svg className="w-5 h-5 flex-shrink-0 mt-0.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span>Pause & resume challenges</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <svg className="w-5 h-5 flex-shrink-0 mt-0.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span>Assign to multiple people</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <svg className="w-5 h-5 flex-shrink-0 mt-0.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span>Multiple active challenges</span>
-                </div>
+              <div className="flex items-start gap-2">
+                <svg className="w-5 h-5 flex-shrink-0 mt-0.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Pause & resume challenges</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <svg className="w-5 h-5 flex-shrink-0 mt-0.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Assign to multiple people</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <svg className="w-5 h-5 flex-shrink-0 mt-0.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Multiple active challenges</span>
               </div>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Actions */}

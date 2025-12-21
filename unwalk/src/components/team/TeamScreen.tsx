@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { AppHeader } from '../common/AppHeader';
 import { BottomNavigation } from '../common/BottomNavigation';
 import { teamService, type TeamMember, type TeamInvitation, type ChallengeAssignment } from '../../lib/auth';
@@ -23,30 +23,16 @@ export function TeamScreen() {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [activeTab, setActiveTab] = useState<'team' | 'sent' | 'received'>('team');
+  const isMounted = useRef(true);
 
-  // ✅ Reload data when userProfile changes (e.g. after auth init)
   useEffect(() => {
-    if (userProfile?.id) {
-      loadTeamData();
-    }
-  }, [userProfile?.id]);
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
-  // When coming from Home quick-assign, open member details automatically
-  useEffect(() => {
-    if (!assignTarget?.id) return;
-    if (loading) return;
-    if (userProfile?.is_guest) return;
-
-    const m = teamMembers.find((tm) => tm.member_id === assignTarget.id);
-    if (m) {
-      setSelectedMember(m);
-      // Clear to avoid reopening on back
-      setAssignTarget(null);
-    }
-  }, [assignTarget?.id, loading, userProfile?.is_guest, teamMembers]);
-
-  const loadTeamData = async () => {
-    setLoading(true);
+  const loadTeamData = useCallback(async () => {
+    if (isMounted.current) setLoading(true);
     
     // Create a timeout promise
     const timeoutPromise = new Promise((_, reject) => 
@@ -62,19 +48,21 @@ export function TeamScreen() {
       // ✅ SAFETY CHECK: If profile is missing (shouldn't happen if App handles isAppReady correctly, but good for safety)
       if (!userProfile) {
         console.log('⏳ [TeamScreen] No user profile yet - waiting...');
-        setLoading(false); // Ensure loading is turned off
+        if (isMounted.current) setLoading(false); // Ensure loading is turned off
         return;
       }
       
       // ✅ If guest, skip loading team data
       if (userProfile?.is_guest) {
         console.log('👤 [TeamScreen] Guest user detected - skipping team data load');
-        setTeamMembers([]);
-        setReceivedInvitations([]);
-        setSentInvitations([]);
-        setSentChallengeHistory([]);
-        setReceivedChallengeHistory([]);
-        setLoading(false);
+        if (isMounted.current) {
+          setTeamMembers([]);
+          setReceivedInvitations([]);
+          setSentInvitations([]);
+          setSentChallengeHistory([]);
+          setReceivedChallengeHistory([]);
+          setLoading(false);
+        }
         return;
       }
       
@@ -88,7 +76,7 @@ export function TeamScreen() {
           teamService.getTeamMembers(),
           timeoutPromise
         ]) as TeamMember[];
-        setTeamMembers(members);
+        if (isMounted.current) setTeamMembers(members);
       } catch (e) {
         console.error('❌ [TeamScreen] Failed to load members:', e);
       }
@@ -103,8 +91,10 @@ export function TeamScreen() {
           timeoutPromise
         ]) as [TeamInvitation[], TeamInvitation[]];
         
-        setReceivedInvitations(received.filter(inv => inv.status === 'pending'));
-        setSentInvitations(sent);
+        if (isMounted.current) {
+          setReceivedInvitations(received.filter(inv => inv.status === 'pending'));
+          setSentInvitations(sent);
+        }
       } catch (e) {
         console.error('❌ [TeamScreen] Failed to load invitations:', e);
       }
@@ -119,8 +109,10 @@ export function TeamScreen() {
           timeoutPromise
         ]) as [ChallengeAssignment[], ChallengeAssignment[]];
         
-        setSentChallengeHistory(sentHistory);
-        setReceivedChallengeHistory(receivedHistory);
+        if (isMounted.current) {
+          setSentChallengeHistory(sentHistory);
+          setReceivedChallengeHistory(receivedHistory);
+        }
       } catch (e) {
         console.error('❌ [TeamScreen] Failed to load challenges:', e);
       }
@@ -129,10 +121,33 @@ export function TeamScreen() {
     } catch (error) {
       console.error('❌ [TeamScreen] Critical error loading team data:', error);
     } finally {
-      setLoading(false);
-      console.log('✅ [TeamScreen] Loading complete');
+      if (isMounted.current) {
+        setLoading(false);
+        console.log('✅ [TeamScreen] Loading complete');
+      }
     }
-  };
+  }, [userProfile]);
+
+  // ✅ Reload data when userProfile changes (e.g. after auth init)
+  useEffect(() => {
+    if (userProfile?.id) {
+      loadTeamData();
+    }
+  }, [userProfile?.id, loadTeamData]);
+
+  // When coming from Home quick-assign, open member details automatically
+  useEffect(() => {
+    if (!assignTarget?.id) return;
+    if (loading) return;
+    if (userProfile?.is_guest) return;
+
+    const m = teamMembers.find((tm) => tm.member_id === assignTarget.id);
+    if (m) {
+      setSelectedMember(m);
+      // Clear to avoid reopening on back
+      setAssignTarget(null);
+    }
+  }, [assignTarget?.id, loading, userProfile?.is_guest, teamMembers, setAssignTarget]);
 
   const handleInviteClick = () => {
     setShowInviteModal(true);

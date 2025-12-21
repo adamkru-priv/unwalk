@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { teamService, type UserProfile } from '../../lib/auth';
 import { useChallengeStore } from '../../stores/useChallengeStore';
 
@@ -15,6 +15,13 @@ export function InviteModal({ isOpen, onClose, userProfile, onInviteSent }: Invi
   const [inviteMessage, setInviteMessage] = useState('');
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   const handleSendInvitation = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,15 +33,21 @@ export function InviteModal({ isOpen, onClose, userProfile, onInviteSent }: Invi
       
       if (error) throw error;
 
-      // Success! Close modal and refresh
-      setInviteEmail('');
-      setInviteMessage('');
-      onClose();
-      onInviteSent();
+      if (isMounted.current) {
+        // Success! Close modal and refresh
+        setInviteEmail('');
+        setInviteMessage('');
+        onClose();
+        onInviteSent();
+      }
     } catch (err: any) {
-      setInviteError(err.message || 'Failed to send invitation');
+      if (isMounted.current) {
+        setInviteError(err.message || 'Failed to send invitation');
+      }
     } finally {
-      setInviteLoading(false);
+      if (isMounted.current) {
+        setInviteLoading(false);
+      }
     }
   };
 

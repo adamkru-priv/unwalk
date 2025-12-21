@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 interface DailyStepGoalSectionProps {
   dailyStepGoal: number;
@@ -11,10 +11,6 @@ export function DailyStepGoalSection({ dailyStepGoal, onSave }: DailyStepGoalSec
 
   const displayGoal = dailyStepGoal || 10000;
 
-  useEffect(() => {
-    if (!isEditing) setInputValue('');
-  }, [isEditing]);
-
   const startEdit = () => {
     setInputValue(displayGoal.toString());
     setIsEditing(true);
@@ -23,10 +19,12 @@ export function DailyStepGoalSection({ dailyStepGoal, onSave }: DailyStepGoalSec
   const save = () => {
     const num = parseInt(inputValue.replace(/\D/g, ''), 10);
     if (!isNaN(num) && num >= 1000) onSave(num);
+    setInputValue('');
     setIsEditing(false);
   };
 
   const cancel = () => {
+    setInputValue('');
     setIsEditing(false);
   };
 

@@ -2,36 +2,27 @@ import { AppHeader } from '../common/AppHeader';
 import { BottomNavigation } from '../common/BottomNavigation';
 import { badgesService, type Badge } from '../../lib/auth';
 import { useChallengeStore } from '../../stores/useChallengeStore';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 export function BadgesScreen() {
   const [badges, setBadges] = useState<Badge[]>([]);
   const [totalPoints, setTotalPoints] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   // ✅ Read from store instead of loading
   const userProfile = useChallengeStore((s) => s.userProfile);
   const isGuest = userProfile?.is_guest ?? false;
-  const userTier = userProfile?.tier ?? 'basic';
 
-  // Refresh data every time component is rendered (when navigating back to Rewards)
-  useEffect(() => {
-    loadBadgesData();
-  }, [refreshKey, userProfile?.id]); // ✅ Reload when userProfile loads
-
-  // Also refresh when window gains focus
-  useEffect(() => {
-    const handleFocus = () => {
-      setRefreshKey(prev => prev + 1);
-    };
-
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, []);
-
-  const loadBadgesData = async () => {
-    setLoading(true);
+  const loadBadgesData = useCallback(async () => {
+    if (isMounted.current) setLoading(true);
     
     // Create a timeout promise
     const timeoutPromise = new Promise((_, reject) => 
@@ -41,13 +32,12 @@ export function BadgesScreen() {
     try {
       // ✅ Use profile from store, no need to fetch
       console.log('🔍 [BadgesScreen] Using profile from store:', { 
-        isGuest, 
-        userTier,
+        isGuest,
         total_points: userProfile?.total_points 
       });
 
-      // Only load badges if PRO user
-      if (!isGuest && userTier === 'pro') {
+      // Only load badges for authenticated users
+      if (!isGuest) {
         console.log('🔍 [BadgesScreen] Fetching badges from badgesService...');
         
         const badgesData = await Promise.race([
@@ -68,28 +58,47 @@ export function BadgesScreen() {
           gradient: b.gradient
         })));
 
-        setBadges(badgesData);
-        setTotalPoints(userTotalPoints);
+        if (isMounted.current) {
+          setBadges(badgesData);
+          setTotalPoints(userTotalPoints);
+        }
         
         console.log('✅ [BadgesScreen] Loaded badges with points:', userTotalPoints);
       } else {
-        console.log('ℹ️ [BadgesScreen] Not PRO or is guest - skipping badges');
-        // Clear badges if not PRO
-        setBadges([]);
-        setTotalPoints(0);
+        console.log('ℹ️ [BadgesScreen] Guest - skipping badges');
+        // Clear badges if not authenticated
+        if (isMounted.current) {
+          setBadges([]);
+          setTotalPoints(0);
+        }
       }
     } catch (error) {
       console.error('❌ [BadgesScreen] Failed to load badges:', error);
     } finally {
       console.log('🔍 [BadgesScreen] Setting loading to false');
-      setLoading(false);
+      if (isMounted.current) setLoading(false);
     }
-  };
+  }, [isGuest, userProfile?.total_points]);
+
+  // Refresh data every time component is rendered (when navigating back to Rewards)
+  useEffect(() => {
+    loadBadgesData();
+  }, [loadBadgesData, refreshKey]); // ✅ Reload when userProfile loads
+
+  // Also refresh when window gains focus
+  useEffect(() => {
+    const handleFocus = () => {
+      setRefreshKey(prev => prev + 1);
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, []);
 
   const unlockedCount = badges.filter(b => b.unlocked).length;
 
-  // Show locked screen for guests OR basic users (only PRO can access)
-  const showLockedScreen = isGuest || userTier !== 'pro';
+  // Show locked screen for guests only
+  const showLockedScreen = isGuest;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0B101B] text-gray-900 dark:text-white pb-24 font-sans">
@@ -98,14 +107,14 @@ export function BadgesScreen() {
 
       <main className="px-5 pt-6 pb-6 max-w-md mx-auto space-y-6">
         
-        {/* Guest users AND basic users see locked screen */}
+        {/* Guest users see locked screen */}
         {showLockedScreen ? (
           <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6">
             <div className="relative mb-8">
-              <div className="w-32 h-32 bg-gradient-to-br from-amber-500/20 to-orange-500/20 rounded-full flex items-center justify-center">
+              <div className="w-32 h-32 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-full flex items-center justify-center">
                 <div className="text-6xl">🏆</div>
               </div>
-              <div className="absolute -top-2 -right-2 w-16 h-16 bg-gray-900/90 backdrop-blur-md border-2 border-yellow-500/50 rounded-full flex items-center justify-center shadow-2xl">
+              <div className="absolute -top-2 -right-2 w-16 h-16 bg-gray-900/90 backdrop-blur-md border-2 border-blue-500/50 rounded-full flex items-center justify-center shadow-2xl">
                 <div className="text-2xl">🔒</div>
               </div>
             </div>
@@ -116,8 +125,8 @@ export function BadgesScreen() {
             
             <p className="text-white/60 text-sm leading-relaxed mb-6 max-w-sm">
               {isGuest 
-                ? 'Sign up and upgrade to PRO to unlock achievements, earn badges, and track your progress.'
-                : 'Upgrade to PRO to unlock achievements, earn badges, and track your progress with our rewards system.'
+                ? 'Sign up to unlock achievements, earn badges, and track your progress.'
+                : 'Sign in to unlock achievements, earn badges, and track your progress.'
               }
             </p>
 
@@ -149,13 +158,13 @@ export function BadgesScreen() {
 
             <button
               onClick={() => {
-                // Navigate to pricing/upgrade screen
-                // This would need to be implemented in your navigation system
-                alert('Upgrade to PRO feature - redirect to pricing');
+                // Reuse the Team guest flow: send user to Profile to sign up/sign in
+                // (AccountSection contains auth entry points)
+                useChallengeStore.getState().setCurrentScreen('profile');
               }}
-              className="w-full max-w-sm bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white px-6 py-4 rounded-2xl font-bold text-base transition-all shadow-lg shadow-amber-500/20"
+              className="w-full max-w-sm bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-4 rounded-2xl font-bold text-base transition-all shadow-lg shadow-blue-500/20"
             >
-              Upgrade to PRO
+              Sign Up Free
             </button>
 
             <p className="text-white/40 text-xs mt-4">

@@ -1,6 +1,6 @@
 import { useChallengeStore } from '../../stores/useChallengeStore';
 import { EmptyState } from './EmptyState';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { updateChallengeProgress, getActiveUserChallenge, deleteUserChallenge } from '../../lib/api';
 import { BottomNavigation } from '../common/BottomNavigation';
 import { useToastStore } from '../../stores/useToastStore';
@@ -16,9 +16,15 @@ export function Dashboard() {
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
   const clearChallenge = useChallengeStore((s) => s.clearChallenge);
   const userProfile = useChallengeStore((s) => s.userProfile); // ✅ Read from store
-  const userTier = userProfile?.tier || 'basic';
   const isGuest = userProfile?.is_guest || false;
   const toast = useToastStore((s) => s);
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   // ✅ HealthKit integration
   const { 
@@ -34,7 +40,7 @@ export function Dashboard() {
     if (isNative && healthKitAvailable && !healthKitAuthorized) {
       requestHealthKitPermission();
     }
-  }, [isNative, healthKitAvailable, healthKitAuthorized]);
+  }, [isNative, healthKitAvailable, healthKitAuthorized, requestHealthKitPermission]);
 
   // ✅ Sync active challenge progress with HealthKit
   useEffect(() => {
@@ -55,17 +61,19 @@ export function Dashboard() {
             // Update DB
             await updateChallengeProgress(activeUserChallenge.id, steps);
             
-            // Update local store
-            setActiveChallenge({
-              ...activeUserChallenge,
-              current_steps: steps
-            });
-            
-            // Check for completion
-            if (activeUserChallenge.admin_challenge?.goal_steps && steps >= activeUserChallenge.admin_challenge.goal_steps) {
-               console.log('🎉 [Dashboard] Challenge completed via HealthKit sync!');
-               // Redirect to home for claim flow
-               setCurrentScreen('home');
+            if (isMounted.current) {
+              // Update local store
+              setActiveChallenge({
+                ...activeUserChallenge,
+                current_steps: steps
+              });
+              
+              // Check for completion
+              if (activeUserChallenge.admin_challenge?.goal_steps && steps >= activeUserChallenge.admin_challenge.goal_steps) {
+                 console.log('🎉 [Dashboard] Challenge completed via HealthKit sync!');
+                 // Redirect to home for claim flow
+                 setCurrentScreen('home');
+              }
             }
           }
         } catch (error) {
@@ -80,7 +88,7 @@ export function Dashboard() {
       const interval = setInterval(syncChallengeProgress, 10 * 1000); 
       return () => clearInterval(interval);
     }
-  }, [isNative, healthKitAuthorized, activeUserChallenge?.id, getSteps]);
+  }, [isNative, healthKitAuthorized, activeUserChallenge, getSteps]);
 
   // LOAD ACTIVE CHALLENGE on mount if not in store
   useEffect(() => {
@@ -89,7 +97,7 @@ export function Dashboard() {
         console.log('🔄 [Dashboard] No active challenge in store, loading from DB...');
         try {
           const activeChallenge = await getActiveUserChallenge();
-          if (activeChallenge) {
+          if (isMounted.current && activeChallenge) {
             setActiveChallenge(activeChallenge);
             console.log('✅ [Dashboard] Loaded active challenge:', activeChallenge.admin_challenge?.title);
           }
@@ -100,7 +108,7 @@ export function Dashboard() {
     };
 
     loadActiveChallenge();
-  }, []);
+  }, [activeUserChallenge, setActiveChallenge]);
 
   const handleExitChallenge = async () => {
     setShowMenu(false);
@@ -111,21 +119,26 @@ export function Dashboard() {
         // Delete challenge from database first
         await deleteUserChallenge(activeUserChallenge.id);
         
-        // Then clear from store
-        clearChallenge();
-        toast.addToast({ message: 'Challenge exited successfully', type: 'success' });
-        setCurrentScreen('home');
-      } catch (error: any) {
+        if (isMounted.current) {
+          // Then clear from store
+          clearChallenge();
+          toast.addToast({ message: 'Challenge exited successfully', type: 'success' });
+          setCurrentScreen('home');
+        }
+      } catch (error: unknown) {
         console.error('Failed to exit challenge:', error);
-        toast.addToast({ message: error.message || 'Failed to exit challenge', type: 'error' });
+        if (isMounted.current) {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to exit challenge';
+          toast.addToast({ message: errorMessage, type: 'error' });
+        }
       }
     }
   };
 
   const handlePauseChallenge = () => {
     setShowMenu(false);
-    if (userTier !== 'pro') {
-      alert('Pause feature is only available for Pro users!\n\nUpgrade to Pro to pause and resume challenges.');
+    if (isGuest) {
+      alert('Sign up to unlock pause & resume.');
       return;
     }
     if (!activeUserChallenge) return;
@@ -147,22 +160,31 @@ export function Dashboard() {
       const newSteps = Math.min(activeUserChallenge.current_steps + steps, goalSteps);
       
       const updatedChallenge = await updateChallengeProgress(activeUserChallenge.id, newSteps);
-      setActiveChallenge(updatedChallenge);
+      
+      if (isMounted.current) {
+        setActiveChallenge(updatedChallenge);
 
-      // AUTO-REDIRECT to Home when reaching 100%
-      if (newSteps >= goalSteps && goalSteps > 0) {
-        console.log('✅ Challenge completed at 100%! Redirecting to Home for claim...');
-        
-        // Redirect to home where claim UI will show
-        setTimeout(() => {
-          setCurrentScreen('home');
-        }, 500);
+        // AUTO-REDIRECT to Home when reaching 100%
+        if (newSteps >= goalSteps && goalSteps > 0) {
+          console.log('✅ Challenge completed at 100%! Redirecting to Home for claim...');
+          
+          // Redirect to home where claim UI will show
+          setTimeout(() => {
+            if (isMounted.current) {
+              setCurrentScreen('home');
+            }
+          }, 500);
+        }
       }
     } catch (error) {
       console.error('Failed to update steps:', error);
-      toast.addToast({ message: 'Failed to update progress', type: 'error' });
+      if (isMounted.current) {
+        toast.addToast({ message: 'Failed to update progress', type: 'error' });
+      }
     } finally {
-      setIsUpdating(false);
+      if (isMounted.current) {
+        setIsUpdating(false);
+      }
     }
   };
 
@@ -253,13 +275,9 @@ export function Dashboard() {
               <span className="text-gray-400 text-sm font-light tracking-wide" style={{ fontFamily: 'Georgia, serif' }}>
                 Guest
               </span>
-            ) : userTier === 'pro' ? (
+            ) : (
               <span className="text-amber-400 text-sm font-light tracking-wide" style={{ fontFamily: 'Georgia, serif' }}>
                 Pro
-              </span>
-            ) : (
-              <span className="text-blue-400 text-sm font-light tracking-wide" style={{ fontFamily: 'Georgia, serif' }}>
-                Basic
               </span>
             )}
           </button>
@@ -271,7 +289,7 @@ export function Dashboard() {
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 {showStats ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                 ) : (
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                 )}
@@ -303,7 +321,7 @@ export function Dashboard() {
                     
                     {/* Menu */}
                     <div className="absolute right-0 top-10 z-30 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl min-w-[200px] overflow-hidden">
-                      {/* Pause (Pro only) */}
+                      {/* Pause */}
                       <button
                         onClick={handlePauseChallenge}
                         className="w-full px-4 py-3 text-left hover:bg-gray-700 transition-colors flex items-center gap-3 text-white"
@@ -313,8 +331,8 @@ export function Dashboard() {
                         </svg>
                         <div className="flex-1">
                           <div className="font-medium">Pause</div>
-                          {userTier !== 'pro' && (
-                            <div className="text-xs text-gray-400">Pro only</div>
+                          {isGuest && (
+                            <div className="text-xs text-gray-400">Sign up required</div>
                           )}
                         </div>
                       </button>

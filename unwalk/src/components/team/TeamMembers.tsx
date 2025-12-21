@@ -1,7 +1,7 @@
 import { teamService, type TeamMember, type TeamInvitation, type UserProfile } from '../../lib/auth';
 import { TeamSlots } from './TeamSlots';
 import { ReceivedInvitationsSlots } from './ReceivedInvitationsSlots';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface TeamMembersProps {
   teamMembers: TeamMember[];
@@ -23,13 +23,22 @@ export function TeamMembers({
   onRefresh,
 }: TeamMembersProps) {
   const [acceptedTeamsCount, setAcceptedTeamsCount] = useState(0);
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   // Load accepted teams count (how many teams user is already a member of)
   useEffect(() => {
     const loadTeamStats = async () => {
       // For now, we'll use teamMembers.length as a proxy
       // In future, we should track which teams the user has joined
-      setAcceptedTeamsCount(teamMembers.length);
+      if (isMounted.current) {
+        setAcceptedTeamsCount(teamMembers.length);
+      }
     };
     loadTeamStats();
   }, [teamMembers]);
@@ -38,7 +47,7 @@ export function TeamMembers({
     try {
       const { error } = await teamService.acceptInvitation(invitationId);
       if (error) throw error;
-      onRefresh();
+      if (isMounted.current) onRefresh();
     } catch (err) {
       console.error('Failed to accept invitation:', err);
       alert('Failed to accept invitation. Please try again.');
@@ -49,7 +58,7 @@ export function TeamMembers({
     try {
       const { error } = await teamService.rejectInvitation(invitationId);
       if (error) throw error;
-      onRefresh();
+      if (isMounted.current) onRefresh();
     } catch (err) {
       console.error('Failed to reject invitation:', err);
       alert('Failed to reject invitation. Please try again.');
@@ -62,7 +71,7 @@ export function TeamMembers({
     try {
       const { error } = await teamService.cancelInvitation(invitationId);
       if (error) throw error;
-      onRefresh();
+      if (isMounted.current) onRefresh();
     } catch (err) {
       console.error('Failed to cancel invitation:', err);
       alert('Failed to cancel invitation. Please try again.');

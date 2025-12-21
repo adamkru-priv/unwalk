@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import type { UserChallenge } from '../../types';
 import { calculateChallengePoints } from '../../lib/api';
@@ -15,6 +15,13 @@ export function CelebrationModal({ challenge, onClaim }: CelebrationModalProps) 
   const [claiming, setClaiming] = useState(false);
   const userTier = useChallengeStore((s) => s.userTier);
   const setUserProfile = useChallengeStore((s) => s.setUserProfile);
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   const handleClaim = async () => {
     try {
@@ -47,7 +54,7 @@ export function CelebrationModal({ challenge, onClaim }: CelebrationModalProps) 
       
       // ✅ Refresh user profile to update points in UI
       const updatedProfile = await authService.getUserProfile();
-      if (updatedProfile) {
+      if (updatedProfile && isMounted.current) {
         setUserProfile(updatedProfile);
         console.log('✅ [Claim] User profile refreshed, new points:', updatedProfile.total_points);
       }
@@ -66,13 +73,17 @@ export function CelebrationModal({ challenge, onClaim }: CelebrationModalProps) 
       }
       
       // No more localStorage - everything is in Supabase!
-      onClaim();
+      if (isMounted.current) {
+        onClaim();
+      }
     } catch (error: any) {
       console.error('❌ [Claim] Failed to claim reward:', error);
       console.error('❌ [Claim] Error message:', error?.message);
       console.error('❌ [Claim] Error details:', error?.details);
-      alert(`Failed to claim reward: ${error?.message || 'Unknown error'}\n\nPlease try again or contact support.`);
-      setClaiming(false);
+      if (isMounted.current) {
+        alert(`Failed to claim reward: ${error?.message || 'Unknown error'}\n\nPlease try again or contact support.`);
+        setClaiming(false);
+      }
     }
   };
 

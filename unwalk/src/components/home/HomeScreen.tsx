@@ -1,5 +1,5 @@
 import { useChallengeStore } from '../../stores/useChallengeStore';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { AppHeader } from '../common/AppHeader';
 import { BottomNavigation } from '../common/BottomNavigation';
 import { getActiveUserChallenge, updateChallengeProgress, getChallengeAssignmentsWithProgress, type ChallengeAssignmentWithProgress } from '../../lib/api';
@@ -24,11 +24,17 @@ export function HomeScreen() {
   const [teamActiveChallenges, setTeamActiveChallenges] = useState<any[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [sentAssignments, setSentAssignments] = useState<ChallengeAssignmentWithProgress[]>([]);
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
   const pausedChallenges = useChallengeStore((s) => s.pausedChallenges);
   const userProfile = useChallengeStore((s) => s.userProfile);
-  const userTier = useChallengeStore((s) => s.userTier);
   const resumeChallenge = useChallengeStore((s) => s.resumeChallenge);
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
   const dailyStepGoal = useChallengeStore((s) => s.dailyStepGoal);
@@ -49,11 +55,70 @@ export function HomeScreen() {
   // Użyj prawdziwych kroków z HealthKit, fallback na mock dla web
   const todaySteps = isNative && healthKitAuthorized ? healthKitSteps : 7234;
 
+  const loadActiveChallenge = useCallback(async () => {
+    try {
+      const activeChallenge = await getActiveUserChallenge();
+      if (isMounted.current && activeChallenge) {
+        setActiveChallenge(activeChallenge);
+        console.log('✅ [HomeScreen] Loaded active challenge:', activeChallenge.admin_challenge?.title);
+      }
+    } catch (err) {
+      console.error('Failed to load active challenge:', err);
+    }
+  }, [setActiveChallenge]);
+
+  const loadUnclaimedChallenges = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const deviceId = getDeviceId();
+      
+      if (!user) {
+        console.log('No authenticated user');
+        return;
+      }
+      
+      const { data, error } = await supabase
+        .from('user_challenges')
+        .select(`
+          *,
+          admin_challenge:admin_challenges(*)
+        `)
+        .eq('status', 'active')
+        .or(`user_id.eq.${user.id},device_id.eq.${deviceId}`)
+        .order('started_at', { ascending: false });
+      
+      if (error) {
+        console.error('Failed to load challenges:', error);
+        return;
+      }
+      
+      const completed = (data || []).filter(challenge => {
+        const goalSteps = challenge.admin_challenge?.goal_steps || 0;
+        const currentSteps = challenge.current_steps || 0;
+        return currentSteps >= goalSteps && goalSteps > 0;
+      });
+      
+      if (isMounted.current) {
+        setUnclaimedChallenges(completed);
+        console.log('✅ [HomeScreen] Loaded unclaimed challenges (at 100%):', completed.length);
+      }
+    } catch (err) {
+      console.error('Failed to load unclaimed challenges:', err);
+    }
+  }, []);
+
+  const loadTeamChallenges = useCallback(async () => {
+    console.log('👤 [HomeScreen] Team challenges disabled (Stage 2 feature)');
+    if (isMounted.current) {
+      setTeamActiveChallenges([]);
+    }
+  }, []);
+
   useEffect(() => {
     loadActiveChallenge();
     loadUnclaimedChallenges();
     loadTeamChallenges();
-  }, []);
+  }, [loadActiveChallenge, loadUnclaimedChallenges, loadTeamChallenges]);
 
   // ✅ Request HealthKit permission gdy plugin zgłosi gotowość
   useEffect(() => {
@@ -92,6 +157,8 @@ export function HomeScreen() {
           
           // Get total steps since challenge started
           const steps = await getSteps(startDate, now);
+          if (!isMounted.current) return;
+
           console.log(`📊 [HomeScreen] Steps for challenge "${activeUserChallenge.admin_challenge?.title}": ${steps}`);
           
           // Only update if steps have increased
@@ -101,18 +168,20 @@ export function HomeScreen() {
             // Update DB
             await updateChallengeProgress(activeUserChallenge.id, steps);
             
-            // Update local store
-            setActiveChallenge({
-              ...activeUserChallenge,
-              current_steps: steps
-            });
-            
-            // Check for completion
-            if (activeUserChallenge.admin_challenge?.goal_steps && steps >= activeUserChallenge.admin_challenge.goal_steps) {
-               console.log('🎉 [HomeScreen] Challenge completed via HealthKit sync!');
-               // Reload to trigger completion logic/modal
-               loadActiveChallenge();
-               loadUnclaimedChallenges();
+            if (isMounted.current) {
+              // Update local store
+              setActiveChallenge({
+                ...activeUserChallenge,
+                current_steps: steps
+              });
+              
+              // Check for completion
+              if (activeUserChallenge.admin_challenge?.goal_steps && steps >= activeUserChallenge.admin_challenge.goal_steps) {
+                 console.log('🎉 [HomeScreen] Challenge completed via HealthKit sync!');
+                 // Reload to trigger completion logic/modal
+                 loadActiveChallenge();
+                 loadUnclaimedChallenges();
+              }
             }
           }
         } catch (error) {
@@ -129,100 +198,45 @@ export function HomeScreen() {
     }
   }, [isNative, healthKitAuthorized, activeUserChallenge?.id, getSteps]);
 
-  // Load team members for basic/pro (authenticated) users only
+  // Load team members for signed-in users only
   useEffect(() => {
     const load = async () => {
       if (!userProfile || userProfile.is_guest) {
-        setTeamMembers([]);
+        if (isMounted.current) setTeamMembers([]);
         return;
       }
 
       try {
         const members = await teamService.getTeamMembers();
-        setTeamMembers(members || []);
+        if (isMounted.current) setTeamMembers(members || []);
       } catch (e) {
         console.error('❌ [HomeScreen] Failed to load team members:', e);
-        setTeamMembers([]);
+        if (isMounted.current) setTeamMembers([]);
       }
     };
 
     load();
   }, [userProfile?.id, userProfile?.is_guest]);
 
-  // Load progress for challenges YOU sent (basic/pro only)
+  // Load progress for challenges you sent (signed-in users only)
   useEffect(() => {
     const load = async () => {
       if (!userProfile || userProfile.is_guest) {
-        setSentAssignments([]);
+        if (isMounted.current) setSentAssignments([]);
         return;
       }
 
       try {
         const data = await getChallengeAssignmentsWithProgress();
-        setSentAssignments(data || []);
+        if (isMounted.current) setSentAssignments(data || []);
       } catch (e) {
         console.error('❌ [HomeScreen] Failed to load sent assignments progress:', e);
-        setSentAssignments([]);
+        if (isMounted.current) setSentAssignments([]);
       }
     };
 
     load();
   }, [userProfile?.id, userProfile?.is_guest]);
-
-  const loadActiveChallenge = async () => {
-    try {
-      const activeChallenge = await getActiveUserChallenge();
-      if (activeChallenge) {
-        setActiveChallenge(activeChallenge);
-        console.log('✅ [HomeScreen] Loaded active challenge:', activeChallenge.admin_challenge?.title);
-      }
-    } catch (err) {
-      console.error('Failed to load active challenge:', err);
-    }
-  };
-
-  const loadUnclaimedChallenges = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const deviceId = getDeviceId();
-      
-      if (!user) {
-        console.log('No authenticated user');
-        return;
-      }
-      
-      const { data, error } = await supabase
-        .from('user_challenges')
-        .select(`
-          *,
-          admin_challenge:admin_challenges(*)
-        `)
-        .eq('status', 'active')
-        .or(`user_id.eq.${user.id},device_id.eq.${deviceId}`)
-        .order('started_at', { ascending: false });
-      
-      if (error) {
-        console.error('Failed to load challenges:', error);
-        return;
-      }
-      
-      const completed = (data || []).filter(challenge => {
-        const goalSteps = challenge.admin_challenge?.goal_steps || 0;
-        const currentSteps = challenge.current_steps || 0;
-        return currentSteps >= goalSteps && goalSteps > 0;
-      });
-      
-      setUnclaimedChallenges(completed);
-      console.log('✅ [HomeScreen] Loaded unclaimed challenges (at 100%):', completed.length);
-    } catch (err) {
-      console.error('Failed to load unclaimed challenges:', err);
-    }
-  };
-
-  const loadTeamChallenges = async () => {
-    console.log('👤 [HomeScreen] Team challenges disabled (Stage 2 feature)');
-    setTeamActiveChallenges([]);
-  };
 
   const handleClaimSuccess = () => {
     setSelectedCompletedChallenge(null);
@@ -326,7 +340,7 @@ export function HomeScreen() {
         
         <CompletedChallengesList
           challenges={unclaimedChallenges}
-          userTier={userTier}
+          isGuest={userProfile?.is_guest || false}
           onChallengeClick={setSelectedCompletedChallenge}
         />
 
@@ -353,7 +367,7 @@ export function HomeScreen() {
 
         <PausedChallengesGrid
           challenges={pausedChallenges}
-          userTier={userTier}
+          isGuest={userProfile?.is_guest || false}
           onResumeChallenge={handleResumeChallenge}
           formatActiveTime={formatChallengeActiveTime}
           calculateProgress={calculateProgressForChallenge}

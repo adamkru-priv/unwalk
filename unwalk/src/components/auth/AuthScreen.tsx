@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { authService } from '../../lib/auth';
 
 interface AuthScreenProps {
@@ -15,6 +15,13 @@ export function AuthScreen({ onSuccess }: AuthScreenProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   const handleSubmitEmail = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,20 +45,28 @@ export function AuthScreen({ onSuccess }: AuthScreenProps) {
         const { error } = await authService.signInWithMagicLink(email);
         if (error) throw error;
 
-        setSuccess('✉️ Check your email! We sent you a magic link.');
-        setMode('otp-sent');
+        if (isMounted.current) {
+          setSuccess('✉️ Check your email! We sent you a magic link.');
+          setMode('otp-sent');
+        }
       } else {
         // Send OTP
         const { error } = await authService.signInWithOTP(email);
         if (error) throw error;
 
-        setSuccess('🔢 Check your email! We sent you a 6-digit code.');
-        setMode('verify-otp');
+        if (isMounted.current) {
+          setSuccess('🔢 Check your email! We sent you a 6-digit code.');
+          setMode('verify-otp');
+        }
       }
     } catch (err: any) {
-      setError(err.message || 'Something went wrong');
+      if (isMounted.current) {
+        setError(err.message || 'Something went wrong');
+      }
     } finally {
-      setLoading(false);
+      if (isMounted.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -69,15 +84,23 @@ export function AuthScreen({ onSuccess }: AuthScreenProps) {
       if (error) throw error;
 
       if (session) {
-        setSuccess('✅ Welcome! Redirecting...');
-        setTimeout(() => {
-          onSuccess();
-        }, 1000);
+        if (isMounted.current) {
+          setSuccess('✅ Welcome! Redirecting...');
+          setTimeout(() => {
+            if (isMounted.current) {
+              onSuccess();
+            }
+          }, 1000);
+        }
       }
     } catch (err: any) {
-      setError(err.message || 'Invalid code. Please try again.');
+      if (isMounted.current) {
+        setError(err.message || 'Invalid code. Please try again.');
+      }
     } finally {
-      setLoading(false);
+      if (isMounted.current) {
+        setLoading(false);
+      }
     }
   };
 

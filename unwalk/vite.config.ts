@@ -1,30 +1,47 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+import type { IncomingMessage, ServerResponse } from 'node:http'
 
-// https://vite.dev/config/
-export default defineConfig({
-  plugins: [react()],
+const redirectAppIndexPlugin = (): Plugin => ({
+  name: 'redirect-app-index',
+  apply: 'serve',
+  configureServer(server) {
+    server.middlewares.use(
+      (
+        req: IncomingMessage,
+        res: ServerResponse,
+        next: (err?: any) => void
+      ) => {
+        const url = req.url || '';
+        if (url === '/app/' || url === '/app') {
+          res.statusCode = 302;
+          res.setHeader('Location', '/app/app.html');
+          res.end();
+          return;
+        }
+        next();
+      }
+    );
+  },
+});
+
+export default defineConfig(({ command }) => ({
+  plugins: [redirectAppIndexPlugin(), react()],
   server: {
     port: 3000,
     open: true,
   },
-  // The marketing/landing page will be served from / (root).
-  // The SPA will be built and served from /app.
-  base: '/app/',
+  // Dev: serve from / so Vite doesn't rewrite every HTML request to index.html.
+  // Build: keep /app/ so production assets resolve under /app/.
+  base: command === 'serve' ? '/' : '/app/',
   build: {
     rollupOptions: {
-      // Multi-page build: root LP + app SPA entry
       input: {
-        // Root landing page
         index: 'index.html',
-        // SPA entry (served at /app)
         app: 'app/index.html',
-        // SPA entry for web (served at /app/app.html)
         spa: 'app/app.html',
       },
-      // This is a local/native-only Capacitor plugin. It won't exist in the web
-      // bundle, so we externalize it to avoid Rollup resolution errors on Vercel.
       external: ['capacitor-movee-healthkit'],
     },
   },
-})
+}));

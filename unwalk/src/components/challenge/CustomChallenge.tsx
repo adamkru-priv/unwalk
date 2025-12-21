@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useChallengeStore } from '../../stores/useChallengeStore';
 import { createCustomChallenge, uploadChallengeImage, getMyCustomChallenges, deleteCustomChallenge, startChallenge, updateCustomChallenge } from '../../lib/api';
@@ -39,6 +39,13 @@ export function CustomChallenge() {
   const [assigningChallenge, setAssigningChallenge] = useState<AdminChallenge | null>(null);
   const [assignModalTo, setAssignModalTo] = useState<'myself' | 'person'>('person');
   const [assignModalSelected, setAssignModalSelected] = useState<string[]>([]);
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   const goalStepPresets = [1000, 5000, 10000, 15000, 25000, 50000];
   const timePresets = [
@@ -62,10 +69,10 @@ export function CustomChallenge() {
       }
       try {
         const members = await teamService.getTeamMembers();
-        setTeamMembers(members || []);
+        if (isMounted.current) setTeamMembers(members || []);
       } catch (e) {
         console.error('❌ [CustomChallenge] Failed to load team members:', e);
-        setTeamMembers([]);
+        if (isMounted.current) setTeamMembers([]);
       }
     };
 
@@ -75,7 +82,7 @@ export function CustomChallenge() {
   const loadMyCustomChallenges = async () => {
     try {
       const data = await getMyCustomChallenges();
-      setMyCustomChallenges(data);
+      if (isMounted.current) setMyCustomChallenges(data);
     } catch (err) {
       console.error('Failed to load custom challenges:', err);
     }
@@ -138,13 +145,17 @@ export function CustomChallenge() {
         deadline,
       });
 
-      setCreatedChallengeId(challenge.id);
-      setCreateStep('assign');
-      setLoading(false);
+      if (isMounted.current) {
+        setCreatedChallengeId(challenge.id);
+        setCreateStep('assign');
+        setLoading(false);
+      }
     } catch (err) {
       console.error('Failed to create challenge:', err);
-      setError('Failed to create challenge. Please try again.');
-      setLoading(false);
+      if (isMounted.current) {
+        setError('Failed to create challenge. Please try again.');
+        setLoading(false);
+      }
     }
   };
 
@@ -158,8 +169,10 @@ export function CustomChallenge() {
       if (assignTo === 'myself') {
         // Start the newly created challenge for the current user immediately
         const userChallenge = await startChallenge(createdChallengeId);
-        setActiveChallenge(userChallenge);
-        setCurrentScreen('dashboard');
+        if (isMounted.current) {
+          setActiveChallenge(userChallenge);
+          setCurrentScreen('dashboard');
+        }
         return;
       }
 
@@ -168,29 +181,31 @@ export function CustomChallenge() {
         await teamService.assignChallenge(selectedMembers[0], createdChallengeId);
       }
 
-      // Reset form
-      setTitle('');
-      setDescription('');
-      setGoalSteps(10000);
-      setImageFile(null);
-      setImagePreview(null);
-      setIsImageHidden(true);
-      setHasDeadline(false);
-      setDeadlineDays(7);
-      setDeadlineHours(0);
-      setDeadlineMinutes(0);
-      setAssignTo('myself');
-      setSelectedMembers([]);
-      setCreatedChallengeId(null);
-      setCreateStep('form');
+      if (isMounted.current) {
+        // Reset form
+        setTitle('');
+        setDescription('');
+        setGoalSteps(10000);
+        setImageFile(null);
+        setImagePreview(null);
+        setIsImageHidden(true);
+        setHasDeadline(false);
+        setDeadlineDays(7);
+        setDeadlineHours(0);
+        setDeadlineMinutes(0);
+        setAssignTo('myself');
+        setSelectedMembers([]);
+        setCreatedChallengeId(null);
+        setCreateStep('form');
 
-      // Go back to home
-      setCurrentScreen('home');
+        // Go back to home
+        setCurrentScreen('home');
+      }
     } catch (err) {
       console.error('Failed to assign challenge:', err);
-      setError('Failed to assign challenge. Please try again.');
+      if (isMounted.current) setError('Failed to assign challenge. Please try again.');
     } finally {
-      setLoading(false);
+      if (isMounted.current) setLoading(false);
     }
   };
 
@@ -202,11 +217,13 @@ export function CustomChallenge() {
 
     try {
       const userChallenge = await startChallenge(challengeId);
-      setActiveChallenge(userChallenge);
-      setCurrentScreen('dashboard');
+      if (isMounted.current) {
+        setActiveChallenge(userChallenge);
+        setCurrentScreen('dashboard');
+      }
     } catch (err) {
       console.error('Failed to start challenge:', err);
-      setError('Failed to start challenge. Please try again.');
+      if (isMounted.current) setError('Failed to start challenge. Please try again.');
     }
   };
 
@@ -214,10 +231,10 @@ export function CustomChallenge() {
     if (confirm(`Are you sure you want to delete "${title}"? This cannot be undone.`)) {
       try {
         await deleteCustomChallenge(challengeId);
-        loadMyCustomChallenges(); // Refresh list
+        if (isMounted.current) loadMyCustomChallenges(); // Refresh list
       } catch (err) {
         console.error('Failed to delete challenge:', err);
-        setError('Failed to delete challenge. Please try again.');
+        if (isMounted.current) setError('Failed to delete challenge. Please try again.');
       }
     }
   };
@@ -264,20 +281,24 @@ export function CustomChallenge() {
         deadline,
       });
 
-      // Update local list immediately
-      setMyCustomChallenges((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+      if (isMounted.current) {
+        // Update local list immediately
+        setMyCustomChallenges((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
 
-      setLoading(false);
-      setViewMode('list');
-      setEditingChallenge(null);
-      // clear file selection
-      setImageFile(null);
-      // keep preview as the saved url
-      setImagePreview(updated.image_url);
+        setLoading(false);
+        setViewMode('list');
+        setEditingChallenge(null);
+        // clear file selection
+        setImageFile(null);
+        // keep preview as the saved url
+        setImagePreview(updated.image_url);
+      }
     } catch (err) {
       console.error('Failed to update challenge:', err);
-      setError('Failed to update challenge. Please try again.');
-      setLoading(false);
+      if (isMounted.current) {
+        setError('Failed to update challenge. Please try again.');
+        setLoading(false);
+      }
     }
   };
 
@@ -304,7 +325,7 @@ export function CustomChallenge() {
 
       if (assignModalTo === 'myself') {
         await handleStartCustomChallenge(assigningChallenge.id);
-        closeAssignModal();
+        if (isMounted.current) closeAssignModal();
         return;
       }
 
@@ -315,12 +336,12 @@ export function CustomChallenge() {
       }
       await teamService.assignChallenge(memberId, assigningChallenge.id);
 
-      closeAssignModal();
+      if (isMounted.current) closeAssignModal();
     } catch (e) {
       console.error('❌ [CustomChallenge] Failed to assign existing custom challenge:', e);
-      setError('Failed to assign challenge. Please try again.');
+      if (isMounted.current) setError('Failed to assign challenge. Please try again.');
     } finally {
-      setLoading(false);
+      if (isMounted.current) setLoading(false);
     }
   };
 

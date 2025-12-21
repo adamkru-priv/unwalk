@@ -8,7 +8,7 @@ export interface UserProfile {
   display_name: string | null;
   avatar_url: string | null;
   daily_step_goal: number;
-  tier: 'basic' | 'pro';
+  tier: 'pro';
   onboarding_completed: boolean;
   onboarding_target?: 'self' | 'spouse' | 'child' | 'friend' | null;
   is_guest: boolean;
@@ -46,7 +46,7 @@ export interface TeamMember {
   email: string;
   display_name: string | null;
   avatar_url: string | null;
-  tier: 'basic' | 'pro';
+  tier: 'pro';
   added_at: string;
   active_challenges_count: number;
 }
@@ -173,17 +173,23 @@ class AuthService {
   }
 
   /**
-   * Sign in with OTP (6-digit code)
+   * Sign in with OTP (email code)
+   *
+   * IMPORTANT: This only works if "Email OTP" is enabled in Supabase Auth settings.
+   * If the project is configured for magic links, Supabase will send mail_type: magic_link.
    */
   async signInWithOTP(email: string): Promise<{ error: Error | null }> {
     try {
       const { error } = await supabase.auth.signInWithOtp({
         email,
+        options: {
+          shouldCreateUser: true,
+        },
       });
 
       if (error) throw error;
 
-      console.log('🔢 [Auth] OTP sent to:', email);
+      console.log('🔢 [Auth] OTP requested for:', email);
       return { error: null };
     } catch (error) {
       console.error('❌ [Auth] OTP error:', error);
@@ -246,7 +252,7 @@ class AuthService {
               email: email,
               display_name: email.split('@')[0],
               is_guest: false,
-              tier: 'basic', // New authenticated users start on basic
+              tier: 'pro', // New authenticated users start on pro
               daily_step_goal: 10000,
               onboarding_completed: true,
             });
@@ -297,6 +303,29 @@ class AuthService {
       return { error: null };
     } catch (error) {
       console.error('❌ [Auth] Apple sign-in error:', error);
+      return { error: error as Error };
+    }
+  }
+
+  /**
+   * Sign in with Google (OAuth)
+   */
+  async signInWithGoogle(): Promise<{ error: Error | null }> {
+    try {
+      // Use the same hosted callback page as Apple.
+      const redirectTo = 'https://movee.one/auth/callback';
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+        },
+      });
+
+      if (error) throw error;
+      return { error: null };
+    } catch (error) {
+      console.error('❌ [Auth] Google sign-in error:', error);
       return { error: error as Error };
     }
   }
@@ -405,7 +434,7 @@ class AuthService {
               email,
               display_name: displayName,
               is_guest: false,
-              tier: 'basic',
+              tier: 'pro',
               daily_step_goal: 10000,
               onboarding_completed: true,
             })

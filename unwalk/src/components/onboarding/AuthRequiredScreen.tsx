@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { authService } from '../../lib/auth';
 import { useChallengeStore } from '../../stores/useChallengeStore';
@@ -11,6 +11,13 @@ export const AuthRequiredScreen = () => {
   const [isLoading, setIsLoading] = useState(false);
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
   const addToast = useToastStore((s) => s.addToast);
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   const handleSendOTP = async () => {
     if (!email || !email.includes('@')) {
@@ -23,16 +30,24 @@ export const AuthRequiredScreen = () => {
       const { error } = await authService.signInWithOTP(email);
       
       if (error) {
-        addToast({ message: 'Failed to send code. Please try again.', type: 'error' });
+        if (isMounted.current) {
+          addToast({ message: 'Failed to send code. Please try again.', type: 'error' });
+        }
         return;
       }
 
-      addToast({ message: 'Code sent! Check your email.', type: 'success' });
-      setStep('otp');
+      if (isMounted.current) {
+        addToast({ message: 'Code sent! Check your email.', type: 'success' });
+        setStep('otp');
+      }
     } catch (error) {
-      addToast({ message: 'Something went wrong. Please try again.', type: 'error' });
+      if (isMounted.current) {
+        addToast({ message: 'Something went wrong. Please try again.', type: 'error' });
+      }
     } finally {
-      setIsLoading(false);
+      if (isMounted.current) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -47,21 +62,29 @@ export const AuthRequiredScreen = () => {
       const { session, error } = await authService.verifyOTP(email, otp);
       
       if (error || !session) {
-        addToast({ message: 'Invalid code. Please try again.', type: 'error' });
+        if (isMounted.current) {
+          addToast({ message: 'Invalid code. Please try again.', type: 'error' });
+        }
         return;
       }
 
       // Convert guest to authenticated user if needed
       await authService.convertGuestToUser();
       
-      addToast({ message: 'Welcome! 🎉', type: 'success' });
-      
-      // User is now authenticated, can proceed to home
-      setCurrentScreen('home');
+      if (isMounted.current) {
+        addToast({ message: 'Welcome! 🎉', type: 'success' });
+        
+        // User is now authenticated, can proceed to home
+        setCurrentScreen('home');
+      }
     } catch (error) {
-      addToast({ message: 'Something went wrong. Please try again.', type: 'error' });
+      if (isMounted.current) {
+        addToast({ message: 'Something went wrong. Please try again.', type: 'error' });
+      }
     } finally {
-      setIsLoading(false);
+      if (isMounted.current) {
+        setIsLoading(false);
+      }
     }
   };
 

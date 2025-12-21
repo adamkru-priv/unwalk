@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { teamService, type TeamMember } from '../../lib/auth';
 
 interface EditMemberModalProps {
@@ -23,6 +23,13 @@ export function EditMemberModal({ member, onClose, onSaved }: EditMemberModalPro
   const [relationship, setRelationship] = useState(member.relationship || '');
   const [notes, setNotes] = useState(member.notes || '');
   const [saving, setSaving] = useState(false);
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   const handleSave = async () => {
     try {
@@ -35,13 +42,17 @@ export function EditMemberModal({ member, onClose, onSaved }: EditMemberModalPro
 
       if (error) throw error;
 
-      onSaved();
-      onClose();
+      if (isMounted.current) {
+        onSaved();
+        onClose();
+      }
     } catch (err) {
       console.error('Failed to update member:', err);
       alert('Failed to update. Please try again.');
     } finally {
-      setSaving(false);
+      if (isMounted.current) {
+        setSaving(false);
+      }
     }
   };
 

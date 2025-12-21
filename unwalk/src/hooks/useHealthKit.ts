@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { healthKitService } from '../services/healthKit.native';
 import { useChallengeStore } from '../stores/useChallengeStore';
@@ -10,35 +10,47 @@ export function useHealthKit() {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [todaySteps, setTodaySteps] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     (async () => {
       const available = await healthKitService.isAvailable();
+      if (!isMounted.current) return;
       setIsAvailable(available);
 
       // If available, attempt authorization once so we can persist a meaningful "connected" flag.
       if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios' && available) {
         const granted = await healthKitService.requestAuthorization();
+        if (!isMounted.current) return;
         setIsAuthorized(granted);
         setHealthConnected(granted);
       } else {
-        setHealthConnected(false);
+        if (isMounted.current) setHealthConnected(false);
       }
     })();
   }, [setHealthConnected]);
 
   const requestPermission = useCallback(async (): Promise<boolean> => {
-    setIsLoading(true);
+    if (isMounted.current) setIsLoading(true);
     try {
       const granted = await healthKitService.requestAuthorization();
-      setIsAuthorized(granted);
-      setHealthConnected(granted);
+      if (isMounted.current) {
+        setIsAuthorized(granted);
+        setHealthConnected(granted);
+      }
       if (granted) {
         await syncSteps();
       }
       return granted;
     } finally {
-      setIsLoading(false);
+      if (isMounted.current) setIsLoading(false);
     }
   }, [setHealthConnected]);
 
@@ -48,13 +60,13 @@ export function useHealthKit() {
       if (!granted) return 0;
     }
 
-    setIsLoading(true);
+    if (isMounted.current) setIsLoading(true);
     try {
       const steps = await healthKitService.getTodaySteps();
-      setTodaySteps(steps);
+      if (isMounted.current) setTodaySteps(steps);
       return steps;
     } finally {
-      setIsLoading(false);
+      if (isMounted.current) setIsLoading(false);
     }
   }, [isAuthorized, isAvailable, requestPermission]);
 

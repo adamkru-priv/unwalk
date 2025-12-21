@@ -1,6 +1,6 @@
 import { BottomNavigation } from '../common/BottomNavigation';
 import { AppHeader } from '../common/AppHeader';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { getCompletedChallenges } from '../../lib/api';
 import type { UserChallenge } from '../../types';
 import { useChallengeStore } from '../../stores/useChallengeStore';
@@ -15,16 +15,19 @@ export function StatsScreen({ embedded = false }: StatsScreenProps) {
   const [loading, setLoading] = useState(true);
   const [selectedChallenge, setSelectedChallenge] = useState<UserChallenge | null>(null);
   const [showAllHistory, setShowAllHistory] = useState(false);
-  const userTier = useChallengeStore((s) => s.userTier);
   const userProfile = useChallengeStore((s) => s.userProfile);
+  const isGuest = userProfile?.is_guest ?? true;
+  const isMounted = useRef(true);
 
   useEffect(() => {
-    loadCompletedChallenges();
+    return () => {
+      isMounted.current = false;
+    };
   }, []);
 
-  const loadCompletedChallenges = async () => {
+  const loadCompletedChallenges = useCallback(async () => {
     try {
-      setLoading(true);
+      if (isMounted.current) setLoading(true);
 
       // Create a timeout promise
       const timeoutPromise = new Promise((_, reject) =>
@@ -36,14 +39,20 @@ export function StatsScreen({ embedded = false }: StatsScreenProps) {
         timeoutPromise,
       ])) as UserChallenge[];
 
-      setCompletedChallenges(challenges);
-      console.log('✅ [StatsScreen] Loaded completed challenges:', challenges.length);
+      if (isMounted.current) {
+        setCompletedChallenges(challenges);
+        console.log('✅ [StatsScreen] Loaded completed challenges:', challenges.length);
+      }
     } catch (error) {
       console.error('Failed to load completed challenges:', error);
     } finally {
-      setLoading(false);
+      if (isMounted.current) setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadCompletedChallenges();
+  }, [loadCompletedChallenges]);
 
   const visibleChallenges = useMemo(() => {
     if (showAllHistory) return completedChallenges;
@@ -124,7 +133,7 @@ export function StatsScreen({ embedded = false }: StatsScreenProps) {
         <section className="bg-white dark:bg-[#151A25] border border-gray-200 dark:border-white/5 rounded-2xl p-5">
           <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
             <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
             <span>Your Stats</span>
             {firstChallengeDate && (
@@ -161,8 +170,8 @@ export function StatsScreen({ embedded = false }: StatsScreenProps) {
             </div>
           </div>
 
-          {/* Points for Pro users */}
-          {userTier === 'pro' && totalPoints > 0 && (
+          {/* Points for signed-in users */}
+          {!isGuest && totalPoints > 0 && (
             <div className="mt-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border border-amber-300 dark:border-amber-500/30 rounded-xl p-3 text-center">
               <div className="text-xl font-extrabold text-amber-900 dark:text-amber-400 mb-0.5">
                 {totalPoints} Points
@@ -271,7 +280,7 @@ export function StatsScreen({ embedded = false }: StatsScreenProps) {
                             CUSTOM
                           </span>
                         )}
-                        {!challenge.admin_challenge?.is_custom && userTier === 'pro' && (
+                        {!challenge.admin_challenge?.is_custom && !isGuest && (
                           <span className="bg-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30">
                             +{(() => {
                               const goalSteps = challenge.admin_challenge?.goal_steps || 0;

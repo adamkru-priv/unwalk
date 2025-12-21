@@ -4,7 +4,7 @@ import { teamService, type TeamMember } from '../../lib/auth';
 import { useChallengeStore } from '../../stores/useChallengeStore';
 import { getInitials, getColorFromName } from './utils';
 import { EditMemberModal } from './EditMemberModal';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 interface MemberDetailProps {
   member: TeamMember;
@@ -16,6 +16,13 @@ export function MemberDetail({ member, onBack, onRemoved }: MemberDetailProps) {
   const setCurrentScreen = useChallengeStore((state) => state.setCurrentScreen);
   const [showEditModal, setShowEditModal] = useState(false);
   const [currentMember, setCurrentMember] = useState(member);
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   const handleRemoveMember = async () => {
     const displayName = currentMember.custom_name || currentMember.display_name || 'this member';
@@ -24,7 +31,9 @@ export function MemberDetail({ member, onBack, onRemoved }: MemberDetailProps) {
     try {
       const { error } = await teamService.removeMember(currentMember.member_id);
       if (error) throw error;
-      onRemoved();
+      if (isMounted.current) {
+        onRemoved();
+      }
     } catch (err) {
       console.error('Failed to remove member:', err);
       alert('Failed to remove team member. Please try again.');
@@ -35,9 +44,11 @@ export function MemberDetail({ member, onBack, onRemoved }: MemberDetailProps) {
     // Reload member data
     try {
       const members = await teamService.getTeamMembers();
-      const updated = members.find(m => m.id === currentMember.id);
-      if (updated) {
-        setCurrentMember(updated);
+      if (isMounted.current) {
+        const updated = members.find(m => m.id === currentMember.id);
+        if (updated) {
+          setCurrentMember(updated);
+        }
       }
     } catch (err) {
       console.error('Failed to reload member:', err);

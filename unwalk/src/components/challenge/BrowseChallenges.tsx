@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import type { AdminChallenge } from '../../types';
 import { getAdminChallenges, startChallenge, getCompletedChallenges, calculateChallengePoints } from '../../lib/api';
@@ -25,35 +25,39 @@ export function BrowseChallenges() {
   } = useChallengeStore();
   const userProfile = useChallengeStore((s) => s.userProfile);
   const isGuest = userProfile?.is_guest ?? false;
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   // Helper flag near other derived values
   const isSendToFlow = !!assignTarget?.id;
 
-  useEffect(() => {
-    loadChallenges();
-    loadCompletedChallenges();
-    loadDailyChallenge();
-    loadTeamMembers();
-  }, []);
-
-  const loadTeamMembers = async () => {
+  const loadTeamMembers = useCallback(async () => {
     try {
       const members = await teamService.getTeamMembers();
-      setTeamMembers(members);
+      if (isMounted.current) {
+        setTeamMembers(members);
+      }
     } catch (err) {
       console.error('Failed to load team members:', err);
     }
-  };
+  }, []);
 
-  const loadDailyChallenge = async () => {
+  const loadDailyChallenge = useCallback(async () => {
     try {
       const todaysChallenge = getDailyChallenge();
       if (todaysChallenge) {
-        setDailyChallenge(todaysChallenge);
+        if (isMounted.current) setDailyChallenge(todaysChallenge);
         return;
       }
 
       const allChallenges = await getAdminChallenges();
+      if (!isMounted.current) return;
+
       const dailyChallenges = allChallenges.filter(c => c.goal_steps === 10000);
       const randomChallenge = dailyChallenges.length > 0 
         ? dailyChallenges[Math.floor(Math.random() * dailyChallenges.length)]
@@ -61,43 +65,62 @@ export function BrowseChallenges() {
 
       if (randomChallenge) {
         saveDailyChallenge(randomChallenge);
-        setDailyChallenge(randomChallenge);
+        if (isMounted.current) setDailyChallenge(randomChallenge);
       }
     } catch (err) {
       console.error('Failed to load daily challenge:', err);
     }
-  };
+  }, [getDailyChallenge, saveDailyChallenge]);
 
-  const loadChallenges = async () => {
+  const loadChallenges = useCallback(async () => {
     try {
-      setLoading(true);
-      setError(null);
+      if (isMounted.current) {
+        setLoading(true);
+        setError(null);
+      }
       const allChallenges = await getAdminChallenges();
-      setChallenges(allChallenges);
+      if (isMounted.current) {
+        setChallenges(allChallenges);
+      }
     } catch (err) {
-      setError('Failed to load challenges. Please try again.');
+      if (isMounted.current) {
+        setError('Failed to load challenges. Please try again.');
+      }
       console.error('Error:', err);
     } finally {
-      setLoading(false);
+      if (isMounted.current) {
+        setLoading(false);
+      }
     }
-  };
+  }, []);
 
-  const loadCompletedChallenges = async () => {
+  const loadCompletedChallenges = useCallback(async () => {
     try {
       console.log('🔍 [BrowseChallenges] Loading completed challenges...');
       const completed = await getCompletedChallenges();
+      if (!isMounted.current) return;
+
       console.log('✅ [BrowseChallenges] Completed challenges:', completed.length, completed);
       const completedIds = new Set(
         completed
           .map(uc => uc.admin_challenge_id)
           .filter((id): id is string => id !== null && id !== undefined)
       );
-      setCompletedChallengeIds(completedIds);
-      console.log('📊 [BrowseChallenges] State updated - completedChallenges.length:', completed.length);
+      if (isMounted.current) {
+        setCompletedChallengeIds(completedIds);
+        console.log('📊 [BrowseChallenges] State updated - completedChallenges.length:', completed.length);
+      }
     } catch (err) {
       console.error('Failed to load completed challenges:', err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadChallenges();
+    loadCompletedChallenges();
+    loadDailyChallenge();
+    loadTeamMembers();
+  }, [loadChallenges, loadCompletedChallenges, loadDailyChallenge, loadTeamMembers]);
 
   const isChallengeCompleted = (challengeId: string) => {
     return completedChallengeIds.has(challengeId);
@@ -135,11 +158,15 @@ export function BrowseChallenges() {
     
     try {
       const userChallenge = await startChallenge(selectedChallenge.id);
-      setActiveChallenge(userChallenge);
-      setSelectedChallenge(null);
-      setCurrentScreen('home');
+      if (isMounted.current) {
+        setActiveChallenge(userChallenge);
+        setSelectedChallenge(null);
+        setCurrentScreen('home');
+      }
     } catch (err) {
-      setError('Failed to start challenge. Please try again.');
+      if (isMounted.current) {
+        setError('Failed to start challenge. Please try again.');
+      }
       console.error('Error starting challenge:', err);
     }
   };
@@ -148,18 +175,22 @@ export function BrowseChallenges() {
     if (!selectedChallenge) return;
 
     try {
-      setError(null);
+      if (isMounted.current) setError(null);
 
       const { error: assignError } = await teamService.assignChallenge(memberId, selectedChallenge.id);
       if (assignError) throw assignError;
 
-      const member = teamMembers.find((m) => m.member_id === memberId);
-      alert(`✅ Challenge "${selectedChallenge.title}" assigned to ${member?.display_name || member?.email}!`);
-      setSelectedChallenge(null);
-      if (assignTarget?.id === memberId) setAssignTarget(null);
+      if (isMounted.current) {
+        const member = teamMembers.find((m) => m.member_id === memberId);
+        alert(`✅ Challenge "${selectedChallenge.title}" assigned to ${member?.display_name || member?.email}!`);
+        setSelectedChallenge(null);
+        if (assignTarget?.id === memberId) setAssignTarget(null);
+      }
     } catch (err) {
       console.error('Failed to assign challenge:', err);
-      setError('Failed to assign challenge. Please try again.');
+      if (isMounted.current) {
+        setError('Failed to assign challenge. Please try again.');
+      }
     }
   };
 

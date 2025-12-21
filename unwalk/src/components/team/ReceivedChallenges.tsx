@@ -3,6 +3,7 @@ import { useChallengeStore } from '../../stores/useChallengeStore';
 import { getActiveUserChallenge } from '../../lib/api';
 import { getInitials, getColorFromName, formatDuration } from './utils';
 import { useToastStore } from '../../stores/useToastStore';
+import { useEffect, useRef } from 'react';
 
 interface ReceivedChallengesProps {
   challenges: ChallengeAssignment[];
@@ -12,15 +13,26 @@ interface ReceivedChallengesProps {
 export function ReceivedChallenges({ challenges, onRefresh }: ReceivedChallengesProps) {
   const setCurrentScreen = useChallengeStore((state) => state.setCurrentScreen);
   const toast = useToastStore();
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   const handleAcceptChallenge = async (assignmentId: string) => {
     try {
       const { error } = await teamService.acceptChallengeAssignment(assignmentId);
       if (error) throw error;
-      onRefresh();
+      if (isMounted.current) {
+        onRefresh();
+      }
     } catch (err: any) {
       console.error('Failed to accept challenge:', err);
-      alert('Failed to accept challenge. You might already have an active challenge.');
+      if (isMounted.current) {
+        alert('Failed to accept challenge. You might already have an active challenge.');
+      }
     }
   };
 
@@ -28,10 +40,14 @@ export function ReceivedChallenges({ challenges, onRefresh }: ReceivedChallenges
     try {
       const { error } = await teamService.rejectChallengeAssignment(assignmentId);
       if (error) throw error;
-      onRefresh();
+      if (isMounted.current) {
+        onRefresh();
+      }
     } catch (err: any) {
       console.error('Failed to reject challenge:', err);
-      alert('Failed to reject challenge. Please try again.');
+      if (isMounted.current) {
+        alert('Failed to reject challenge. Please try again.');
+      }
     }
   };
 
@@ -41,15 +57,19 @@ export function ReceivedChallenges({ challenges, onRefresh }: ReceivedChallenges
       if (error) throw error;
       
       const activeChallenge = await getActiveUserChallenge();
-      if (activeChallenge) {
-        useChallengeStore.getState().setActiveChallenge(activeChallenge);
+      if (isMounted.current) {
+        if (activeChallenge) {
+          useChallengeStore.getState().setActiveChallenge(activeChallenge);
+        }
+        
+        onRefresh();
+        setCurrentScreen('dashboard');
       }
-      
-      onRefresh();
-      setCurrentScreen('dashboard');
     } catch (err: any) {
       console.error('Failed to start challenge:', err);
-      alert(err.message || 'Failed to start challenge. You might already have an active challenge.');
+      if (isMounted.current) {
+        alert(err.message || 'Failed to start challenge. You might already have an active challenge.');
+      }
     }
   };
 
@@ -62,11 +82,15 @@ export function ReceivedChallenges({ challenges, onRefresh }: ReceivedChallenges
       const { error } = await teamService.declineChallenge(assignmentId);
       if (error) throw error;
       
-      toast.addToast({ message: 'Challenge declined', type: 'success' });
-      onRefresh();
+      if (isMounted.current) {
+        toast.addToast({ message: 'Challenge declined', type: 'success' });
+        onRefresh();
+      }
     } catch (err: any) {
       console.error('Failed to decline challenge:', err);
-      toast.addToast({ message: err.message || 'Failed to decline challenge', type: 'error' });
+      if (isMounted.current) {
+        toast.addToast({ message: err.message || 'Failed to decline challenge', type: 'error' });
+      }
     }
   };
 
@@ -328,6 +352,7 @@ export function ReceivedChallenges({ challenges, onRefresh }: ReceivedChallenges
                         </span>
                       </div>
                     </div>
+
                   </div>
 
                   {/* Challenge Details */}
