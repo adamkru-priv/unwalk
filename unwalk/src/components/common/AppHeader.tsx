@@ -153,13 +153,53 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
           {activeUserChallenge && (
             <button
               onClick={() => setCurrentScreen('dashboard')}
-              className="relative text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white transition-colors group"
+              className="relative group flex items-center"
               title="Active challenge in progress"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-              </svg>
-              <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></div>
+              {(() => {
+                const progress = activeUserChallenge.admin_challenge?.goal_steps 
+                  ? Math.min(100, Math.round((activeUserChallenge.current_steps / activeUserChallenge.admin_challenge.goal_steps) * 100))
+                  : 0;
+                
+                // Calculate circle progress (circumference = 2πr, for r=10: ~62.83)
+                const radius = 10;
+                const circumference = 2 * Math.PI * radius;
+                const strokeDashoffset = circumference - (progress / 100) * circumference;
+
+                return (
+                  <div className="relative w-7 h-7 flex items-center justify-center flex-shrink-0">
+                    {/* Background circle */}
+                    <svg className="absolute w-full h-full transform -rotate-90" viewBox="0 0 24 24">
+                      <circle
+                        cx="12"
+                        cy="12"
+                        r={radius}
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        className="text-gray-300 dark:text-gray-700"
+                      />
+                      {/* Progress circle with glow */}
+                      <circle
+                        cx="12"
+                        cy="12"
+                        r={radius}
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeDasharray={circumference}
+                        strokeDashoffset={strokeDashoffset}
+                        strokeLinecap="round"
+                        className="text-blue-500 dark:text-blue-400 transition-all duration-500 drop-shadow-[0_0_6px_rgba(59,130,246,0.6)]"
+                      />
+                    </svg>
+                    {/* Percentage number only */}
+                    <span className="relative z-10 text-[9px] font-medium text-gray-700 dark:text-white leading-none">
+                      {progress}
+                    </span>
+                  </div>
+                );
+              })()}
             </button>
           )}
 
@@ -192,38 +232,30 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
                 const suffix = suffixMatch?.[2]?.toUpperCase() ?? '';
 
                 return (
-                  <div className="flex items-center gap-2">
-                    {/* Avatar circle - gradient for Pro, gray for Guest */}
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                  <div className="flex items-center gap-1.5">
+                    {/* Profile icon instead of avatar circle */}
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
                       isGuest 
                         ? 'bg-gray-200 dark:bg-white/10' 
-                        : 'bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg shadow-amber-600/25'
+                        : 'bg-gradient-to-br from-amber-500 to-orange-600 shadow-md shadow-amber-600/20'
                     }`}>
-                      {initial ? (
-                        <span className={`text-xs font-bold ${
-                          isGuest 
-                            ? 'text-gray-800 dark:text-white' 
-                            : 'text-white'
-                        }`}>{initial}</span>
-                      ) : (
-                        <svg className={`w-4 h-4 ${
-                          isGuest 
-                            ? 'text-gray-600 dark:text-white/60' 
-                            : 'text-white'
-                        }`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      )}
+                      <svg className={`w-4 h-4 ${
+                        isGuest 
+                          ? 'text-gray-600 dark:text-white/60' 
+                          : 'text-white'
+                      }`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
                     </div>
 
-                    {/* Email/Name label */}
+                    {/* Email/Name label - max 6 chars */}
                     {isGuest ? (
-                      <span className="text-[11px] font-black tracking-[0.16em] uppercase text-gray-500 dark:text-white/45">
-                        {suffix ? `G-${suffix}` : 'Guest'}
+                      <span className="text-[10px] font-black tracking-[0.12em] uppercase text-gray-500 dark:text-white/45">
+                        {suffix ? `G-${suffix.slice(0, 3)}` : 'Guest'}
                       </span>
                     ) : (
-                      <span className="text-[11px] font-bold text-gray-700 dark:text-white/70 max-w-[120px] truncate">
-                        {userProfile?.email?.split('@')[0] || 'Pro'}
+                      <span className="text-[10px] font-bold text-gray-700 dark:text-white/70">
+                        {(userProfile?.email?.split('@')[0] || 'Pro').slice(0, 6)}
                       </span>
                     )}
                   </div>
