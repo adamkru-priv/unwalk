@@ -11,14 +11,6 @@ interface ProfileModalProps {
 
 export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const [completedChallenges, setCompletedChallenges] = useState<UserChallenge[]>([]);
-  const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
-  const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
-
-  useEffect(() => {
-    if (isOpen) {
-      loadCompletedChallenges();
-    }
-  }, [isOpen]);
 
   const loadCompletedChallenges = async () => {
     try {
@@ -28,6 +20,15 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
       console.error('Failed to load completed challenges:', err);
     }
   };
+
+  const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
+  const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadCompletedChallenges();
+    }
+  }, [isOpen]);
 
   const calculateDaysActive = () => {
     if (!activeUserChallenge?.started_at) return 0;

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useChallengeStore } from '../../stores/useChallengeStore';
 import { BottomNavigation } from '../common/BottomNavigation';
@@ -10,17 +10,9 @@ type ExploreMode = 'menu' | 'browse' | 'custom';
 
 export function ChallengeLibrary() {
   const [mode, setMode] = useState<ExploreMode>('menu'); // Start with menu view
-  const exploreResetTrigger = useChallengeStore((s) => s.exploreResetTrigger);
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
   const userProfile = useChallengeStore((s) => s.userProfile); // ✅ Read from store
   const isGuest = userProfile?.is_guest ?? false;
-
-  // Reset to menu whenever exploreResetTrigger changes
-  useEffect(() => {
-    if (exploreResetTrigger > 0) {
-      setMode('menu'); // Reset to menu, not browse
-    }
-  }, [exploreResetTrigger]);
 
   const handleCustomClick = () => {
     if (isGuest) {

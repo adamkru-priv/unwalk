@@ -1,8 +1,9 @@
 import { useChallengeStore } from '../../stores/useChallengeStore';
 import { useToastStore } from '../../stores/useToastStore';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { teamService, type TeamInvitation } from '../../lib/auth';
 import { getUnclaimedChallenges } from '../../lib/api';
+import type { UserChallenge } from '../../types';
 
 interface AppHeaderProps {
   title?: string;
@@ -12,25 +13,17 @@ interface AppHeaderProps {
 
 export function AppHeader({ title, subtitle }: AppHeaderProps) {
   const [receivedInvitations, setReceivedInvitations] = useState<TeamInvitation[]>([]);
-  const [unclaimedChallenges, setUnclaimedChallenges] = useState<any[]>([]);
+  const [unclaimedChallenges, setUnclaimedChallenges] = useState<UserChallenge[]>([]);
   const [pendingChallengesCount, setPendingChallengesCount] = useState(0);
   const [notificationCount, setNotificationCount] = useState(0);
   
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
-  const userProfile = useChallengeStore((s) => s.userProfile); // ✅ Read from store instead of loading
+  const userProfile = useChallengeStore((s) => s.userProfile);
   const currentScreen = useChallengeStore((s) => s.currentScreen);
   const previousScreen = useChallengeStore((s) => s.previousScreen);
 
-  useEffect(() => {
-    loadNotifications();
-    
-    // Refresh notifications every 30 seconds
-    const interval = setInterval(loadNotifications, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     try {
       // Load pending team invitations
       const invitations = await teamService.getReceivedInvitations();
@@ -51,7 +44,15 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
     } catch (err) {
       console.error('Failed to load notifications:', err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    void loadNotifications();
+    
+    // Refresh notifications every 30 seconds
+    const interval = setInterval(() => void loadNotifications(), 30000);
+    return () => clearInterval(interval);
+  }, [loadNotifications]);
 
   const handleNotificationClick = async () => {
     const addToast = useToastStore.getState().addToast;
@@ -224,7 +225,7 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
               </svg>
             ) : (
               (() => {
-                const name = (userProfile as any)?.display_name || (userProfile as any)?.full_name || (userProfile as any)?.email || '';
+                const name = userProfile?.display_name || userProfile?.email || '';
 
                 // Extract a stable suffix from common guest names like "Guest_1234".
                 const suffixMatch = typeof name === 'string' ? /(guest[_-]?)(\w{3,8})/i.exec(name) : null;

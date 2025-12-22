@@ -130,7 +130,7 @@ function App() {
         const profile = await Promise.race([
           authService.getUserProfile(),
           timeoutPromise
-        ]) as any;
+        ]) as Awaited<ReturnType<typeof authService.getUserProfile>>;
         
         if (!profile) {
           console.log('⚠️ [App] No profile found for authenticated user');
@@ -275,6 +275,136 @@ function App() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [setActiveChallenge, setPausedChallenges, setUserTier, setDailyStepGoal, setUserProfile, setIsAppReady]); // ✅ REMOVED userProfile - fixes infinite loop!
+
+  // ✅ Handle deep links (invitations, etc.)
+  useEffect(() => {
+    const handleDeepLink = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const action = urlParams.get('action');
+      const invitationId = urlParams.get('id');
+
+      if (action === 'accept_invitation' && invitationId) {
+        console.log('🔗 [App] Deep link detected: accept_invitation', invitationId);
+
+        // Check if user is authenticated
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session?.user?.id) {
+          // User not logged in - save invitation ID and show onboarding
+          console.log('👤 [App] User not logged in - saving invitation for later');
+          localStorage.setItem('pending_invitation', invitationId);
+          
+          // Clear URL params
+          window.history.replaceState({}, '', '/app');
+          
+          // Show onboarding if needed
+          if (!isOnboardingComplete) {
+            console.log('📋 [App] Showing onboarding first');
+            return;
+          }
+          
+          addToast({ 
+            message: 'Please sign in to accept the team invitation', 
+            type: 'info',
+            duration: 5000
+          });
+          return;
+        }
+
+        // User is logged in - accept invitation
+        console.log('✅ [App] User is logged in - accepting invitation');
+        
+        try {
+          const { teamService } = await import('./lib/auth');
+          const { error } = await teamService.acceptInvitation(invitationId);
+          
+          if (error) {
+            console.error('❌ [App] Failed to accept invitation:', error);
+            addToast({ 
+              message: 'Failed to accept invitation: ' + error.message, 
+              type: 'error' 
+            });
+          } else {
+            console.log('🎉 [App] Invitation accepted!');
+            addToast({ 
+              message: 'Team invitation accepted! 🎉', 
+              type: 'success' 
+            });
+            
+            // Navigate to team screen
+            useChallengeStore.setState({ currentScreen: 'team' });
+          }
+        } catch (error) {
+          console.error('❌ [App] Error accepting invitation:', error);
+          addToast({ 
+            message: 'Failed to accept invitation', 
+            type: 'error' 
+          });
+        }
+        
+        // Clear URL params
+        window.history.replaceState({}, '', '/app');
+      }
+    };
+
+    // Run on mount and when app becomes ready
+    if (isAppReady) {
+      handleDeepLink();
+    }
+  }, [isAppReady, isOnboardingComplete, addToast]);
+
+  // ✅ Check for pending invitation after user signs in
+  useEffect(() => {
+    const checkPendingInvitation = async () => {
+      const pendingInvitationId = localStorage.getItem('pending_invitation');
+      
+      if (!pendingInvitationId) return;
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.user?.id) return;
+      
+      console.log('🔗 [App] Processing pending invitation:', pendingInvitationId);
+      
+      try {
+        const { teamService } = await import('./lib/auth');
+        const { error } = await teamService.acceptInvitation(pendingInvitationId);
+        
+        if (error) {
+          console.error('❌ [App] Failed to accept pending invitation:', error);
+          addToast({ 
+            message: 'Failed to accept invitation: ' + error.message, 
+            type: 'error' 
+          });
+        } else {
+          console.log('🎉 [App] Pending invitation accepted!');
+          addToast({ 
+            message: 'Team invitation accepted! 🎉', 
+            type: 'success' 
+          });
+          
+          // Navigate to team screen
+          useChallengeStore.setState({ currentScreen: 'team' });
+        }
+        
+        // Clear pending invitation
+        localStorage.removeItem('pending_invitation');
+      } catch (error) {
+        console.error('❌ [App] Error accepting pending invitation:', error);
+        addToast({ 
+          message: 'Failed to accept invitation', 
+          type: 'error' 
+        });
+        localStorage.removeItem('pending_invitation');
+      }
+    };
+
+    // Check after user profile is loaded
+    const profile = useChallengeStore.getState().userProfile;
+    if (profile && !profile.is_guest) {
+      checkPendingInvitation();
+    }
+  }, [addToast]);
 
   // Complete OAuth sign-in after returning to the app (iOS custom scheme).
   useEffect(() => {

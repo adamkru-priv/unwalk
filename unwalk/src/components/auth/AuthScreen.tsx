@@ -48,8 +48,9 @@ export function AuthScreen({ onSuccess }: AuthScreenProps) {
         setSuccess('🔢 Check your email! We sent you a 6-digit code.');
         setMode('verify-otp');
       }
-    } catch (err: any) {
-      setError(err.message || 'Something went wrong');
+    } catch (err) {
+      const error = err as Error;
+      setError(error.message || 'Something went wrong');
     } finally {
       setLoading(false);
     }
@@ -74,8 +75,9 @@ export function AuthScreen({ onSuccess }: AuthScreenProps) {
           onSuccess();
         }, 1000);
       }
-    } catch (err: any) {
-      setError(err.message || 'Invalid code. Please try again.');
+    } catch (err) {
+      const error = err as Error;
+      setError(error.message || 'Invalid code. Please try again.');
     } finally {
       setLoading(false);
     }
