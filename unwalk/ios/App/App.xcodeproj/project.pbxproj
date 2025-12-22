@@ -7,11 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		094C95522EF5A74700D470EF /* ApnsTokenPlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = 094C95502EF58F9B00D470EF /* ApnsTokenPlugin.m */; };
+		0976D9482EF5BE55003DCC33 /* ApnsTokenPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 094E119A2EF581A9004A5AD1 /* ApnsTokenPlugin.swift */; };
 		0980A7992EF29F67002DD6F2 /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0980A7972EF29EFC002DD6F2 /* HealthKit.framework */; };
 		0980A7A02EF2A490002DD6F2 /* HealthKitPlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = 0980A79E2EF2A490002DD6F2 /* HealthKitPlugin.m */; };
 		0980A7A12EF2A490002DD6F2 /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0980A79D2EF2A490002DD6F2 /* HealthKitManager.swift */; };
-		0976D9482EF5BE55003DCC33 /* ApnsTokenPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 094E119A2EF581A9004A5AD1 /* ApnsTokenPlugin.swift */; };
-		094C95522EF5A74700D470EF /* ApnsTokenPlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = 094C95502EF58F9B00D470EF /* ApnsTokenPlugin.m */; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
@@ -342,6 +342,7 @@
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 426B284894;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -368,6 +369,7 @@
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 426B284894;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (

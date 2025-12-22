@@ -62,6 +62,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             print("[Capacitor] ❌ ApnsTokenPlugin class not found at runtime")
         }
 
+        // MARK: - Initialize Capacitor Window and WebView
+        // Create window
+        window = UIWindow(frame: UIScreen.main.bounds)
+        
+        // Create Capacitor bridge view controller
+        let rootViewController = CAPBridgeViewController()
+        window?.rootViewController = rootViewController
+        
+        // Show window
+        window?.makeKeyAndVisible()
+        
+        print("[App] ✅ Capacitor WebView initialized and window shown")
+
         return true
     }
 
