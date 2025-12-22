@@ -137,13 +137,19 @@ async function createApnsJwt(env: ApnsEnv): Promise<string> {
 }
 
 async function sendApnsSingle(env: ApnsEnv, deviceToken: string, jwt: string, payload: any) {
-  // ✅ Use production host by default (was working before!)
-  const host = (Deno.env.get('APPLE_APNS_HOST') ?? 'api.push.apple.com').trim();
-  const url = `https://${host}/3/device/${deviceToken}`;
+  // ✅ Auto-detect sandbox vs production APNS
+  // Strategy: Try production first, if BadDeviceToken -> retry with sandbox
+  
+  const productionHost = 'api.push.apple.com';
+  const sandboxHost = 'api.sandbox.push.apple.com';
+  
+  // Try production first (TestFlight, App Store, Ad-Hoc)
+  let host = productionHost;
+  let url = `https://${host}/3/device/${deviceToken}`;
 
   console.log(`[PUSH] Sending to ${host} | topic: ${env.bundleId} | token: ${deviceToken.slice(0, 8)}...`);
 
-  const res = await fetch(url, {
+  let res = await fetch(url, {
     method: 'POST',
     headers: {
       authorization: `bearer ${jwt}`,
@@ -155,16 +161,48 @@ async function sendApnsSingle(env: ApnsEnv, deviceToken: string, jwt: string, pa
     body: JSON.stringify(payload),
   });
 
-  const text = await res.text();
+  let text = await res.text();
   
-  // ✅ Log APNs response
+  // Check if we got BadDeviceToken (token is sandbox but we used production host)
+  if (!res.ok && res.status === 400) {
+    try {
+      const parsed = text ? JSON.parse(text) : null;
+      if (parsed?.reason === 'BadDeviceToken') {
+        console.log(`[PUSH] BadDeviceToken on production, retrying with sandbox...`);
+        
+        // Retry with sandbox host
+        host = sandboxHost;
+        url = `https://${host}/3/device/${deviceToken}`;
+        
+        console.log(`[PUSH] Sending to ${host} | topic: ${env.bundleId} | token: ${deviceToken.slice(0, 8)}...`);
+        
+        res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            authorization: `bearer ${jwt}`,
+            'apns-topic': env.bundleId,
+            'apns-push-type': 'alert',
+            'apns-priority': '10',
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
+        
+        text = await res.text();
+      }
+    } catch {
+      // ignore parsing errors
+    }
+  }
+  
+  // Log final result
   if (!res.ok) {
-    console.error(`[PUSH] ❌ APNs FAILED | status: ${res.status} | response: ${text}`);
+    console.error(`[PUSH] ❌ APNs FAILED | host: ${host} | status: ${res.status} | response: ${text}`);
   } else {
-    console.log(`[PUSH] ✅ APNs SUCCESS | token: ${deviceToken.slice(0, 8)}...`);
+    console.log(`[PUSH] ✅ APNs SUCCESS | host: ${host} | token: ${deviceToken.slice(0, 8)}...`);
   }
 
-  return { ok: res.ok, status: res.status, body: text };
+  return { ok: res.ok, status: res.status, body: text, host };
 }
 
 Deno.serve(async (req) => {
