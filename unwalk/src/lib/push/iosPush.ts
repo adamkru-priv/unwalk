@@ -5,6 +5,7 @@ import {
   type Token,
   type ActionPerformed,
 } from '@capacitor/push-notifications';
+import { Toast } from '@capacitor/toast';
 import { supabase } from '../supabase';
 import { authService } from '../auth';
 import { getDeviceId } from '../deviceId';
@@ -231,8 +232,29 @@ export async function initIosPushNotifications(): Promise<void> {
       console.error('❌ [Push] registrationError:', err);
     });
 
-    PushNotifications.addListener('pushNotificationReceived', (notification: PushNotificationSchema) => {
+    PushNotifications.addListener('pushNotificationReceived', async (notification: PushNotificationSchema) => {
       console.log('📩 [Push] pushNotificationReceived:', notification);
+      
+      // ✅ Show toast notification when app is in foreground
+      // iOS by default doesn't show push notifications when app is active
+      if (Capacitor.getPlatform() === 'ios' && notification.title && notification.body) {
+        console.log('🔔 [Push] Foreground notification received:', {
+          title: notification.title,
+          body: notification.body,
+          data: notification.data,
+        });
+        
+        // Show a toast notification to the user
+        try {
+          await Toast.show({
+            text: `${notification.title}\n${notification.body}`,
+            duration: 'long',
+            position: 'top',
+          });
+        } catch (e) {
+          console.warn('⚠️ [Push] Failed to show toast:', e);
+        }
+      }
     });
 
     PushNotifications.addListener('pushNotificationActionPerformed', (action: ActionPerformed) => {
