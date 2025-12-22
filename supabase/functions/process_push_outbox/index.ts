@@ -137,19 +137,16 @@ async function createApnsJwt(env: ApnsEnv): Promise<string> {
 }
 
 async function sendApnsSingle(env: ApnsEnv, deviceToken: string, jwt: string, payload: any) {
-  // ✅ Auto-detect sandbox vs production APNS
-  // Strategy: Try production first, if BadDeviceToken -> retry with sandbox
+  // ✅ PRODUCTION ONLY - Force production APNS host
+  // This will ensure TestFlight/App Store builds work correctly
+  // Development builds from Xcode will fail (BadDeviceToken) - this is expected
   
-  const productionHost = 'api.push.apple.com';
-  const sandboxHost = 'api.sandbox.push.apple.com';
-  
-  // Try production first (TestFlight, App Store, Ad-Hoc)
-  let host = productionHost;
-  let url = `https://${host}/3/device/${deviceToken}`;
+  const host = 'api.push.apple.com';  // ← PRODUCTION ONLY!
+  const url = `https://${host}/3/device/${deviceToken}`;
 
   console.log(`[PUSH] Sending to ${host} | topic: ${env.bundleId} | token: ${deviceToken.slice(0, 8)}...`);
 
-  let res = await fetch(url, {
+  const res = await fetch(url, {
     method: 'POST',
     headers: {
       authorization: `bearer ${jwt}`,
@@ -161,41 +158,9 @@ async function sendApnsSingle(env: ApnsEnv, deviceToken: string, jwt: string, pa
     body: JSON.stringify(payload),
   });
 
-  let text = await res.text();
+  const text = await res.text();
   
-  // Check if we got BadDeviceToken (token is sandbox but we used production host)
-  if (!res.ok && res.status === 400) {
-    try {
-      const parsed = text ? JSON.parse(text) : null;
-      if (parsed?.reason === 'BadDeviceToken') {
-        console.log(`[PUSH] BadDeviceToken on production, retrying with sandbox...`);
-        
-        // Retry with sandbox host
-        host = sandboxHost;
-        url = `https://${host}/3/device/${deviceToken}`;
-        
-        console.log(`[PUSH] Sending to ${host} | topic: ${env.bundleId} | token: ${deviceToken.slice(0, 8)}...`);
-        
-        res = await fetch(url, {
-          method: 'POST',
-          headers: {
-            authorization: `bearer ${jwt}`,
-            'apns-topic': env.bundleId,
-            'apns-push-type': 'alert',
-            'apns-priority': '10',
-            'content-type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        });
-        
-        text = await res.text();
-      }
-    } catch {
-      // ignore parsing errors
-    }
-  }
-  
-  // Log final result
+  // Log result
   if (!res.ok) {
     console.error(`[PUSH] ❌ APNs FAILED | host: ${host} | status: ${res.status} | response: ${text}`);
   } else {
