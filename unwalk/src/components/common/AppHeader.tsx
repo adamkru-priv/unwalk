@@ -225,7 +225,6 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
             ) : (
               (() => {
                 const name = (userProfile as any)?.display_name || (userProfile as any)?.full_name || (userProfile as any)?.email || '';
-                const initial = typeof name === 'string' && name.length > 0 ? name.trim()[0]?.toUpperCase() : null;
 
                 // Extract a stable suffix from common guest names like "Guest_1234".
                 const suffixMatch = typeof name === 'string' ? /(guest[_-]?)(\w{3,8})/i.exec(name) : null;
