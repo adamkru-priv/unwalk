@@ -449,18 +449,27 @@ export async function getMyCustomChallenges(): Promise<AdminChallenge[]> {
 // Delete custom challenge
 export async function deleteCustomChallenge(challengeId: string): Promise<void> {
   const deviceId = getDeviceId();
+  const { data: { user } } = await supabase.auth.getUser();
   
-  // First, verify this is a custom challenge created by this user
-  const { data: challenge, error: fetchError } = await supabase
+  // Build query to verify this is a custom challenge created by this user
+  let query = supabase
     .from('admin_challenges')
     .select('*')
     .eq('id', challengeId)
-    .eq('is_custom', true)
-    .eq('created_by_device_id', deviceId)
-    .single();
+    .eq('is_custom', true);
 
-  if (fetchError) throw new Error('Challenge not found or not authorized to delete');
-  if (!challenge) throw new Error('Not authorized to delete this challenge');
+  // For authenticated users, check by user_id; for guests, check by device_id
+  if (user?.id) {
+    query = query.eq('created_by_user_id', user.id);
+  } else {
+    query = query.eq('created_by_device_id', deviceId);
+  }
+
+  const { data: challenge, error: fetchError } = await query.single();
+
+  if (fetchError || !challenge) {
+    throw new Error('Challenge not found or not authorized to delete');
+  }
 
   // Delete associated user_challenges first
   const { error: deleteUserChallengesError } = await supabase

@@ -373,6 +373,11 @@ function App() {
     }
   }, [isAppReady, setIsAppReady]);
 
+  // ✅ Scroll to top whenever screen changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [currentScreen]);
+
   // ✅ CRITICAL: Show loading screen until app is ready
   // This prevents child components (like TeamScreen) from making API calls
   // before auth session is fully verified and restored.

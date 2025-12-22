@@ -36,7 +36,11 @@ type OutboxRow = {
     | 'challenge_assigned'
     | 'challenge_assignment_accepted'
     | 'challenge_assignment_rejected'
-    | 'challenge_assignment_started';
+    | 'challenge_assignment_started'
+    | 'challenge_assignment_completed'
+    | 'challenge_ready_to_claim'
+    | 'milestone_reached'
+    | 'team_member_completed';
   title: string;
   body: string;
   data: Record<string, unknown>;

@@ -193,21 +193,37 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
 
                 return (
                   <div className="flex items-center gap-2">
-                    {/* Avatar circle (consistent shape) */}
-                    <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-white/10 flex items-center justify-center">
+                    {/* Avatar circle - gradient for Pro, gray for Guest */}
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                      isGuest 
+                        ? 'bg-gray-200 dark:bg-white/10' 
+                        : 'bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg shadow-amber-600/25'
+                    }`}>
                       {initial ? (
-                        <span className="text-xs font-bold text-gray-800 dark:text-white">{initial}</span>
+                        <span className={`text-xs font-bold ${
+                          isGuest 
+                            ? 'text-gray-800 dark:text-white' 
+                            : 'text-white'
+                        }`}>{initial}</span>
                       ) : (
-                        <svg className="w-4 h-4 text-gray-600 dark:text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <svg className={`w-4 h-4 ${
+                          isGuest 
+                            ? 'text-gray-600 dark:text-white/60' 
+                            : 'text-white'
+                        }`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       )}
                     </div>
 
-                    {/* Sub-label (no big pill) */}
-                    {isGuest && (
+                    {/* Email/Name label */}
+                    {isGuest ? (
                       <span className="text-[11px] font-black tracking-[0.16em] uppercase text-gray-500 dark:text-white/45">
                         {suffix ? `G-${suffix}` : 'Guest'}
+                      </span>
+                    ) : (
+                      <span className="text-[11px] font-bold text-gray-700 dark:text-white/70 max-w-[120px] truncate">
+                        {userProfile?.email?.split('@')[0] || 'Pro'}
                       </span>
                     )}
                   </div>

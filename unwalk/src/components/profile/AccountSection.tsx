@@ -69,8 +69,13 @@ export function AccountSection({
         </div>
 
         {signedIn ? (
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
+          <div className="flex items-center gap-3">
+            {/* User Avatar */}
+            <div className="shrink-0 h-11 w-11 rounded-full grid place-items-center bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-600/25 font-bold text-lg">
+              {userProfile?.email?.[0]?.toUpperCase() || 'U'}
+            </div>
+            
+            <div className="flex-1 min-w-0">
               <div className="text-sm font-semibold text-gray-900 dark:text-white truncate">{userProfile!.email}</div>
               <div className="text-xs text-gray-600 dark:text-white/50">Signed in • syncing enabled</div>
             </div>
