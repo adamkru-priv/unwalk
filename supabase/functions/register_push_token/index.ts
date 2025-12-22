@@ -66,6 +66,7 @@ Deno.serve(async (req) => {
   // 1) If caller has Authorization header, try to parse it and get auth user.
   // 2) Fallback: resolve guest user from public.users by device_id.
   let userId: string | null = null;
+  let isAuthenticated = false;
 
   // Try auth user from JWT (if present)
   const authHeader = req.headers.get('Authorization');
@@ -73,7 +74,10 @@ Deno.serve(async (req) => {
     const jwt = authHeader.slice('Bearer '.length).trim();
     if (jwt) {
       const { data, error } = await admin.auth.getUser(jwt);
-      if (!error && data?.user?.id) userId = data.user.id;
+      if (!error && data?.user?.id) {
+        userId = data.user.id;
+        isAuthenticated = true;
+      }
     }
   }
 
@@ -91,6 +95,28 @@ Deno.serve(async (req) => {
     userId = guest.id;
   }
 
+  // ✅ FIX: If user is authenticated, delete ALL old tokens from other users with same device_id
+  // This handles the case where user reinstalled app (new guest created) then logged in
+  if (isAuthenticated) {
+    // Delete old tokens from guest users that used this device
+    const { error: deleteError } = await admin
+      .from('device_push_tokens')
+      .delete()
+      .neq('user_id', userId)
+      .in('user_id', 
+        admin
+          .from('users')
+          .select('id')
+          .eq('device_id', deviceId)
+          .eq('is_guest', true)
+      );
+    
+    if (deleteError) {
+      console.error('Failed to delete old guest tokens:', deleteError);
+      // Don't fail the request - continue to upsert
+    }
+  }
+
   const { error: upsertError } = await admin
     .from('device_push_tokens')
     .upsert(
@@ -105,7 +131,7 @@ Deno.serve(async (req) => {
 
   if (upsertError) return json(500, { error: 'Failed to save token', details: upsertError.message });
 
-  return json(200, { ok: true, user_id: userId });
+  return json(200, { ok: true, user_id: userId, is_authenticated: isAuthenticated });
 });
 
 /* To invoke locally:
