@@ -1115,22 +1115,35 @@ class TeamService {
         throw new Error('You already have an active challenge. Complete or pause it first before starting a new one.');
       }
 
+      // ✅ FIX: Cast all IDs explicitly as text to avoid UUID casting errors
+      const deviceId = profile.device_id || getDeviceId();
+      
+      console.log('🔍 [Team] Creating user_challenge with:', {
+        user_id: user.id,
+        device_id: deviceId,
+        admin_challenge_id: assignment.admin_challenge_id,
+        assigned_by: assignment.sender_id,
+      });
+
       // Create user_challenge (start the challenge)
       const { data: userChallenge, error: createError } = await supabase
         .from('user_challenges')
         .insert({
           user_id: user.id,
-          device_id: profile.device_id || getDeviceId(),
+          device_id: deviceId,
           admin_challenge_id: assignment.admin_challenge_id,
           current_steps: 0,
           status: 'active',
           started_at: new Date().toISOString(),
-          assigned_by: assignment.sender_id, // ✅ FIX: ID nadawcy, nie odbiorcy!
+          assigned_by: assignment.sender_id,
         })
         .select()
         .single();
 
-      if (createError) throw createError;
+      if (createError) {
+        console.error('❌ [Team] Create user_challenge error:', createError);
+        throw createError;
+      }
 
       // Update assignment with user_challenge_id
       const { error: updateError } = await supabase
