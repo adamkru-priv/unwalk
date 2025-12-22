@@ -98,22 +98,29 @@ Deno.serve(async (req) => {
   // ✅ FIX: If user is authenticated, delete ALL old tokens from other users with same device_id
   // This handles the case where user reinstalled app (new guest created) then logged in
   if (isAuthenticated) {
-    // Delete old tokens from guest users that used this device
-    const { error: deleteError } = await admin
-      .from('device_push_tokens')
-      .delete()
-      .neq('user_id', userId)
-      .in('user_id', 
-        admin
-          .from('users')
-          .select('id')
-          .eq('device_id', deviceId)
-          .eq('is_guest', true)
-      );
+    // First, get all guest user IDs with this device_id
+    const { data: guestUsers, error: guestError } = await admin
+      .from('users')
+      .select('id')
+      .eq('device_id', deviceId)
+      .eq('is_guest', true);
     
-    if (deleteError) {
-      console.error('Failed to delete old guest tokens:', deleteError);
-      // Don't fail the request - continue to upsert
+    if (!guestError && guestUsers && guestUsers.length > 0) {
+      const guestIds = guestUsers.map(u => u.id);
+      
+      // Delete old tokens from those guest users
+      const { error: deleteError } = await admin
+        .from('device_push_tokens')
+        .delete()
+        .neq('user_id', userId)
+        .in('user_id', guestIds);
+      
+      if (deleteError) {
+        console.error('Failed to delete old guest tokens:', deleteError);
+        // Don't fail the request - continue to upsert
+      } else {
+        console.log(`Deleted ${guestIds.length} old guest token(s)`);
+      }
     }
   }
 

@@ -238,7 +238,6 @@ export async function getUnclaimedChallenges(): Promise<UserChallenge[]> {
   // TEMPORARILY DISABLED - Status 'completed_unclaimed' doesn't exist in DB
   // In Stage 1, challenges are deleted immediately after completion (no claiming flow)
   // TODO: Implement claiming flow in Stage 2 with proper status
-  console.log('👤 [API] Unclaimed challenges disabled (Stage 2 feature)');
   return [];
   
   /* ORIGINAL CODE - Re-enable in Stage 2:

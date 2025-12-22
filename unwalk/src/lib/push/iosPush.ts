@@ -224,7 +224,7 @@ export async function initIosPushNotifications(): Promise<void> {
 
     PushNotifications.addListener('registration', async (token: Token) => {
       console.log(`✅ [Push] registration token received (len=${token.value?.length ?? 0})`);
-      await saveToken(token.value);
+      await saveToken(token.value); // ← Fix: Use token.value (string) instead of token (object)
     });
 
     PushNotifications.addListener('registrationError', (err) => {
@@ -251,11 +251,17 @@ export async function initIosPushNotifications(): Promise<void> {
         setTimeout(() => {
           void (async () => {
             try {
+              console.log('🔔 [Push] Re-linking token after SIGNED_IN...');
               await registerTokenViaEdgeFunction(token, { forceAuth: true });
               lastSavedToken = token;
               console.log('✅ [Push] Device token re-linked after SIGNED_IN (edge function)');
             } catch (e) {
               console.error('❌ [Push] Failed to re-link token after SIGNED_IN (edge function):', e);
+              console.error('❌ [Push] Error details:', {
+                message: (e as any)?.message,
+                context: (e as any)?.context,
+                stack: (e as any)?.stack,
+              });
               // Fallback to the normal flow
               await saveToken(token);
             }
