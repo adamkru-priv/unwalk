@@ -137,8 +137,11 @@ async function createApnsJwt(env: ApnsEnv): Promise<string> {
 }
 
 async function sendApnsSingle(env: ApnsEnv, deviceToken: string, jwt: string, payload: any) {
+  // ✅ Use production host by default (was working before!)
   const host = (Deno.env.get('APPLE_APNS_HOST') ?? 'api.push.apple.com').trim();
   const url = `https://${host}/3/device/${deviceToken}`;
+
+  console.log(`[PUSH] Sending to ${host} | topic: ${env.bundleId} | token: ${deviceToken.slice(0, 8)}...`);
 
   const res = await fetch(url, {
     method: 'POST',
@@ -153,6 +156,14 @@ async function sendApnsSingle(env: ApnsEnv, deviceToken: string, jwt: string, pa
   });
 
   const text = await res.text();
+  
+  // ✅ Log APNs response
+  if (!res.ok) {
+    console.error(`[PUSH] ❌ APNs FAILED | status: ${res.status} | response: ${text}`);
+  } else {
+    console.log(`[PUSH] ✅ APNs SUCCESS | token: ${deviceToken.slice(0, 8)}...`);
+  }
+
   return { ok: res.ok, status: res.status, body: text };
 }
 

@@ -67,11 +67,14 @@ export function AuthModal({
 
             <form onSubmit={onSubmitEmail} className="space-y-4">
               <div>
-                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                <label htmlFor="email-input" className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
                   Email Address
                 </label>
                 <input
+                  id="email-input"
+                  name="email"
                   type="email"
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => onEmailChange(e.target.value)}
                   placeholder="you@example.com"

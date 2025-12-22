@@ -69,16 +69,17 @@ export function OnboardingScreen() {
               >
                 Get started
               </motion.button>
+
+              {/* Helper text - moved here, closer to button */}
+              <div className="mt-6 text-white/55 text-sm max-w-md">
+                Start as a guest. Sign in anytime to sync your progress and unlock team features.
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Bottom helper text */}
-        <div className="pb-10">
-          <div className="text-white/55 text-sm max-w-md">
-            Start as a guest. Sign in anytime to sync your progress and unlock team features.
-          </div>
-        </div>
+        {/* Bottom spacing */}
+        <div className="pb-10" />
       </div>
     </div>
   );

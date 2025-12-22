@@ -703,20 +703,51 @@ class TeamService {
       }
 
       // Insert invitation
-      const { error } = await supabase
+      const { data: newInvitation, error: insertError } = await supabase
         .from('team_invitations')
         .insert({
           sender_id: profile.id,
           recipient_email: recipientEmail.toLowerCase(),
           recipient_id: recipient?.id || null,
           message: message || null,
-        });
+        })
+        .select('id')
+        .single();
 
-      if (error) throw error;
+      if (insertError) throw insertError;
 
       console.log('✉️ [Team] Invitation sent to:', recipientEmail);
       
-      // TODO: Send email notification via Supabase Edge Function
+      // ✅ Send email notification via Resend Edge Function
+      try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+        const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-team-invitation`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseKey}`,
+          },
+          body: JSON.stringify({
+            recipientEmail,
+            senderName: profile.display_name || profile.email?.split('@')[0] || 'Someone',
+            senderEmail: profile.email,
+            message,
+            invitationId: newInvitation.id,
+          }),
+        });
+
+        if (!emailResponse.ok) {
+          console.error('❌ [Team] Failed to send invitation email:', await emailResponse.text());
+          // Don't throw - invitation is saved, email is optional
+        } else {
+          console.log('📧 [Team] Invitation email sent successfully');
+        }
+      } catch (emailError) {
+        console.error('❌ [Team] Email sending error:', emailError);
+        // Don't throw - invitation is saved, email is optional
+      }
       
       return { error: null };
     } catch (error) {
