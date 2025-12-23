@@ -234,6 +234,9 @@ Deno.serve(async (req) => {
         body: message,
       },
       sound: 'default',
+      badge: 1,
+      'mutable-content': 1,
+      'thread-id': 'movee-notifications',
     },
     // Always include a type so the app can route the notification.
     // Keep existing behavior if callers pass their own data.

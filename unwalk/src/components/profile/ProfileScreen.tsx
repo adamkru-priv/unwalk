@@ -11,8 +11,6 @@ import { PausedChallengesWarning } from './PausedChallengesWarning';
 import { APP_VERSION, BUILD_DATE } from '../../version';
 import { useHealthKit } from '../../hooks/useHealthKit';
 import { StatsScreen } from '../stats/StatsScreen';
-import { initIosPushNotifications } from '../../lib/push/iosPush';
-import { Capacitor } from '@capacitor/core';
 
 export function ProfileScreen() {
   const setUserTier = useChallengeStore((s) => s.setUserTier);
@@ -53,8 +51,6 @@ export function ProfileScreen() {
 
   const [pushEnabled, setPushEnabled] = useState<boolean>(true);
   const [pushSaving, setPushSaving] = useState(false);
-  const [pushDebugInfo, setPushDebugInfo] = useState<string>('');
-  const [showPushDebug, setShowPushDebug] = useState(false);
 
   // ✅ Sync local state when profile changes in store (no auth listener needed - App.tsx handles it)
   useEffect(() => {
@@ -239,23 +235,6 @@ export function ProfileScreen() {
     }
   };
 
-  const handleReregisterPushToken = async () => {
-    setPushDebugInfo('Re-registering push token...');
-    setShowPushDebug(true);
-    
-    try {
-      // Re-initialize push notifications
-      await initIosPushNotifications();
-      
-      setPushDebugInfo('✅ Push token re-registration completed! Check console for details.');
-      
-      // Auto-hide after 5 seconds
-      setTimeout(() => setShowPushDebug(false), 5000);
-    } catch (e: any) {
-      setPushDebugInfo(`❌ Error: ${e.message || 'Unknown error'}`);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0B101B] text-gray-900 dark:text-white pb-20 font-sans">
       <AppHeader />
@@ -393,28 +372,6 @@ export function ProfileScreen() {
                 />
               </button>
             </div>
-            
-            {/* Debug section - only show on iOS native */}
-            {Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios' && (
-              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-white/10">
-                <button
-                  onClick={handleReregisterPushToken}
-                  className="w-full px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold"
-                >
-                  🔧 Debug: Re-register Push Token
-                </button>
-                
-                {showPushDebug && (
-                  <div className="mt-2 p-2 rounded bg-gray-100 dark:bg-[#0B101B] text-xs text-gray-700 dark:text-gray-300">
-                    {pushDebugInfo}
-                  </div>
-                )}
-                
-                <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                  User ID: {userProfile?.id?.slice(0, 8)}...
-                </div>
-              </div>
-            )}
           </section>
         )}
 

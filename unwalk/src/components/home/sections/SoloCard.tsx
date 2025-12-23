@@ -51,12 +51,16 @@ export function SoloCard({ activeChallenge, progress, onClick, variant = 'carous
               <div>
                 {/* Social Challenge - Show sender */}
                 {activeChallenge.assigned_by && (
-                  <div className="flex items-center gap-2 mb-3 bg-emerald-500/20 backdrop-blur-sm border border-emerald-400/30 rounded-lg px-3 py-2">
-                    <div className="text-lg">🤝</div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs text-emerald-300 font-semibold">Challenge from</div>
-                      <div className="text-sm text-white font-bold truncate">
-                        {activeChallenge.assigned_by_name || 'Team Member'}
+                  <div className="mb-3 bg-gradient-to-r from-amber-500/30 to-orange-500/30 backdrop-blur-md border-2 border-amber-400/50 rounded-xl px-4 py-2.5 shadow-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white shadow-md flex-shrink-0">
+                        <span className="text-xl">🤝</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs text-amber-200 font-semibold uppercase tracking-wide">Challenge from</div>
+                        <div className="text-base text-white font-bold truncate mt-0.5">
+                          {activeChallenge.assigned_by_name || 'Team Member'}
+                        </div>
                       </div>
                     </div>
                   </div>

@@ -347,6 +347,9 @@ Deno.serve(async (req) => {
           body: row.body,
         },
         sound: 'default',
+        badge: 1,
+        'mutable-content': 1,
+        'thread-id': 'movee-notifications',
       },
       data: {
         ...normalizedData,
