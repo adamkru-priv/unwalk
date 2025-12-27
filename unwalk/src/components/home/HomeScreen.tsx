@@ -3,17 +3,20 @@ import { useEffect, useState } from 'react';
 import { AppHeader } from '../common/AppHeader';
 import { BottomNavigation } from '../common/BottomNavigation';
 import { getActiveUserChallenge, updateChallengeProgress, getChallengeAssignmentsWithProgress, type ChallengeAssignmentWithProgress } from '../../lib/api';
-import type { UserChallenge } from '../../types';
+import type { UserChallenge, UserGamificationStats } from '../../types';
 import { CelebrationModal } from './CelebrationModal';
+import { LevelUpModal } from './LevelUpModal';
 import { supabase } from '../../lib/supabase';
 import { getDeviceId } from '../../lib/deviceId';
 import { HeroHeader } from './sections/HeroHeader';
 import { CompletedChallengesList } from './sections/CompletedChallengesList';
 import { HeroCarousel } from './sections/HeroCarousel';
-import { TodayActivity } from './sections/TodayActivity';
 import { PausedChallengesGrid } from './sections/PausedChallengesGrid';
+import { DailyQuestCard } from './sections/DailyQuestCard';
+import { StreakCard } from './sections/StreakCard';
 import { useHealthKit } from '../../hooks/useHealthKit';
 import { teamService, type TeamMember } from '../../lib/auth';
+import { getUserGamificationStats, getNextStreakMilestone } from '../../lib/gamification';
 
 export function HomeScreen() {
   const [unclaimedChallenges, setUnclaimedChallenges] = useState<UserChallenge[]>([]);
@@ -24,29 +27,31 @@ export function HomeScreen() {
   const [teamActiveChallenges, setTeamActiveChallenges] = useState<any[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [sentAssignments, setSentAssignments] = useState<ChallengeAssignmentWithProgress[]>([]);
+  
+  // ✨ NEW: Gamification state
+  const [gamificationStats, setGamificationStats] = useState<UserGamificationStats | null>(null);
+  const [showLevelUpModal, setShowLevelUpModal] = useState(false);
+  const [levelUpValue, setLevelUpValue] = useState(1);
 
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
   const pausedChallenges = useChallengeStore((s) => s.pausedChallenges);
   const userProfile = useChallengeStore((s) => s.userProfile);
   const resumeChallenge = useChallengeStore((s) => s.resumeChallenge);
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
-  const dailyStepGoal = useChallengeStore((s) => s.dailyStepGoal);
   const setActiveChallenge = useChallengeStore((s) => s.setActiveChallenge);
   const setAssignTarget = useChallengeStore((s) => s.setAssignTarget);
+
+  const isGuest = userProfile?.is_guest || false;
 
   // ✅ HealthKit integration - prawdziwe kroki z Apple Health!
   const { 
     isAvailable: healthKitAvailable, 
     isAuthorized: healthKitAuthorized,
-    todaySteps: healthKitSteps, 
     requestPermission: requestHealthKitPermission,
     syncSteps,
-    getSteps, // ✅ Added getSteps
+    getSteps,
     isNative
   } = useHealthKit();
-
-  // Użyj prawdziwych kroków z HealthKit, fallback na mock dla web
-  const todaySteps = isNative && healthKitAuthorized ? healthKitSteps : 7234;
 
   useEffect(() => {
     loadActiveChallenge();
@@ -167,6 +172,42 @@ export function HomeScreen() {
 
     load();
   }, [userProfile?.id, userProfile?.is_guest]);
+
+  // ✨ NEW: Load gamification stats
+  useEffect(() => {
+    const loadGamificationStats = async () => {
+      if (isGuest) return; // Only for Pro users
+      
+      try {
+        const stats = await getUserGamificationStats();
+        setGamificationStats(stats);
+      } catch (error) {
+        console.error('Failed to load gamification stats:', error);
+      }
+    };
+
+    loadGamificationStats();
+    
+    // Refresh stats every 30 seconds
+    const interval = setInterval(loadGamificationStats, 30 * 1000);
+    return () => clearInterval(interval);
+  }, [isGuest, userProfile?.id]);
+
+  // ✨ NEW: Handle quest claimed (refresh stats and check for level up)
+  const handleQuestClaimed = async (xpEarned: number) => {
+    console.log(`🎉 Quest claimed! +${xpEarned} XP`);
+    
+    // Reload stats
+    const newStats = await getUserGamificationStats();
+    if (newStats && gamificationStats) {
+      // Check if leveled up
+      if (newStats.level > gamificationStats.level) {
+        setLevelUpValue(newStats.level);
+        setShowLevelUpModal(true);
+      }
+      setGamificationStats(newStats);
+    }
+  };
 
   const loadActiveChallenge = async () => {
     try {
@@ -321,7 +362,30 @@ export function HomeScreen() {
       )}
 
       <main className="pt-6 pb-6 space-y-5">
-        <HeroHeader />
+        <HeroHeader 
+          xp={gamificationStats?.xp} 
+          level={gamificationStats?.level} 
+        />
+        
+        {/* ✨ NEW: Level Progress Bar (for Pro users) - REMOVED, now in header */}
+        
+        {/* ✨ NEW: Daily Quest (for Pro users) */}
+        {!isGuest && (
+          <div className="px-5">
+            <DailyQuestCard onQuestClaimed={handleQuestClaimed} />
+          </div>
+        )}
+        
+        {/* ✨ NEW: Streak Card (for Pro users) */}
+        {!isGuest && gamificationStats && gamificationStats.current_streak > 0 && (
+          <div className="px-5">
+            <StreakCard 
+              currentStreak={gamificationStats.current_streak}
+              longestStreak={gamificationStats.longest_streak}
+              nextMilestone={getNextStreakMilestone(gamificationStats.current_streak) || undefined}
+            />
+          </div>
+        )}
         
         <CompletedChallengesList
           challenges={unclaimedChallenges}
@@ -344,12 +408,6 @@ export function HomeScreen() {
           sentAssignments={sentAssignments}
         />
 
-        <TodayActivity
-          todaySteps={todaySteps}
-          dailyStepGoal={dailyStepGoal}
-          isGuest={userProfile?.is_guest || false}
-        />
-
         <PausedChallengesGrid
           challenges={pausedChallenges}
           isGuest={userProfile?.is_guest || false}
@@ -358,6 +416,13 @@ export function HomeScreen() {
           calculateProgress={calculateProgressForChallenge}
         />
       </main>
+
+      {/* ✨ NEW: Level Up Modal */}
+      <LevelUpModal 
+        isOpen={showLevelUpModal}
+        level={levelUpValue}
+        onClose={() => setShowLevelUpModal(false)}
+      />
 
       <BottomNavigation currentScreen="home" />
     </div>

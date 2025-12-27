@@ -13,6 +13,19 @@ export function SoloCard({ activeChallenge, progress, onClick, variant = 'carous
       ? 'w-full px-4'
       : 'w-[85%] flex-shrink-0 pl-5 pr-3';
 
+  // Calculate XP reward based on challenge difficulty
+  const calculateXPReward = (goalSteps: number): number => {
+    if (goalSteps <= 5000) return 100;
+    if (goalSteps <= 10000) return 250;
+    if (goalSteps <= 15000) return 350;
+    if (goalSteps <= 25000) return 500;
+    return 750;
+  };
+
+  const xpReward = activeChallenge?.admin_challenge?.goal_steps 
+    ? calculateXPReward(activeChallenge.admin_challenge.goal_steps)
+    : 0;
+
   return (
     <div className={outerClassName}>
       <div
@@ -67,15 +80,25 @@ export function SoloCard({ activeChallenge, progress, onClick, variant = 'carous
                 )}
 
                 <h3
-                  className={`text-white leading-tight mb-3 line-clamp-2 ${
+                  className={`text-white leading-tight mb-2 line-clamp-2 ${
                     variant === 'stack' ? 'text-xl font-black' : 'text-2xl font-black'
                   }`}
                 >
                   {activeChallenge.admin_challenge?.title}
                 </h3>
-                <div className="text-sm text-white/80 mb-3">
-                  {activeChallenge.current_steps.toLocaleString()} / {activeChallenge.admin_challenge?.goal_steps.toLocaleString()} steps
+                
+                {/* XP Reward Badge */}
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="flex-1">
+                    <div className="text-sm text-white/80">
+                      {activeChallenge.current_steps.toLocaleString()} / {activeChallenge.admin_challenge?.goal_steps.toLocaleString()} steps
+                    </div>
+                  </div>
+                  <div className="bg-gradient-to-r from-yellow-500 to-amber-500 px-2.5 py-1 rounded-lg shadow-lg">
+                    <div className="text-xs font-black text-white">+{xpReward} XP</div>
+                  </div>
                 </div>
+                
                 <div className="bg-white/20 rounded-full h-2 overflow-hidden mb-2">
                   <div className="bg-white h-full rounded-full transition-all" style={{ width: `${progress}%` }} />
                 </div>

@@ -17,6 +17,7 @@ export interface AdminChallenge {
   created_by_device_id?: string; // Who created this custom challenge
   is_image_hidden?: boolean; // Should image be blurred initially
   deadline?: string; // Optional deadline for challenge
+  time_limit_hours?: number; // Time limit in hours (NULL = unlimited)
 }
 
 // User's active/completed challenges (guest mode with device_id)
@@ -74,3 +75,52 @@ export interface AppState {
 
 // User subscription type
 export type UserTier = 'pro';
+
+// ============================================
+// GAMIFICATION TYPES
+// ============================================
+
+export interface DailyQuest {
+  id: string;
+  user_id: string;
+  quest_date: string;
+  quest_type: 'steps' | 'challenge_progress' | 'social';
+  target_value: number;
+  current_progress: number;
+  xp_reward: number;
+  completed: boolean;
+  claimed: boolean;
+  completed_at?: string;
+  claimed_at?: string;
+  created_at: string;
+}
+
+export interface XPTransaction {
+  id: string;
+  user_id: string;
+  xp_amount: number;
+  source_type: 'challenge' | 'daily_quest' | 'streak_bonus' | 'badge' | 'milestone' | 'manual';
+  source_id?: string;
+  description?: string;
+  created_at: string;
+}
+
+export interface UserGamificationStats {
+  xp: number;
+  level: number;
+  current_streak: number;
+  longest_streak: number;
+  last_activity_date?: string;
+  total_points: number; // Existing points column
+}
+
+export interface LevelUpResult {
+  new_xp: number;
+  new_level: number;
+  leveled_up: boolean;
+}
+
+export interface StreakUpdateResult {
+  current_streak: number;
+  streak_bonus_xp: number;
+}

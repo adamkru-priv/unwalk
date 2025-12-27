@@ -43,18 +43,20 @@ export async function getActiveUserChallenge(): Promise<UserChallenge | null> {
   // Get current user (for authenticated users)
   const { data: { user } } = await supabase.auth.getUser();
   
-  // Build query - for authenticated users, search by user_id OR device_id
-  // For guests, only search by device_id
+  // Build query - prioritize user_id for authenticated users
   let query = supabase
     .from('user_challenges')
     .select(`
       *,
       admin_challenge:admin_challenges(*)
     `)
-    .eq('status', 'active');
+    .eq('status', 'active')
+    .order('started_at', { ascending: false })
+    .limit(1);
   
   if (user) {
-    // Authenticated user - match by user_id OR device_id
+    // Authenticated user - prioritize user_id, fallback to device_id
+    // Use .or() but limit to 1 result to avoid duplicates
     query = query.or(`user_id.eq.${user.id},device_id.eq.${deviceId}`);
     console.log('🔍 [API] Searching for active challenge by user_id OR device_id');
   } else {
@@ -63,38 +65,40 @@ export async function getActiveUserChallenge(): Promise<UserChallenge | null> {
     console.log('🔍 [API] Searching for active challenge by device_id (guest)');
   }
   
-  const { data, error } = await query.maybeSingle(); // ✅ Use maybeSingle to avoid error if not found
+  const { data, error } = await query;
 
   if (error) {
     console.error('❌ [API] Error loading active challenge:', error);
     throw error;
   }
   
-  if (!data) {
+  if (!data || data.length === 0) {
     console.log('ℹ️ [API] No active challenge found');
     return null;
   }
   
-  console.log('✅ [API] Active challenge found:', data.admin_challenge?.title);
+  // Get the first (most recent) challenge
+  const challenge = data[0];
+  console.log('✅ [API] Active challenge found:', challenge.admin_challenge?.title);
   
   // If challenge was assigned by someone, fetch assigner info separately
-  if (data.assigned_by) {
+  if (challenge.assigned_by) {
     const { data: assigner } = await supabase
       .from('users')
       .select('display_name, avatar_url')
-      .eq('id', data.assigned_by)
+      .eq('id', challenge.assigned_by)
       .single();
     
     if (assigner) {
       return {
-        ...data,
+        ...challenge,
         assigned_by_name: assigner.display_name,
         assigned_by_avatar: assigner.avatar_url,
       };
     }
   }
   
-  return data;
+  return challenge;
 }
 
 // Get user's paused challenges (for Pro users)

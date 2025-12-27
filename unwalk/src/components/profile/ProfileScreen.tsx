@@ -6,8 +6,8 @@ import { authService } from '../../lib/auth';
 import { AccountSection } from './AccountSection';
 import { AuthModal } from './AuthModal';
 import { ThemeSelector } from './ThemeSelector';
-import { DailyStepGoalSection } from './DailyStepGoalSection';
 import { PausedChallengesWarning } from './PausedChallengesWarning';
+import { GamificationGuide } from './GamificationGuide';
 import { APP_VERSION, BUILD_DATE } from '../../version';
 import { useHealthKit } from '../../hooks/useHealthKit';
 import { StatsScreen } from '../stats/StatsScreen';
@@ -15,8 +15,6 @@ import { StatsScreen } from '../stats/StatsScreen';
 export function ProfileScreen() {
   const setUserTier = useChallengeStore((s) => s.setUserTier);
   const pausedChallenges = useChallengeStore((s) => s.pausedChallenges);
-  const dailyStepGoal = useChallengeStore((s) => s.dailyStepGoal);
-  const setDailyStepGoal = useChallengeStore((s) => s.setDailyStepGoal);
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
   const setOnboardingComplete = useChallengeStore((s) => s.setOnboardingComplete);
   const theme = useChallengeStore((s) => s.theme);
@@ -48,6 +46,7 @@ export function ProfileScreen() {
   const [authSuccess, setAuthSuccess] = useState<string | null>(null);
   const [showPausedWarning, setShowPausedWarning] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  const [showGamificationGuide, setShowGamificationGuide] = useState(false);
 
   const [pushEnabled, setPushEnabled] = useState<boolean>(true);
   const [pushSaving, setPushSaving] = useState(false);
@@ -57,9 +56,8 @@ export function ProfileScreen() {
     if (userProfile) {
       // Authenticated users are always Pro; guests can be treated as Pro internally too.
       setUserTier('pro');
-      setDailyStepGoal(userProfile.daily_step_goal);
     }
-  }, [userProfile, setUserTier, setDailyStepGoal]);
+  }, [userProfile, setUserTier]);
 
   useEffect(() => {
     if (userProfile && !isGuest) {
@@ -262,6 +260,12 @@ export function ProfileScreen() {
         onCancel={() => setShowPausedWarning(false)}
       />
 
+      {/* ✨ NEW: Gamification Guide Modal */}
+      <GamificationGuide
+        isOpen={showGamificationGuide}
+        onClose={() => setShowGamificationGuide(false)}
+      />
+
       <main className="px-5 py-6 max-w-md mx-auto space-y-4">
         {/* Close Settings button (X) moved into header */}
 
@@ -274,13 +278,6 @@ export function ProfileScreen() {
           // Google sign-in disabled
           onGoogleSignIn={undefined}
         />
-
-        {!isGuest && (
-          <DailyStepGoalSection
-            dailyStepGoal={dailyStepGoal}
-            onSave={setDailyStepGoal}
-          />
-        )}
 
         {/* Stats moved here from the top header */}
         {!isGuest && (
@@ -375,6 +372,24 @@ export function ProfileScreen() {
           </section>
         )}
 
+        {/* ✨ NEW: How It Works - Gamification Guide */}
+        {!isGuest && (
+          <button
+            onClick={() => setShowGamificationGuide(true)}
+            className="w-full bg-gradient-to-br from-blue-500/10 to-purple-500/10 hover:from-blue-500/20 hover:to-purple-500/20 border border-blue-500/20 dark:border-blue-500/30 rounded-2xl p-4 shadow-sm transition-all text-left flex items-center justify-between group"
+          >
+            <div className="flex items-center gap-3">
+              <div>
+                <div className="text-sm font-semibold text-gray-900 dark:text-white">How It Works</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">Learn about XP, Levels & Streaks</div>
+              </div>
+            </div>
+            <svg className="w-5 h-5 text-blue-500 dark:text-blue-400 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7-7" />
+            </svg>
+          </button>
+        )}
+
         <button
           onClick={() => {
             setOnboardingComplete(false);
@@ -384,8 +399,7 @@ export function ProfileScreen() {
         >
           <div className="flex items-center gap-3">
             <div>
-              <div className="text-sm font-semibold text-gray-900 dark:text-white">View Tutorial</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">See how Movee works</div>
+              <div className="text-sm font-semibold text-gray-900 dark:text-white">Start Screen</div>
             </div>
           </div>
           <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

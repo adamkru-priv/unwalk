@@ -51,47 +51,7 @@ const DIFFICULTY_OPTIONS: DifficultyOption[] = [
   },
 ];
 
-const DifficultyIcon = ({ type, color }: { type: string; color: string }) => {
-  if (type === 'easy') {
-    return (
-      <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${color} flex items-center justify-center shadow-xl`}>
-        <svg className="w-11 h-11 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-        </svg>
-      </div>
-    );
-  }
-  
-  if (type === 'advanced') {
-    return (
-      <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${color} flex items-center justify-center shadow-xl`}>
-        <svg className="w-11 h-11 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" />
-        </svg>
-      </div>
-    );
-  }
-  
-  if (type === 'expert') {
-    return (
-      <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${color} flex items-center justify-center shadow-xl`}>
-        <svg className="w-11 h-11 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" transform="translate(3, 3)" />
-        </svg>
-      </div>
-    );
-  }
-  
-  return (
-    <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${color} flex items-center justify-center shadow-xl`}>
-      <svg className="w-11 h-11 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-      </svg>
-    </div>
-  );
-};
+// Removed: DifficultyIcon component (not used in current design)
 
 export function BrowseChallenges({ onCustomClick }: BrowseChallengesProps) {
   const [challenges, setChallenges] = useState<AdminChallenge[]>([]);
@@ -154,6 +114,11 @@ export function BrowseChallenges({ onCustomClick }: BrowseChallengesProps) {
 
   const handleDifficultySelect = (level: DifficultyLevel) => {
     if (level === 'custom') {
+      // ✅ If guest, redirect to profile to sign up
+      if (isGuest) {
+        setCurrentScreen('profile');
+        return;
+      }
       onCustomClick(); // ✅ Use callback instead of setCurrentScreen
       return;
     }
@@ -408,7 +373,7 @@ export function BrowseChallenges({ onCustomClick }: BrowseChallengesProps) {
       )}
 
       {!loading && (
-        <div className="space-y-4 max-w-md mx-auto">
+        <div className="space-y-3 max-w-md mx-auto">
           {/* Difficulty Options */}
           {DIFFICULTY_OPTIONS.map((option) => {
             const availableCount = getChallengesByDifficulty(option.level).length;
@@ -416,39 +381,34 @@ export function BrowseChallenges({ onCustomClick }: BrowseChallengesProps) {
             return (
               <motion.button
                 key={option.level}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.99 }}
                 onClick={() => handleDifficultySelect(option.level)}
-                className={`relative w-full ${option.gradient} border border-white/5 rounded-3xl p-7 text-left transition-all hover:border-white/20 overflow-hidden group`}
+                className={`relative w-full ${option.gradient} border border-white/10 rounded-2xl p-5 text-left transition-all hover:border-white/30 overflow-hidden group`}
               >
-                {/* Accent line at top */}
-                <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${option.color}`}></div>
+                {/* Accent line at left */}
+                <div className={`absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b ${option.color}`}></div>
                 
                 {/* Glow effect on hover */}
-                <div className={`absolute -top-20 -right-20 w-64 h-64 bg-gradient-to-br ${option.color} opacity-0 group-hover:opacity-20 rounded-full blur-3xl transition-opacity duration-500`}></div>
+                <div className={`absolute -top-20 -right-20 w-64 h-64 bg-gradient-to-br ${option.color} opacity-0 group-hover:opacity-10 rounded-full blur-3xl transition-opacity duration-500`}></div>
                 
-                <div className="relative flex items-start gap-5">
-                  {/* Beautiful Gradient Icon */}
-                  <div className="flex-shrink-0 transform group-hover:scale-105 transition-transform duration-300">
-                    <DifficultyIcon type={option.icon} color={option.color} />
+                <div className="relative flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-baseline gap-3 mb-1">
+                      <h3 className="text-xl font-black text-white tracking-tight">
+                        {option.title}
+                      </h3>
+                      <span className="text-xs text-white/50 font-medium">{option.subtitle}</span>
+                    </div>
+                    <p className="text-sm text-white/60 mb-2">{option.stepsRange}</p>
+                    <span className="inline-block bg-white/10 border border-white/20 text-white text-xs font-bold px-2.5 py-1 rounded-lg">
+                      {availableCount} challenges
+                    </span>
                   </div>
                   
-                  <div className="flex-1 pt-1">
-                    <h3 className="text-2xl font-black text-white mb-1.5 tracking-tight">
-                      {option.title}
-                    </h3>
-                    <p className="text-sm text-white/70 font-semibold mb-2">{option.subtitle}</p>
-                    <p className="text-xs text-white/50 mb-3">{option.stepsRange}</p>
-                    
-                    <div className="flex items-center gap-2">
-                      <span className="bg-white/10 border border-white/20 text-white text-xs font-bold px-3 py-1.5 rounded-lg">
-                        {availableCount} challenges
-                      </span>
-                      <svg className="w-5 h-5 text-white/40 group-hover:text-white/70 group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                      </svg>
-                    </div>
-                  </div>
+                  <svg className="w-6 h-6 text-white/30 group-hover:text-white/60 group-hover:translate-x-1 transition-all flex-shrink-0 ml-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
                 </div>
               </motion.button>
             );
@@ -456,39 +416,41 @@ export function BrowseChallenges({ onCustomClick }: BrowseChallengesProps) {
 
           {/* Custom Challenge Option */}
           <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.99 }}
             onClick={() => handleDifficultySelect('custom')}
-            className="relative w-full bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-white/5 rounded-3xl p-7 text-left transition-all hover:border-white/20 overflow-hidden group"
+            className="relative w-full bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-white/10 rounded-2xl p-5 text-left transition-all hover:border-white/30 overflow-hidden group"
           >
-            {/* Accent line at top */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 to-blue-500"></div>
+            {/* Accent line at left */}
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-purple-500 to-blue-500"></div>
             
             {/* Glow effect on hover */}
-            <div className="absolute -top-20 -right-20 w-64 h-64 bg-gradient-to-br from-purple-500 to-blue-500 opacity-0 group-hover:opacity-20 rounded-full blur-3xl transition-opacity duration-500"></div>
+            <div className="absolute -top-20 -right-20 w-64 h-64 bg-gradient-to-br from-purple-500 to-blue-500 opacity-0 group-hover:opacity-10 rounded-full blur-3xl transition-opacity duration-500"></div>
             
-            <div className="relative flex items-start gap-5">
-              {/* Beautiful Gradient Icon */}
-              <div className="flex-shrink-0 transform group-hover:scale-105 transition-transform duration-300">
-                <DifficultyIcon type="custom" color="from-purple-500 to-blue-500" />
-              </div>
-              
-              <div className="flex-1 pt-1">
-                <h3 className="text-2xl font-black text-white mb-1.5 tracking-tight">
-                  CUSTOM
-                </h3>
-                <p className="text-sm text-white/70 font-semibold mb-2">Create Your Own</p>
-                <p className="text-xs text-white/50 mb-3">Set your own goal</p>
-                
+            <div className="relative flex items-center justify-between">
+              <div className="flex-1">
+                <div className="flex items-baseline gap-3 mb-1">
+                  <h3 className="text-xl font-black text-white tracking-tight">
+                    CUSTOM
+                  </h3>
+                  <span className="text-xs text-white/50 font-medium">Create Your Own</span>
+                </div>
+                <p className="text-sm text-white/60 mb-2">Set your own goal</p>
                 <div className="flex items-center gap-2">
-                  <span className="bg-white/10 border border-white/20 text-white text-xs font-bold px-3 py-1.5 rounded-lg">
+                  <span className="inline-block bg-white/10 border border-white/20 text-white text-xs font-bold px-2.5 py-1 rounded-lg">
                     Unlimited
                   </span>
-                  <svg className="w-5 h-5 text-white/40 group-hover:text-white/70 group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                  </svg>
+                  {isGuest && (
+                    <span className="inline-block bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-black px-2.5 py-1 rounded-lg shadow-lg">
+                      PRO
+                    </span>
+                  )}
                 </div>
               </div>
+              
+              <svg className="w-6 h-6 text-white/30 group-hover:text-white/60 group-hover:translate-x-1 transition-all flex-shrink-0 ml-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </svg>
             </div>
           </motion.button>
 
