@@ -3,25 +3,27 @@ import { supabase } from './supabase';
 import { getDeviceId } from './deviceId';
 import type { AdminChallenge, UserChallenge } from '../types';
 import { badgesService } from './auth';
+import { addXPToUser } from './gamification';
 
-// Calculate points for a challenge based on goal_steps
+// Calculate XP for a challenge based on goal_steps
 export function calculateChallengePoints(goalSteps: number, isDailyChallenge: boolean = false): number {
-  let basePoints = 0;
+  let baseXP = 0;
   
+  // ✅ NEW: Increased XP rewards for challenges (x5-10 multiplier)
   if (goalSteps <= 5000) {
-    basePoints = 5;
+    baseXP = 25;      // Was: 5 XP
   } else if (goalSteps <= 10000) {
-    basePoints = 10;
+    baseXP = 50;      // Was: 10 XP
   } else if (goalSteps <= 15000) {
-    basePoints = 15;
+    baseXP = 75;      // Was: 15 XP
   } else if (goalSteps <= 25000) {
-    basePoints = 25;
+    baseXP = 125;     // Was: 25 XP
   } else {
-    basePoints = 50;
+    baseXP = 200;     // Was: 50 XP
   }
   
-  // Daily challenge gets x3 multiplier
-  return isDailyChallenge ? basePoints * 3 : basePoints;
+  // Daily challenge gets x2 multiplier (was x3)
+  return isDailyChallenge ? baseXP * 2 : baseXP;
 }
 
 // Fetch all active admin challenges (sorted by sort_order)
@@ -278,6 +280,27 @@ export async function claimCompletedChallenge(userChallengeId: string): Promise<
     .single();
 
   if (error) throw error;
+  
+  // ✅ Add XP reward based on challenge difficulty
+  if (data?.admin_challenge?.goal_steps) {
+    const xpAmount = calculateChallengePoints(data.admin_challenge.goal_steps, data.admin_challenge.is_daily || false);
+    
+    try {
+      const result = await addXPToUser(
+        xpAmount,
+        'challenge',
+        userChallengeId,
+        `Completed: ${data.admin_challenge.title}`
+      );
+      
+      if (result) {
+        console.log(`✅ [API] Added ${xpAmount} XP for challenge completion`, result);
+      }
+    } catch (xpError) {
+      console.error('⚠️ [API] Failed to add XP reward:', xpError);
+      // Don't throw - claiming challenge is more important than XP reward
+    }
+  }
   
   // ✅ Check and unlock achievements for PRO users
   try {

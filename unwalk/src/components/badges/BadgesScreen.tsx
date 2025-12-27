@@ -3,12 +3,14 @@ import { BottomNavigation } from '../common/BottomNavigation';
 import { badgesService, type Badge } from '../../lib/auth';
 import { useChallengeStore } from '../../stores/useChallengeStore';
 import { useState, useEffect } from 'react';
+import { getUserGamificationStats } from '../../lib/gamification';
+import type { UserGamificationStats } from '../../types';
 
 export function BadgesScreen() {
   const [badges, setBadges] = useState<Badge[]>([]);
-  const [totalPoints, setTotalPoints] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [gamificationStats, setGamificationStats] = useState<UserGamificationStats | null>(null);
 
   // ✅ Read from store instead of loading
   const userProfile = useChallengeStore((s) => s.userProfile);
@@ -57,6 +59,10 @@ export function BadgesScreen() {
         
         // Get total_points from user profile in store
         const userTotalPoints = userProfile?.total_points || 0;
+        
+        // ✅ Load gamification stats (XP & Level)
+        const stats = await getUserGamificationStats();
+        setGamificationStats(stats);
 
         // 🐛 DEBUG: Log all badges with their unlocked status
         console.log('🏆 [BadgesScreen] All badges:', badgesData.map(b => ({
@@ -67,14 +73,13 @@ export function BadgesScreen() {
         })));
 
         setBadges(badgesData);
-        setTotalPoints(userTotalPoints);
         
         console.log('✅ [BadgesScreen] Loaded badges with points:', userTotalPoints);
       } else {
         console.log('ℹ️ [BadgesScreen] Guest - skipping badges');
         // Clear badges if not authenticated
         setBadges([]);
-        setTotalPoints(0);
+        setGamificationStats(null);
       }
     } catch (error) {
       console.error('❌ [BadgesScreen] Failed to load badges:', error);
@@ -162,16 +167,24 @@ export function BadgesScreen() {
           </div>
         ) : (
           <>
-            {/* Hero Header with Points */}
+            {/* Hero Header with XP & Level */}
             <div className="text-center">
               <h1 className="text-3xl font-black text-gray-900 dark:text-white mb-1">
                 Your Rewards
               </h1>
-              <div className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-white/50">
-                <span>{unlockedCount}/{badges.length} badges</span>
-                <span>•</span>
-                <span className="text-amber-600 dark:text-amber-400 font-bold">{totalPoints} points</span>
-              </div>
+              {gamificationStats ? (
+                <div className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-white/50">
+                  <span>{unlockedCount}/{badges.length} badges</span>
+                  <span>•</span>
+                  <span className="text-blue-600 dark:text-blue-400 font-bold">Level {gamificationStats.level}</span>
+                  <span>•</span>
+                  <span className="text-amber-600 dark:text-amber-400 font-bold">{gamificationStats.xp} XP</span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-white/50">
+                  <span>{unlockedCount}/{badges.length} badges</span>
+                </div>
+              )}
             </div>
 
             {loading ? (

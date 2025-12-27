@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import type { UserChallenge } from '../../../types';
+import { calculateChallengePoints } from '../../../lib/api';
 
 interface CompletedChallengesListProps {
   challenges: UserChallenge[];
@@ -73,8 +74,17 @@ export function CompletedChallengesList({ challenges, isGuest, onChallengeClick 
                 </div>
 
                 <div className="mt-2 flex items-center justify-between">
-                  <div className="text-xs font-bold text-purple-200/90 group-hover:text-purple-100 transition-colors">
-                    {isGuest ? 'Sign up to claim rewards' : 'Tap to claim reward'}
+                  <div className="flex items-center gap-2">
+                    {!isGuest && challenge.admin_challenge?.goal_steps && (
+                      <div className="flex items-center gap-1 rounded-lg bg-yellow-500/15 border border-yellow-500/25 px-2 py-1">
+                        <span className="text-xs font-bold text-yellow-400">
+                          +{calculateChallengePoints(challenge.admin_challenge.goal_steps, challenge.admin_challenge.is_daily || false)} XP
+                        </span>
+                      </div>
+                    )}
+                    <div className="text-xs font-bold text-purple-200/90 group-hover:text-purple-100 transition-colors">
+                      {isGuest ? 'Sign up to claim rewards' : 'Tap to claim'}
+                    </div>
                   </div>
                   <div className="text-purple-200/60 group-hover:text-purple-100 transition-colors">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

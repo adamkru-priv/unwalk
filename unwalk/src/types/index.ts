@@ -18,6 +18,7 @@ export interface AdminChallenge {
   is_image_hidden?: boolean; // Should image be blurred initially
   deadline?: string; // Optional deadline for challenge
   time_limit_hours?: number; // Time limit in hours (NULL = unlimited)
+  is_daily?: boolean; // Is this a daily challenge (affects XP reward)
 }
 
 // User's active/completed challenges (guest mode with device_id)

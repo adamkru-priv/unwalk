@@ -70,18 +70,9 @@ export function ProfileScreen() {
     if (!confirm('Sign out from your account?')) return;
 
     try {
-      console.log('🔓 [ProfileScreen] Signing out...');
+      console.log('🔓 [ProfileScreen] Starting sign out...');
 
-      // 1. Clear store FIRST
-      console.log('🧹 [ProfileScreen] Clearing store...');
-      setUserProfile(null);
-      resetToInitialState();
-
-      // 2. Clear ALL localStorage (including Supabase auth cache)
-      console.log('🧹 [ProfileScreen] Clearing localStorage...');
-      localStorage.clear();
-
-      // 3. Sign out from Supabase
+      // 1. Sign out from Supabase FIRST (clears server session and storage)
       const { error } = await authService.signOut();
       if (error) {
         console.error('❌ Sign out error:', error);
@@ -91,26 +82,47 @@ export function ProfileScreen() {
 
       console.log('✅ [ProfileScreen] Supabase sign out successful');
 
-      // 4. Small delay to ensure cleanup completes
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // 2. Clear store state
+      console.log('🧹 [ProfileScreen] Clearing store...');
+      setUserProfile(null);
+      resetToInitialState();
 
-      // 5. Navigate back to onboarding inside the SPA (don't hard-navigate to '/',
-      // because '/' is now the landing page and would exit the app UI.)
+      // 3. Small delay to ensure cleanup completes
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      // 4. Navigate back to onboarding
+      console.log('📍 [ProfileScreen] Navigating to onboarding...');
       setOnboardingComplete(false);
       setCurrentScreen('onboarding');
 
-      // Web-only fallback: ensure URL is under /app so refresh stays in SPA.
-      // (Safe on native too, but not required.)
+      // 5. Web-only: Ensure URL is under /app
       try {
-        if (window.location.pathname === '/') {
+        if (typeof window !== 'undefined' && window.location.pathname === '/') {
           window.history.replaceState({}, '', '/app');
+        }
+      } catch {
+        // ignore on native
+      }
+
+      console.log('✅ [ProfileScreen] Sign out complete!');
+    } catch (err) {
+      console.error('❌ Unexpected error during sign out:', err);
+      
+      // Emergency fallback: force clean state
+      try {
+        const { Capacitor } = await import('@capacitor/core');
+        if (Capacitor.isNativePlatform()) {
+          const { Preferences } = await import('@capacitor/preferences');
+          await Preferences.clear();
+        } else {
+          localStorage.clear();
         }
       } catch {
         // ignore
       }
-    } catch (err) {
-      console.error('❌ Unexpected error during sign out:', err);
-      localStorage.clear();
+      
+      setUserProfile(null);
+      resetToInitialState();
       setOnboardingComplete(false);
       setCurrentScreen('onboarding');
     }

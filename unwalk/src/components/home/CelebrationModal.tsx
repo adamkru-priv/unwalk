@@ -1,10 +1,8 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import type { UserChallenge } from '../../types';
-import { calculateChallengePoints } from '../../lib/api';
+import { calculateChallengePoints, claimCompletedChallenge } from '../../lib/api';
 import { useChallengeStore } from '../../stores/useChallengeStore';
-import { supabase } from '../../lib/supabase';
-import { badgesService, authService } from '../../lib/auth';
 
 interface CelebrationModalProps {
   challenge: UserChallenge;
@@ -13,64 +11,23 @@ interface CelebrationModalProps {
 
 export function CelebrationModal({ challenge, onClaim }: CelebrationModalProps) {
   const [claiming, setClaiming] = useState(false);
-  const userTier = useChallengeStore((s) => s.userTier);
-  const setUserProfile = useChallengeStore((s) => s.setUserProfile);
+  const userProfile = useChallengeStore((s) => s.userProfile);
 
   const handleClaim = async () => {
     try {
       setClaiming(true);
       
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      
       console.log('🎯 [Claim] Starting claim process...');
-      console.log('🎯 [Claim] User ID:', user?.id);
       console.log('🎯 [Claim] Challenge ID:', challenge.id);
       
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
+      // ✅ Use the new claimCompletedChallenge function that adds XP
+      await claimCompletedChallenge(challenge.id);
       
-      // Use database function to claim challenge (bypasses RLS issues)
-      const { data, error } = await supabase.rpc('claim_user_challenge', {
-        p_challenge_id: challenge.id,
-        p_user_id: user.id
-      });
+      console.log('✅ [Claim] Challenge claimed successfully with XP reward!');
       
-      if (error) {
-        console.error('❌ [Claim] RPC error:', error);
-        console.error('❌ [Claim] Error details:', JSON.stringify(error, null, 2));
-        throw error;
-      }
-      
-      console.log('✅ [Claim] Challenge claimed successfully:', data);
-      
-      // ✅ Refresh user profile to update points in UI
-      const updatedProfile = await authService.getUserProfile();
-      if (updatedProfile) {
-        setUserProfile(updatedProfile);
-        console.log('✅ [Claim] User profile refreshed, new points:', updatedProfile.total_points);
-      }
-      
-      // ✅ Manually trigger achievement check (double-check)
-      if (userTier === 'pro') {
-        try {
-          const { newBadgesCount } = await badgesService.checkAchievements();
-          if (newBadgesCount > 0) {
-            console.log(`🎉 [Claim] Unlocked ${newBadgesCount} new badge(s)!`);
-          }
-        } catch (err) {
-          console.error('⚠️ [Claim] Failed to check achievements:', err);
-          // Don't fail the whole claim if badge check fails
-        }
-      }
-      
-      // No more localStorage - everything is in Supabase!
       onClaim();
     } catch (error: any) {
       console.error('❌ [Claim] Failed to claim reward:', error);
-      console.error('❌ [Claim] Error message:', error?.message);
-      console.error('❌ [Claim] Error details:', error?.details);
       alert(`Failed to claim reward: ${error?.message || 'Unknown error'}\n\nPlease try again or contact support.`);
       setClaiming(false);
     }
@@ -80,9 +37,35 @@ export function CelebrationModal({ challenge, onClaim }: CelebrationModalProps) 
   const totalSteps = challenge.current_steps;
   const totalDistance = ((totalSteps * 0.8) / 1000).toFixed(1);
   const totalCalories = Math.round(totalSteps * 0.04);
-  const activeDays = Math.ceil((challenge.active_time_seconds || 0) / 86400) || 1;
-  const points = !challenge.admin_challenge?.is_custom && userTier === 'pro' 
-    ? calculateChallengePoints(challenge.admin_challenge?.goal_steps || 0) 
+  
+  // ✅ FIX: Calculate actual time duration
+  const calculateDuration = () => {
+    if (!challenge.started_at) return '< 1 hour';
+    
+    const startDate = new Date(challenge.started_at);
+    const endDate = challenge.completed_at ? new Date(challenge.completed_at) : new Date();
+    const durationMs = endDate.getTime() - startDate.getTime();
+    const durationHours = Math.floor(durationMs / (1000 * 60 * 60));
+    const durationDays = Math.floor(durationHours / 24);
+    
+    if (durationDays > 0) {
+      const remainingHours = durationHours % 24;
+      return remainingHours > 0 ? `${durationDays}d ${remainingHours}h` : `${durationDays}d`;
+    } else if (durationHours > 0) {
+      const remainingMinutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+      return remainingMinutes > 0 ? `${durationHours}h ${remainingMinutes}m` : `${durationHours}h`;
+    } else {
+      const durationMinutes = Math.floor(durationMs / (1000 * 60));
+      return durationMinutes > 0 ? `${durationMinutes}m` : '< 1m';
+    }
+  };
+  
+  const duration = calculateDuration();
+  
+  // ✅ FIX: Show XP for PRO users (not old points system)
+  const isGuest = userProfile?.is_guest || false;
+  const xpReward = !isGuest && challenge.admin_challenge?.goal_steps
+    ? calculateChallengePoints(challenge.admin_challenge.goal_steps, challenge.admin_challenge.is_daily || false)
     : null;
 
   return (
@@ -196,38 +179,38 @@ export function CelebrationModal({ challenge, onClaim }: CelebrationModalProps) 
               </div>
 
               {/* Distance */}
-              <div className="bg-gray-50 dark:bg-white/5 rounded-2xl p-4 border border-gray-200 dark:border-white/10">
+              <div className="bg-gray-50 dark:bg.white/5 rounded-2xl p-4 border border-gray-200 dark:border-white/10">
                 <div className="text-3xl font-black text-gray-900 dark:text-white mb-1">
                   {totalDistance}km
                 </div>
-                <div className="text-xs text-gray-600 dark:text.white/60 uppercase tracking-wide font-semibold">
+                <div className="text-xs text-gray-600 dark:text-white/60 uppercase tracking-wide font-semibold">
                   Distance
                 </div>
               </div>
 
               {/* Calories */}
-              <div className="bg-gray-50 dark:bg.white/5 rounded-2xl p-4 border border-gray-200 dark:border-white/10">
-                <div className="text-3xl font-black text-gray-900 dark:text.white mb-1">
+              <div className="bg-gray-50 dark:bg-white/5 rounded-2xl p-4 border border-gray-200 dark:border-white/10">
+                <div className="text-3xl font-black text-gray-900 dark:text-white mb-1">
                   {totalCalories}
                 </div>
-                <div className="text-xs text-gray-600 dark:text.white/60 uppercase tracking-wide font-semibold">
+                <div className="text-xs text-gray-600 dark:text-white/60 uppercase tracking-wide font-semibold">
                   Calories
                 </div>
               </div>
 
-              {/* Active Days */}
-              <div className="bg-gray-50 dark:bg.white/5 rounded-2xl p-4 border border-gray-200 dark:border-white/10">
-                <div className="text-3xl font-black text-gray-900 dark:text.white mb-1">
-                  {activeDays}
+              {/* Duration */}
+              <div className="bg-gray-50 dark:bg-white/5 rounded-2xl p-4 border border-gray-200 dark:border-white/10">
+                <div className="text-3xl font-black text-gray-900 dark:text-white mb-1">
+                  {duration}
                 </div>
-                <div className="text-xs text-gray-600 dark:text.white/60 uppercase tracking-wide font-semibold">
-                  {activeDays === 1 ? 'Day' : 'Days'}
+                <div className="text-xs text-gray-600 dark:text-white/60 uppercase tracking-wide font-semibold">
+                  Duration
                 </div>
               </div>
             </div>
 
-            {/* Points Badge - Only for Pro users with system challenges */}
-            {points && (
+            {/* XP Reward - Only for Pro users */}
+            {xpReward && (
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
@@ -236,7 +219,7 @@ export function CelebrationModal({ challenge, onClaim }: CelebrationModalProps) 
               >
                 <div className="text-4xl mb-2">🎁</div>
                 <div className="text-2xl font-black text-amber-900 dark:text-amber-400 mb-1">
-                  +{points} Points
+                  +{xpReward} XP
                 </div>
                 <div className="text-xs text-amber-700 dark:text-amber-500 font-semibold">
                   Added to your collection
@@ -259,7 +242,7 @@ export function CelebrationModal({ challenge, onClaim }: CelebrationModalProps) 
                 ) : (
                   <>
                     <span className="text-xl">✓</span>
-                    {points ? 'Claim Reward' : 'Mark as Complete'}
+                    {xpReward ? 'Claim Reward' : 'Mark as Complete'}
                   </>
                 )}
               </span>

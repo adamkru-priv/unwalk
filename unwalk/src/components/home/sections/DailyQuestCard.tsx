@@ -28,18 +28,25 @@ export function DailyQuestCard({ onQuestClaimed }: DailyQuestCardProps) {
 
   // Update quest progress based on steps (for steps quests)
   useEffect(() => {
-    if (quest && quest.quest_type === 'steps' && !quest.completed) {
-      const progress = Math.min(todaySteps, quest.target_value);
-      if (progress !== quest.current_progress) {
-        setQuest({ ...quest, current_progress: progress });
-        
-        // Check if completed
-        if (progress >= quest.target_value) {
-          setQuest({ ...quest, current_progress: progress, completed: true });
+    const updateStepsQuest = async () => {
+      if (quest && quest.quest_type === 'steps' && !quest.completed) {
+        const progress = Math.min(todaySteps, quest.target_value);
+        if (progress !== quest.current_progress) {
+          // ✅ UPDATE: Save to database
+          await updateQuestProgress(quest.id, progress);
+          
+          // Update local state
+          setQuest({ 
+            ...quest, 
+            current_progress: progress,
+            completed: progress >= quest.target_value
+          });
         }
       }
-    }
-  }, [todaySteps, quest]);
+    };
+
+    updateStepsQuest();
+  }, [todaySteps, quest?.id, quest?.quest_type, quest?.completed, quest?.current_progress]);
 
   // ✨ NEW: Check social quest progress (challenge sent to team)
   useEffect(() => {
@@ -93,14 +100,25 @@ export function DailyQuestCard({ onQuestClaimed }: DailyQuestCardProps) {
     
     try {
       setClaiming(true);
+      
+      // ✅ FIX: Ensure quest is marked as completed in DB before claiming
+      console.log('🎯 [DailyQuestCard] Updating quest progress before claim:', quest.id, quest.current_progress);
+      await updateQuestProgress(quest.id, quest.current_progress);
+      
+      // Wait a bit for DB to update
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      console.log('🎁 [DailyQuestCard] Attempting to claim quest reward...');
       const result = await claimQuestReward(quest.id);
       
       if (result) {
+        console.log('✅ [DailyQuestCard] Quest claimed successfully! XP earned:', result.xp_earned);
         setQuest({ ...quest, claimed: true, claimed_at: new Date().toISOString() });
         onQuestClaimed?.(result.xp_earned);
       }
     } catch (error) {
-      console.error('Failed to claim reward:', error);
+      console.error('❌ [DailyQuestCard] Failed to claim reward:', error);
+      alert('Failed to claim reward. Please try refreshing the page.');
     } finally {
       setClaiming(false);
     }

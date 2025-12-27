@@ -12,8 +12,7 @@ import { HeroHeader } from './sections/HeroHeader';
 import { CompletedChallengesList } from './sections/CompletedChallengesList';
 import { HeroCarousel } from './sections/HeroCarousel';
 import { PausedChallengesGrid } from './sections/PausedChallengesGrid';
-import { DailyQuestCard } from './sections/DailyQuestCard';
-import { StreakCard } from './sections/StreakCard';
+import { JourneyTimeline } from './sections/JourneyTimeline';
 import { useHealthKit } from '../../hooks/useHealthKit';
 import { teamService, type TeamMember } from '../../lib/auth';
 import { getUserGamificationStats, getNextStreakMilestone } from '../../lib/gamification';
@@ -264,7 +263,7 @@ export function HomeScreen() {
     setTeamActiveChallenges([]);
   };
 
-  const handleClaimSuccess = () => {
+  const handleClaimSuccess = async () => {
     setSelectedCompletedChallenge(null);
     
     if (activeUserChallenge?.id === selectedCompletedChallenge?.id) {
@@ -274,6 +273,24 @@ export function HomeScreen() {
     
     loadUnclaimedChallenges();
     loadActiveChallenge();
+    
+    // ✅ FIX: Reload gamification stats after claiming challenge reward
+    if (!isGuest) {
+      try {
+        const newStats = await getUserGamificationStats();
+        if (newStats && gamificationStats) {
+          // Check if leveled up
+          if (newStats.level > gamificationStats.level) {
+            setLevelUpValue(newStats.level);
+            setShowLevelUpModal(true);
+          }
+        }
+        setGamificationStats(newStats);
+        console.log('✅ [HomeScreen] Refreshed gamification stats after claim:', newStats);
+      } catch (error) {
+        console.error('❌ [HomeScreen] Failed to refresh gamification stats:', error);
+      }
+    }
   };
 
   const calculateProgress = () => {
@@ -367,24 +384,14 @@ export function HomeScreen() {
           level={gamificationStats?.level} 
         />
         
-        {/* ✨ NEW: Level Progress Bar (for Pro users) - REMOVED, now in header */}
-        
-        {/* ✨ NEW: Daily Quest (for Pro users) */}
-        {!isGuest && (
-          <div className="px-5">
-            <DailyQuestCard onQuestClaimed={handleQuestClaimed} />
-          </div>
-        )}
-        
-        {/* ✨ NEW: Streak Card (for Pro users) */}
-        {!isGuest && gamificationStats && gamificationStats.current_streak > 0 && (
-          <div className="px-5">
-            <StreakCard 
-              currentStreak={gamificationStats.current_streak}
-              longestStreak={gamificationStats.longest_streak}
-              nextMilestone={getNextStreakMilestone(gamificationStats.current_streak) || undefined}
-            />
-          </div>
+        {/* ✨ NEW: Journey Timeline - combines Quest + Streak in one compact view */}
+        {!isGuest && gamificationStats && (
+          <JourneyTimeline 
+            currentStreak={gamificationStats.current_streak}
+            longestStreak={gamificationStats.longest_streak}
+            nextMilestone={getNextStreakMilestone(gamificationStats.current_streak) || undefined}
+            onQuestClaimed={handleQuestClaimed}
+          />
         )}
         
         <CompletedChallengesList

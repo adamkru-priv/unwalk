@@ -350,17 +350,55 @@ class AuthService {
    */
   async signOut(): Promise<{ error: Error | null }> {
     try {
+      console.log('🚪 [Auth] Starting sign out...');
+      
+      // 1. Sign out from Supabase (clears server session)
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
 
-      // Clear guest cache but keep device_id
+      // 2. Clear guest cache
       this.clearGuestUser();
 
-      // Clear localStorage (remove old unclaimed challenges and other app data)
-      localStorage.removeItem('unclaimedChallenges');
-      // Note: We keep device_id for guest user re-identification
+      // 3. Clear app storage (works on both web and iOS)
+      try {
+        // Check if running on native platform
+        const { Capacitor } = await import('@capacitor/core');
+        
+        if (Capacitor.isNativePlatform()) {
+          // ✅ iOS/Android: Clear Capacitor Preferences
+          const { Preferences } = await import('@capacitor/preferences');
+          
+          console.log('📱 [Auth] Clearing Capacitor storage...');
+          
+          // Clear all auth-related keys
+          await Preferences.remove({ key: 'unwalk-auth' });
+          await Preferences.remove({ key: 'sb-' + import.meta.env.VITE_SUPABASE_URL?.split('//')[1]?.split('.')[0] + '-auth-token' });
+          await Preferences.remove({ key: 'unclaimedChallenges' });
+          
+          console.log('✅ [Auth] Capacitor storage cleared');
+        } else {
+          // ✅ Web: Clear localStorage
+          console.log('🌐 [Auth] Clearing localStorage...');
+          localStorage.removeItem('unclaimedChallenges');
+          
+          // Clear all Supabase auth keys
+          const authKeys = Object.keys(localStorage).filter(key => 
+            key.includes('supabase') || key.includes('auth-token') || key.includes('unwalk')
+          );
+          
+          authKeys.forEach(key => {
+            console.log('🗑️ [Auth] Removing key:', key);
+            localStorage.removeItem(key);
+          });
+          
+          console.log('✅ [Auth] localStorage cleared');
+        }
+      } catch (storageError) {
+        console.error('⚠️ [Auth] Storage clear error:', storageError);
+        // Don't throw - sign out is more important than clearing storage
+      }
 
-      console.log('👋 [Auth] Signed out');
+      console.log('👋 [Auth] Signed out successfully');
       return { error: null };
     } catch (error) {
       console.error('❌ [Auth] Sign out error:', error);
