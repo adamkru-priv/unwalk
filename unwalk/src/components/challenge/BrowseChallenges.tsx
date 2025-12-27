@@ -1,24 +1,109 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import type { AdminChallenge } from '../../types';
-import { getAdminChallenges, startChallenge, getCompletedChallenges, calculateChallengePoints } from '../../lib/api';
+import { getAdminChallenges, startChallenge, calculateChallengePoints } from '../../lib/api';
 import { useChallengeStore } from '../../stores/useChallengeStore';
 import { teamService, type TeamMember } from '../../lib/auth';
 
-export function BrowseChallenges() {
+type DifficultyLevel = 'easy' | 'advanced' | 'expert' | 'custom';
+
+interface DifficultyOption {
+  level: DifficultyLevel;
+  title: string;
+  subtitle: string;
+  stepsRange: string;
+  icon: string;
+  color: string;
+  gradient: string;
+}
+
+interface BrowseChallengesProps {
+  onCustomClick: () => void;
+}
+
+const DIFFICULTY_OPTIONS: DifficultyOption[] = [
+  {
+    level: 'easy',
+    title: 'EASY',
+    subtitle: 'Starting Out',
+    stepsRange: '3K - 7K steps',
+    icon: 'easy',
+    color: 'from-green-500 to-emerald-500',
+    gradient: 'bg-gradient-to-br from-green-500/10 to-emerald-500/10',
+  },
+  {
+    level: 'advanced',
+    title: 'ADVANCED',
+    subtitle: 'Regular Walker',
+    stepsRange: '7.5K - 12.5K steps',
+    icon: 'advanced',
+    color: 'from-amber-500 to-orange-500',
+    gradient: 'bg-gradient-to-br from-amber-500/10 to-orange-500/10',
+  },
+  {
+    level: 'expert',
+    title: 'EXPERT',
+    subtitle: 'Power Walker',
+    stepsRange: '13K+ steps',
+    icon: 'expert',
+    color: 'from-red-500 to-rose-500',
+    gradient: 'bg-gradient-to-br from-red-500/10 to-rose-500/10',
+  },
+];
+
+const DifficultyIcon = ({ type, color }: { type: string; color: string }) => {
+  if (type === 'easy') {
+    return (
+      <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${color} flex items-center justify-center shadow-xl`}>
+        <svg className="w-11 h-11 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      </div>
+    );
+  }
+  
+  if (type === 'advanced') {
+    return (
+      <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${color} flex items-center justify-center shadow-xl`}>
+        <svg className="w-11 h-11 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" />
+        </svg>
+      </div>
+    );
+  }
+  
+  if (type === 'expert') {
+    return (
+      <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${color} flex items-center justify-center shadow-xl`}>
+        <svg className="w-11 h-11 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" transform="translate(3, 3)" />
+        </svg>
+      </div>
+    );
+  }
+  
+  return (
+    <div className={`w-20 h-20 rounded-2xl bg-gradient-to-br ${color} flex items-center justify-center shadow-xl`}>
+      <svg className="w-11 h-11 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+      </svg>
+    </div>
+  );
+};
+
+export function BrowseChallenges({ onCustomClick }: BrowseChallengesProps) {
   const [challenges, setChallenges] = useState<AdminChallenge[]>([]);
-  const [completedChallengeIds, setCompletedChallengeIds] = useState<Set<string>>(new Set());
-  const [dailyChallenge, setDailyChallenge] = useState<AdminChallenge | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedChallenge, setSelectedChallenge] = useState<AdminChallenge | null>(null);
+  const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyLevel | null>(null);
+  const [randomChallenge, setRandomChallenge] = useState<AdminChallenge | null>(null);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const {
     activeUserChallenge,
     setActiveChallenge,
     setCurrentScreen,
-    getDailyChallenge,
-    setDailyChallenge: saveDailyChallenge,
     userTier,
     assignTarget,
     setAssignTarget,
@@ -26,13 +111,10 @@ export function BrowseChallenges() {
   const userProfile = useChallengeStore((s) => s.userProfile);
   const isGuest = userProfile?.is_guest ?? false;
 
-  // Helper flag near other derived values
   const isSendToFlow = !!assignTarget?.id;
 
   useEffect(() => {
     loadChallenges();
-    loadCompletedChallenges();
-    loadDailyChallenge();
     loadTeamMembers();
   }, []);
 
@@ -42,29 +124,6 @@ export function BrowseChallenges() {
       setTeamMembers(members);
     } catch (err) {
       console.error('Failed to load team members:', err);
-    }
-  };
-
-  const loadDailyChallenge = async () => {
-    try {
-      const todaysChallenge = getDailyChallenge();
-      if (todaysChallenge) {
-        setDailyChallenge(todaysChallenge);
-        return;
-      }
-
-      const allChallenges = await getAdminChallenges();
-      const dailyChallenges = allChallenges.filter(c => c.goal_steps === 10000);
-      const randomChallenge = dailyChallenges.length > 0 
-        ? dailyChallenges[Math.floor(Math.random() * dailyChallenges.length)]
-        : allChallenges[Math.floor(Math.random() * allChallenges.length)];
-
-      if (randomChallenge) {
-        saveDailyChallenge(randomChallenge);
-        setDailyChallenge(randomChallenge);
-      }
-    } catch (err) {
-      console.error('Failed to load daily challenge:', err);
     }
   };
 
@@ -82,51 +141,55 @@ export function BrowseChallenges() {
     }
   };
 
-  const loadCompletedChallenges = async () => {
-    try {
-      console.log('🔍 [BrowseChallenges] Loading completed challenges...');
-      const completed = await getCompletedChallenges();
-      console.log('✅ [BrowseChallenges] Completed challenges:', completed.length, completed);
-      const completedIds = new Set(
-        completed
-          .map(uc => uc.admin_challenge_id)
-          .filter((id): id is string => id !== null && id !== undefined)
-      );
-      setCompletedChallengeIds(completedIds);
-      console.log('📊 [BrowseChallenges] State updated - completedChallenges.length:', completed.length);
-    } catch (err) {
-      console.error('Failed to load completed challenges:', err);
+  const getChallengesByDifficulty = (level: DifficultyLevel): AdminChallenge[] => {
+    if (level === 'easy') {
+      return challenges.filter(c => c.goal_steps >= 3000 && c.goal_steps <= 7000);
+    } else if (level === 'advanced') {
+      return challenges.filter(c => c.goal_steps >= 7500 && c.goal_steps <= 12500);
+    } else if (level === 'expert') {
+      return challenges.filter(c => c.goal_steps >= 13000);
     }
+    return [];
   };
 
-  const isChallengeCompleted = (challengeId: string) => {
-    return completedChallengeIds.has(challengeId);
+  const handleDifficultySelect = (level: DifficultyLevel) => {
+    if (level === 'custom') {
+      onCustomClick(); // ✅ Use callback instead of setCurrentScreen
+      return;
+    }
+
+    const availableChallenges = getChallengesByDifficulty(level);
+    if (availableChallenges.length === 0) {
+      setError('No challenges available for this difficulty level.');
+      return;
+    }
+
+    const randomIndex = Math.floor(Math.random() * availableChallenges.length);
+    setRandomChallenge(availableChallenges[randomIndex]);
+    setSelectedDifficulty(level);
   };
 
-  const groupedChallenges = {
-    beginner: challenges.filter(c => c.goal_steps <= 5000),
-    advanced: challenges.filter(c => c.goal_steps > 5000 && c.goal_steps <= 15000),
-    expert: challenges.filter(c => c.goal_steps > 15000),
-  };
+  const handleReroll = () => {
+    if (!selectedDifficulty) return;
+    
+    const availableChallenges = getChallengesByDifficulty(selectedDifficulty);
+    if (availableChallenges.length <= 1) {
+      setError('No other challenges available at this level.');
+      return;
+    }
 
-  const sortWithDailyFirst = (challengeList: AdminChallenge[]) => {
-    return [...challengeList].sort((a, b) => {
-      const aIsDaily = dailyChallenge?.id === a.id;
-      const bIsDaily = dailyChallenge?.id === b.id;
-      if (aIsDaily) return -1;
-      if (bIsDaily) return 1;
-      return 0;
-    });
-  };
+    // Get different challenge
+    let newChallenge: AdminChallenge;
+    do {
+      const randomIndex = Math.floor(Math.random() * availableChallenges.length);
+      newChallenge = availableChallenges[randomIndex];
+    } while (newChallenge.id === randomChallenge?.id && availableChallenges.length > 1);
 
-  const sortedGroupedChallenges = {
-    beginner: sortWithDailyFirst(groupedChallenges.beginner),
-    advanced: sortWithDailyFirst(groupedChallenges.advanced),
-    expert: sortWithDailyFirst(groupedChallenges.expert),
+    setRandomChallenge(newChallenge);
   };
 
   const handleStartForMyself = async () => {
-    if (!selectedChallenge) return;
+    if (!randomChallenge) return;
     
     if (activeUserChallenge) {
       setError(`You already have an active challenge. Complete it first!`);
@@ -134,9 +197,10 @@ export function BrowseChallenges() {
     }
     
     try {
-      const userChallenge = await startChallenge(selectedChallenge.id);
+      const userChallenge = await startChallenge(randomChallenge.id);
       setActiveChallenge(userChallenge);
-      setSelectedChallenge(null);
+      setRandomChallenge(null);
+      setSelectedDifficulty(null);
       setCurrentScreen('home');
     } catch (err) {
       setError('Failed to start challenge. Please try again.');
@@ -145,22 +209,29 @@ export function BrowseChallenges() {
   };
 
   const handleAssignToMember = async (memberId: string) => {
-    if (!selectedChallenge) return;
+    if (!randomChallenge) return;
 
     try {
       setError(null);
 
-      const { error: assignError } = await teamService.assignChallenge(memberId, selectedChallenge.id);
+      const { error: assignError } = await teamService.assignChallenge(memberId, randomChallenge.id);
       if (assignError) throw assignError;
 
       const member = teamMembers.find((m) => m.member_id === memberId);
-      alert(`✅ Challenge "${selectedChallenge.title}" assigned to ${member?.display_name || member?.email}!`);
-      setSelectedChallenge(null);
+      alert(`✅ Challenge "${randomChallenge.title}" assigned to ${member?.display_name || member?.email}!`);
+      setRandomChallenge(null);
+      setSelectedDifficulty(null);
       if (assignTarget?.id === memberId) setAssignTarget(null);
     } catch (err) {
       console.error('Failed to assign challenge:', err);
       setError('Failed to assign challenge. Please try again.');
     }
+  };
+
+  const handleClose = () => {
+    setRandomChallenge(null);
+    setSelectedDifficulty(null);
+    if (assignTarget?.id) setAssignTarget(null);
   };
 
   return (
@@ -169,12 +240,13 @@ export function BrowseChallenges() {
       animate={{ opacity: 1, x: 0 }}
       className="space-y-6"
     >
-      {selectedChallenge && (
+      {/* Challenge Preview Modal */}
+      {randomChallenge && selectedDifficulty && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-5"
-          onClick={() => setSelectedChallenge(null)}
+          onClick={handleClose}
         >
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
@@ -187,10 +259,7 @@ export function BrowseChallenges() {
                 {assignTarget?.id ? `Send Challenge to ${assignTarget.name}` : 'Your Challenge!'}
               </h2>
               <button
-                onClick={() => {
-                  setSelectedChallenge(null);
-                  if (assignTarget?.id) setAssignTarget(null);
-                }}
+                onClick={handleClose}
                 className="text-gray-400 hover:text-white"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -202,23 +271,33 @@ export function BrowseChallenges() {
             <div className="mb-4">
               <div className="relative aspect-[3/2] rounded-xl overflow-hidden mb-3">
                 <img
-                  src={selectedChallenge.image_url}
-                  alt={selectedChallenge.title}
+                  src={randomChallenge.image_url}
+                  alt={randomChallenge.title}
                   className="w-full h-full object-cover"
                   style={{ filter: 'blur(20px)' }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex items-end p-3">
                   <div className="text-white flex-1">
-                    <div className="text-sm font-semibold mb-0.5">{selectedChallenge.title}</div>
-                    <div className="text-xs text-white/70">{(selectedChallenge.goal_steps / 1000).toFixed(0)}k steps • ≈ {(selectedChallenge.goal_steps / 1250).toFixed(1)} km</div>
+                    <div className="text-sm font-semibold mb-0.5">{randomChallenge.title}</div>
+                    <div className="text-xs text-white/70">
+                      {(randomChallenge.goal_steps / 1000).toFixed(1)}k steps • ≈ {(randomChallenge.goal_steps / 1250).toFixed(1)} km
+                    </div>
                   </div>
-                  {!selectedChallenge.is_custom && userTier === 'pro' && !isSendToFlow && (
+                  {!randomChallenge.is_custom && userTier === 'pro' && !isSendToFlow && (
                     <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-black px-3 py-1.5 rounded-lg shadow-lg">
-                      {calculateChallengePoints(selectedChallenge.goal_steps)} PTS
+                      {calculateChallengePoints(randomChallenge.goal_steps)} PTS
                     </div>
                   )}
                 </div>
               </div>
+
+              {/* Reroll Button */}
+              <button
+                onClick={handleReroll}
+                className="w-full bg-gray-800 hover:bg-gray-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors mb-3 flex items-center justify-center gap-2"
+              >
+                🎲 Try Another Challenge
+              </button>
             </div>
 
             <div className="space-y-2">
@@ -315,9 +394,9 @@ export function BrowseChallenges() {
       )}
 
       <div className="text-center mb-6">
-        <h2 className="text-2xl font-bold text-white mb-2">Browse Challenges</h2>
+        <h2 className="text-2xl font-bold text-white mb-2">Choose Your Challenge</h2>
         <p className="text-gray-400 text-sm">
-          Discover curated walking adventures
+          Pick your difficulty level
         </p>
       </div>
 
@@ -329,198 +408,92 @@ export function BrowseChallenges() {
       )}
 
       {!loading && (
-        <div className="space-y-8">
-          {sortedGroupedChallenges.beginner.length > 0 && (
-            <section>
-              <h3 className="text-lg font-bold text-white mb-3 px-1">Beginner • Up to 5k Steps</h3>
-              <div className="overflow-x-auto pb-4 pt-2 -mx-5 px-5 scrollbar-hide">
-                <div className="flex gap-3" style={{ width: 'max-content' }}>
-                  {sortedGroupedChallenges.beginner.map((challenge) => {
-                    const isDaily = dailyChallenge?.id === challenge.id;
-                    return (
-                      <button
-                        key={challenge.id}
-                        onClick={() => setSelectedChallenge(challenge)}
-                        className="group relative w-40 flex-shrink-0"
-                      >
-                        <div className={`relative aspect-[3/4] rounded-xl overflow-hidden ring-1 ${isDaily ? 'ring-2 ring-blue-500' : 'ring-white/10'} group-hover:ring-purple-500/50 transition-all`}>
-                          <img
-                            src={challenge.image_url}
-                            alt={challenge.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            style={{ filter: isChallengeCompleted(challenge.id) ? 'brightness(0.7)' : 'blur(10px)' }}
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
-                          
-                          {isDaily && !isChallengeCompleted(challenge.id) && (
-                            <div className="absolute top-2 right-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-[10px] font-black px-2 py-1 rounded-full shadow-lg animate-pulse">
-                              DAILY
-                            </div>
-                          )}
-                          
-                          {isChallengeCompleted(challenge.id) && (
-                            <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1.5 shadow-lg">
-                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 01-1.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                            </div>
-                          )}
+        <div className="space-y-4 max-w-md mx-auto">
+          {/* Difficulty Options */}
+          {DIFFICULTY_OPTIONS.map((option) => {
+            const availableCount = getChallengesByDifficulty(option.level).length;
+            
+            return (
+              <motion.button
+                key={option.level}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => handleDifficultySelect(option.level)}
+                className={`relative w-full ${option.gradient} border border-white/5 rounded-3xl p-7 text-left transition-all hover:border-white/20 overflow-hidden group`}
+              >
+                {/* Accent line at top */}
+                <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${option.color}`}></div>
+                
+                {/* Glow effect on hover */}
+                <div className={`absolute -top-20 -right-20 w-64 h-64 bg-gradient-to-br ${option.color} opacity-0 group-hover:opacity-20 rounded-full blur-3xl transition-opacity duration-500`}></div>
+                
+                <div className="relative flex items-start gap-5">
+                  {/* Beautiful Gradient Icon */}
+                  <div className="flex-shrink-0 transform group-hover:scale-105 transition-transform duration-300">
+                    <DifficultyIcon type={option.icon} color={option.color} />
+                  </div>
+                  
+                  <div className="flex-1 pt-1">
+                    <h3 className="text-2xl font-black text-white mb-1.5 tracking-tight">
+                      {option.title}
+                    </h3>
+                    <p className="text-sm text-white/70 font-semibold mb-2">{option.subtitle}</p>
+                    <p className="text-xs text-white/50 mb-3">{option.stepsRange}</p>
+                    
+                    <div className="flex items-center gap-2">
+                      <span className="bg-white/10 border border-white/20 text-white text-xs font-bold px-3 py-1.5 rounded-lg">
+                        {availableCount} challenges
+                      </span>
+                      <svg className="w-5 h-5 text-white/40 group-hover:text-white/70 group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              </motion.button>
+            );
+          })}
 
-                          {!isSendToFlow && !challenge.is_custom && !isChallengeCompleted(challenge.id) && userTier === 'pro' && (
-                            <div className={`absolute top-2 left-2 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md shadow-lg ${
-                              isDaily 
-                                ? 'bg-gradient-to-r from-amber-500 to-orange-500 animate-pulse' 
-                                : 'bg-amber-500/90'
-                            }`}>
-                              {calculateChallengePoints(challenge.goal_steps, isDaily)} PTS
-                            </div>
-                          )}
-
-                          <div className="absolute bottom-0 left-0 right-0 p-3">
-                            <h4 className="text-white text-sm font-semibold line-clamp-2 mb-1">
-                              {challenge.title}
-                            </h4>
-                            <div className="text-xs text-white/70">
-                              {(challenge.goal_steps / 1000).toFixed(0)}k steps
-                            </div>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
+          {/* Custom Challenge Option */}
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => handleDifficultySelect('custom')}
+            className="relative w-full bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-white/5 rounded-3xl p-7 text-left transition-all hover:border-white/20 overflow-hidden group"
+          >
+            {/* Accent line at top */}
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 to-blue-500"></div>
+            
+            {/* Glow effect on hover */}
+            <div className="absolute -top-20 -right-20 w-64 h-64 bg-gradient-to-br from-purple-500 to-blue-500 opacity-0 group-hover:opacity-20 rounded-full blur-3xl transition-opacity duration-500"></div>
+            
+            <div className="relative flex items-start gap-5">
+              {/* Beautiful Gradient Icon */}
+              <div className="flex-shrink-0 transform group-hover:scale-105 transition-transform duration-300">
+                <DifficultyIcon type="custom" color="from-purple-500 to-blue-500" />
+              </div>
+              
+              <div className="flex-1 pt-1">
+                <h3 className="text-2xl font-black text-white mb-1.5 tracking-tight">
+                  CUSTOM
+                </h3>
+                <p className="text-sm text-white/70 font-semibold mb-2">Create Your Own</p>
+                <p className="text-xs text-white/50 mb-3">Set your own goal</p>
+                
+                <div className="flex items-center gap-2">
+                  <span className="bg-white/10 border border-white/20 text-white text-xs font-bold px-3 py-1.5 rounded-lg">
+                    Unlimited
+                  </span>
+                  <svg className="w-5 h-5 text-white/40 group-hover:text-white/70 group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
                 </div>
               </div>
-            </section>
-          )}
-
-          {sortedGroupedChallenges.advanced.length > 0 && (
-            <section>
-              <h3 className="text-lg font-bold text-white mb-3 px-1">Advanced • 5k to 15k Steps</h3>
-              <div className="overflow-x-auto pb-4 pt-2 -mx-5 px-5 scrollbar-hide">
-                <div className="flex gap-3" style={{ width: 'max-content' }}>
-                  {sortedGroupedChallenges.advanced.map((challenge) => {
-                    const isDaily = dailyChallenge?.id === challenge.id;
-                    return (
-                      <button
-                        key={challenge.id}
-                        onClick={() => setSelectedChallenge(challenge)}
-                        className="group relative w-40 flex-shrink-0"
-                      >
-                        <div className={`relative aspect-[3/4] rounded-xl overflow-hidden ring-1 ${isDaily ? 'ring-2 ring-blue-500' : 'ring-white/10'} group-hover:ring-purple-500/50 transition-all`}>
-                          <img
-                            src={challenge.image_url}
-                            alt={challenge.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            style={{ filter: isChallengeCompleted(challenge.id) ? 'brightness(0.7)' : 'blur(10px)' }}
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
-                          
-                          {isDaily && !isChallengeCompleted(challenge.id) && (
-                            <div className="absolute top-2 right-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-[10px] font-black px-2 py-1 rounded-full shadow-lg animate-pulse">
-                              DAILY
-                            </div>
-                          )}
-                          
-                          {isChallengeCompleted(challenge.id) && (
-                            <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1.5 shadow-lg">
-                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 01-1.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                            </div>
-                          )}
-
-                          {!isSendToFlow && !challenge.is_custom && !isChallengeCompleted(challenge.id) && userTier === 'pro' && (
-                            <div className={`absolute top-2 left-2 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md shadow-lg ${
-                              isDaily 
-                                ? 'bg-gradient-to-r from-amber-500 to-orange-500 animate-pulse' 
-                                : 'bg-amber-500/90'
-                            }`}>
-                              {calculateChallengePoints(challenge.goal_steps, isDaily)} PTS
-                            </div>
-                          )}
-
-                          <div className="absolute bottom-0 left-0 right-0 p-3">
-                            <h4 className="text-white text-sm font-semibold line-clamp-2 mb-1">
-                              {challenge.title}
-                            </h4>
-                            <div className="text-xs text-white/70">
-                              {(challenge.goal_steps / 1000).toFixed(0)}k steps
-                            </div>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </section>
-          )}
-
-          {sortedGroupedChallenges.expert.length > 0 && (
-            <section>
-              <h3 className="text-lg font-bold text-white mb-3 px-1">Expert • 15k+ Steps</h3>
-              <div className="overflow-x-auto pb-4 pt-2 -mx-5 px-5 scrollbar-hide">
-                <div className="flex gap-3" style={{ width: 'max-content' }}>
-                  {sortedGroupedChallenges.expert.map((challenge) => {
-                    const isDaily = dailyChallenge?.id === challenge.id;
-                    return (
-                      <button
-                        key={challenge.id}
-                        onClick={() => setSelectedChallenge(challenge)}
-                        className="group relative w-40 flex-shrink-0"
-                      >
-                        <div className={`relative aspect-[3/4] rounded-xl overflow-hidden ring-1 ${isDaily ? 'ring-2 ring-blue-500' : 'ring-white/10'} group-hover:ring-purple-500/50 transition-all`}>
-                          <img
-                            src={challenge.image_url}
-                            alt={challenge.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            style={{ filter: isChallengeCompleted(challenge.id) ? 'brightness(0.7)' : 'blur(10px)' }}
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
-                          
-                          {isDaily && !isChallengeCompleted(challenge.id) && (
-                            <div className="absolute top-2 right-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-[10px] font-black px-2 py-1 rounded-full shadow-lg animate-pulse">
-                              DAILY
-                            </div>
-                          )}
-                          
-                          {isChallengeCompleted(challenge.id) && (
-                            <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full p-1.5 shadow-lg">
-                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 01-1.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                            </div>
-                          )}
-
-                          {!isSendToFlow && !challenge.is_custom && !isChallengeCompleted(challenge.id) && userTier === 'pro' && (
-                            <div className={`absolute top-2 left-2 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md shadow-lg ${
-                              isDaily 
-                                ? 'bg-gradient-to-r from-amber-500 to-orange-500 animate-pulse' 
-                                : 'bg-amber-500/90'
-                            }`}>
-                              {calculateChallengePoints(challenge.goal_steps, isDaily)} PTS
-                            </div>
-                          )}
-
-                          <div className="absolute bottom-0 left-0 right-0 p-3">
-                            <h4 className="text-white text-sm font-semibold line-clamp-2 mb-1">
-                              {challenge.title}
-                            </h4>
-                            <div className="text-xs text-white/70">
-                              {(challenge.goal_steps / 1000).toFixed(0)}k steps
-                            </div>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </section>
-          )}
+            </div>
+          </motion.button>
 
           {challenges.length === 0 && (
-            <div className="bg-[#151A25] border border-white/10 rounded-2xl p-8 text-center">
+            <div className="bg-[#151A25] border border-white/10 rounded-2xl p-8 text-center mt-8">
               <div className="w-16 h-16 bg-purple-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <span className="text-4xl">🔍</span>
               </div>
