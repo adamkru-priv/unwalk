@@ -81,6 +81,63 @@ export async function addXPToUser(
 }
 
 // ============================================
+// DAILY STEPS & BASE XP SYSTEM
+// ============================================
+
+export interface DailyStepsSyncResult {
+  new_today_steps: number;
+  base_xp_earned: number;
+  total_xp: number;
+  new_level: number;
+  leveled_up: boolean;
+}
+
+// Sync daily steps from Apple Health and award Base XP (1 XP per 1000 steps)
+export async function syncDailySteps(stepsCount: number): Promise<DailyStepsSyncResult | null> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    const { data, error } = await supabase.rpc('sync_daily_steps', {
+      p_user_id: user.id,
+      p_steps_count: stepsCount,
+    });
+
+    if (error) throw error;
+
+    return data?.[0] || null;
+  } catch (error) {
+    console.error('Failed to sync daily steps:', error);
+    return null;
+  }
+}
+
+// Get user's today steps and Base XP stats
+export async function getTodayStepsStats(): Promise<{
+  today_steps: number;
+  today_base_xp: number;
+  total_lifetime_steps: number;
+} | null> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    const { data, error } = await supabase
+      .from('users')
+      .select('today_steps, today_base_xp, total_lifetime_steps')
+      .eq('id', user.id)
+      .single();
+
+    if (error) throw error;
+
+    return data;
+  } catch (error) {
+    console.error('Failed to get today steps stats:', error);
+    return null;
+  }
+}
+
+// ============================================
 // STREAK SYSTEM
 // ============================================
 
@@ -273,7 +330,7 @@ export async function checkTodayChallengesSent(): Promise<number> {
 }
 
 // ============================================
-// LEADERBOARD SYSTEM
+// LEADERBOARD SYSTEM (30-DAY CAMPAIGNS)
 // ============================================
 
 export interface LeaderboardEntry {
@@ -282,26 +339,31 @@ export interface LeaderboardEntry {
   display_name: string;
   email: string;
   level: number;
-  xp: number;
+  xp_in_campaign: number;  // ✅ XP earned in current campaign
+  total_xp: number;        // ✅ Total XP ever
   current_streak: number;
-  longest_streak: number;
+  challenges_in_campaign: number;  // ✅ Challenges completed in campaign
   total_challenges_completed: number;
   is_current_user: boolean;
+  campaign_number: number;     // ✅ Current campaign number
+  campaign_end_date: string;   // ✅ When campaign ends
 }
 
 export interface MyLeaderboardPosition {
   my_rank: number;
   total_users: number;
   percentile: number;
+  campaign_number: number;     // ✅ Current campaign number
+  days_remaining: number;      // ✅ Days left in campaign
 }
 
-// Get global leaderboard (top 100 by default)
-export async function getGlobalLeaderboard(
+// Get campaign leaderboard (resets every 30 days)
+export async function getCampaignLeaderboard(
   limit: number = 100,
   offset: number = 0
 ): Promise<LeaderboardEntry[]> {
   try {
-    const { data, error } = await supabase.rpc('get_global_leaderboard', {
+    const { data, error } = await supabase.rpc('get_campaign_leaderboard', {
       p_limit: limit,
       p_offset: offset,
     });
@@ -310,21 +372,33 @@ export async function getGlobalLeaderboard(
 
     return data || [];
   } catch (error) {
-    console.error('Failed to get global leaderboard:', error);
+    console.error('Failed to get campaign leaderboard:', error);
     return [];
   }
 }
 
-// Get my position in leaderboard
-export async function getMyLeaderboardPosition(): Promise<MyLeaderboardPosition | null> {
+// Get my position in current campaign
+export async function getMyCampaignPosition(): Promise<MyLeaderboardPosition | null> {
   try {
-    const { data, error } = await supabase.rpc('get_my_leaderboard_position');
+    const { data, error } = await supabase.rpc('get_my_campaign_position');
 
     if (error) throw error;
 
     return data?.[0] || null;
   } catch (error) {
-    console.error('Failed to get my leaderboard position:', error);
+    console.error('Failed to get my campaign position:', error);
     return null;
   }
+}
+
+// ✅ Keep old functions for backward compatibility (they now call campaign versions)
+export async function getGlobalLeaderboard(
+  limit: number = 100,
+  offset: number = 0
+): Promise<LeaderboardEntry[]> {
+  return getCampaignLeaderboard(limit, offset);
+}
+
+export async function getMyLeaderboardPosition(): Promise<MyLeaderboardPosition | null> {
+  return getMyCampaignPosition();
 }

@@ -16,7 +16,7 @@ interface JourneyModalProps {
   onClose: () => void;
   currentStreak: number;
   longestStreak: number;
-  nextMilestone?: { milestone: number; reward: string };
+  nextMilestone?: { steps: number; title: string; icon: string }; // 🎯 FIX: Changed from {milestone, reward}
   onQuestClaimed?: (xpEarned: number) => void;
 }
 
@@ -169,14 +169,14 @@ export function JourneyModal({
       type: 'streak-milestone',
       title: `${currentStreak}-Day Streak`,
       subtitle: nextMilestone 
-        ? `${nextMilestone.milestone - currentStreak} days until ${nextMilestone.reward}`
+        ? `${nextMilestone.steps - currentStreak} days until ${nextMilestone.title}` // 🎯 FIX: Use .steps instead of .milestone
         : longestStreak === currentStreak 
           ? "🎉 Personal best!" 
           : `Best: ${longestStreak} days`,
       icon: '🔥',
       completed: true,
       progress: nextMilestone ? currentStreak : undefined,
-      maxProgress: nextMilestone?.milestone
+      maxProgress: nextMilestone?.steps // 🎯 FIX: Use .steps instead of .milestone
     });
   }
 

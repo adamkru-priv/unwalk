@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { healthKitService } from '../services/healthKit.native';
 import { useChallengeStore } from '../stores/useChallengeStore';
+import { syncDailySteps } from '../lib/gamification';
 
 export function useHealthKit() {
   const setHealthConnected = useChallengeStore((s) => s.setHealthConnected);
@@ -52,6 +53,15 @@ export function useHealthKit() {
     try {
       const steps = await healthKitService.getTodaySteps();
       setTodaySteps(steps);
+      
+      // 🎯 NEW: Sync steps to backend and award Base XP (1 XP per 1000 steps)
+      try {
+        await syncDailySteps(steps);
+        console.log(`✅ Synced ${steps} steps → ${Math.floor(steps / 1000)} Base XP`);
+      } catch (error) {
+        console.error('Failed to sync daily steps to backend:', error);
+      }
+      
       return steps;
     } finally {
       setIsLoading(false);

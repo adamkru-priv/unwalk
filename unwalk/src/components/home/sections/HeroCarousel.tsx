@@ -28,10 +28,7 @@ export function HeroCarousel({
   onTeamClick,
   onSlideChange,
   variant = 'carousel',
-  teamMembers = [],
   isGuest = false,
-  onQuickAssign,
-  sentAssignments = [],
 }: HeroCarouselProps) {
   if (variant === 'stack') {
     return (
@@ -41,10 +38,7 @@ export function HeroCarousel({
           teamActiveChallenges={teamActiveChallenges}
           onTeamClick={onTeamClick}
           variant="stack"
-          teamMembers={teamMembers}
           isGuest={isGuest}
-          onQuickAssign={onQuickAssign}
-          sentAssignments={sentAssignments}
         />
       </section>
     );

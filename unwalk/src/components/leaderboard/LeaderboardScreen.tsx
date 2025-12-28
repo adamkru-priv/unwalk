@@ -105,11 +105,18 @@ export function LeaderboardScreen() {
       <AppHeader />
 
       <main className="px-5 py-6 max-w-2xl mx-auto">
-        {/* Header */}
+        {/* Header with Campaign Info */}
         <div className="text-center mb-6">
-          <h1 className="text-3xl font-black mb-2">🏆 Global Leaderboard</h1>
-          <p className="text-sm text-gray-600 dark:text-white/60">
-            Top users ranked by total XP
+          <h1 className="text-3xl font-black mb-2">🏆 Campaign Leaderboard</h1>
+          {leaderboard.length > 0 && leaderboard[0].campaign_number && (
+            <div className="flex items-center justify-center gap-2 text-sm text-gray-600 dark:text-white/60">
+              <span className="font-semibold">Campaign #{leaderboard[0].campaign_number}</span>
+              <span>•</span>
+              <span>{myPosition?.days_remaining || 0} days left</span>
+            </div>
+          )}
+          <p className="text-xs text-gray-500 dark:text-white/50 mt-1">
+            Resets every 30 days - everyone starts fresh!
           </p>
         </div>
 
@@ -201,15 +208,15 @@ export function LeaderboardScreen() {
                     </span>
                     <span>•</span>
                     <span className="flex items-center gap-1">
-                      ✓ {entry.total_challenges_completed}
+                      ✓ {entry.challenges_in_campaign}
                     </span>
                   </div>
                 </div>
 
-                {/* XP */}
+                {/* Campaign XP */}
                 <div className="flex-shrink-0 text-right">
                   <div className="text-lg font-black text-gray-900 dark:text-white">
-                    {entry.xp.toLocaleString()}
+                    {entry.xp_in_campaign.toLocaleString()}
                   </div>
                   <div className="text-xs text-gray-500 dark:text-white/50">XP</div>
                 </div>
@@ -217,6 +224,22 @@ export function LeaderboardScreen() {
             ))}
           </div>
         )}
+
+        {/* Info Box */}
+        <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <div className="text-2xl">ℹ️</div>
+            <div className="flex-1">
+              <h3 className="text-sm font-bold text-blue-900 dark:text-blue-200 mb-1">
+                30-Day Campaign
+              </h3>
+              <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
+                Rankings reset every 30 days. XP earned in this campaign counts toward your rank. 
+                Your total XP and level are permanent!
+              </p>
+            </div>
+          </div>
+        </div>
 
         {/* Refresh Button */}
         <div className="mt-6 text-center">

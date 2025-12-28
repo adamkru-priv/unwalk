@@ -10,6 +10,7 @@ export interface AdminChallenge {
   goal_steps: number;
   points?: number; // Points awarded for completing this challenge
   image_url: string;
+  icon?: string; // Optional emoji icon for challenge
   sort_order: number;
   is_active: boolean;
   created_at: string;

@@ -6,20 +6,19 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
-    open: true,
+    open: '/app/app.html', // Open React app directly in dev
   },
-  // The marketing/landing page will be served from / (root).
-  // The SPA will be built and served from /app.
-  base: '/app/',
+  // In dev: serve from root. In production: /app/ for Vercel deployment
+  base: process.env.NODE_ENV === 'production' ? '/app/' : '/',
   build: {
     rollupOptions: {
       // Multi-page build: root LP + app SPA entry
       input: {
         // Root landing page
         index: 'index.html',
-        // SPA entry (served at /app)
-        app: 'app/index.html',
-        // SPA entry for web (served at /app/app.html)
+        // Landing Page in /app
+        appLanding: 'app/index.html',
+        // SPA entry (served at /app/app.html)
         spa: 'app/app.html',
       },
       // This is a local/native-only Capacitor plugin. It won't exist in the web
