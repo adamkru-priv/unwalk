@@ -3,9 +3,10 @@ import { useChallengeStore } from '../../../stores/useChallengeStore';
 interface HeroHeaderProps {
   xp?: number;
   level?: number;
+  onProgressClick?: () => void; // ✅ NEW: Custom click handler
 }
 
-export function HeroHeader({ xp, level }: HeroHeaderProps) {
+export function HeroHeader({ xp, level, onProgressClick }: HeroHeaderProps) {
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
 
   const calculateXPForLevel = (lvl: number) => {
@@ -43,9 +44,9 @@ export function HeroHeader({ xp, level }: HeroHeaderProps) {
 
         {level !== undefined && (
           <button
-            onClick={() => setCurrentScreen('badges')}
+            onClick={onProgressClick || (() => setCurrentScreen('badges'))} // ✅ FIX: Use custom handler if provided
             className="flex items-center gap-2 bg-white dark:bg-[#151A25] border border-gray-200 dark:border-white/10 rounded-full px-3 py-1.5 relative group hover:bg-gray-50 dark:hover:bg-[#1A1F2E] transition-all active:scale-95 cursor-pointer"
-            title={xp !== undefined ? `Level ${level} • ${xp.toLocaleString()} / ${nextLevelXP.toLocaleString()} XP to reach Level ${level + 1}\n\nClick to view rewards` : 'Click to view rewards'}
+            title={xp !== undefined ? `Level ${level} • ${xp.toLocaleString()} / ${nextLevelXP.toLocaleString()} XP to reach Level ${level + 1}\n\nClick to view quests` : 'Click to view quests'}
           >
             <span className="text-base">{getLevelEmoji(level)}</span>
             <div className="flex flex-col items-start">

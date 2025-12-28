@@ -318,6 +318,25 @@ export function ProfileScreen() {
           </section>
         )}
 
+        {/* ✅ NEW: Rewards & Badges - Navigate to Badges Screen */}
+        {!isGuest && (
+          <button
+            onClick={() => setCurrentScreen('badges')}
+            className="w-full bg-gradient-to-br from-amber-500/10 to-yellow-500/10 hover:from-amber-500/20 hover:to-yellow-500/20 border border-amber-500/20 dark:border-amber-500/30 rounded-2xl p-4 shadow-sm transition-all text-left flex items-center justify-between group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="text-2xl">🏆</div>
+              <div>
+                <div className="text-sm font-semibold text-gray-900 dark:text-white">Rewards & Badges</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">View your achievements & milestones</div>
+              </div>
+            </div>
+            <svg className="w-5 h-5 text-amber-500 dark:text-amber-400 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7-7" />
+            </svg>
+          </button>
+        )}
+
         {/* Apple Health status */}
         <div className="w-full bg-white dark:bg-[#151A25] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-white/5">
           <div className="flex items-start justify-between gap-4">

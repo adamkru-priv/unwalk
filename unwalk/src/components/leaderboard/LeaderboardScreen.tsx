@@ -1,0 +1,235 @@
+import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { AppHeader } from '../common/AppHeader';
+import { BottomNavigation } from '../common/BottomNavigation';
+import { 
+  getGlobalLeaderboard, 
+  getMyLeaderboardPosition,
+  type LeaderboardEntry,
+  type MyLeaderboardPosition 
+} from '../../lib/gamification';
+import { useChallengeStore } from '../../stores/useChallengeStore';
+
+export function LeaderboardScreen() {
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [myPosition, setMyPosition] = useState<MyLeaderboardPosition | null>(null);
+  const [loading, setLoading] = useState(true);
+  const userProfile = useChallengeStore((s) => s.userProfile);
+  const isGuest = userProfile?.is_guest ?? false;
+
+  useEffect(() => {
+    loadLeaderboard();
+  }, []);
+
+  const loadLeaderboard = async () => {
+    try {
+      setLoading(true);
+      const [leaderboardData, positionData] = await Promise.all([
+        getGlobalLeaderboard(100, 0),
+        getMyLeaderboardPosition(),
+      ]);
+      
+      setLeaderboard(leaderboardData);
+      setMyPosition(positionData);
+    } catch (error) {
+      console.error('Failed to load leaderboard:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getMedalEmoji = (rank: number): string => {
+    if (rank === 1) return '🥇';
+    if (rank === 2) return '🥈';
+    if (rank === 3) return '🥉';
+    return '';
+  };
+
+  const getLevelEmoji = (level: number): string => {
+    if (level < 10) return '🌱';
+    if (level < 20) return '🗺️';
+    if (level < 30) return '⚔️';
+    if (level < 40) return '🏆';
+    return '👑';
+  };
+
+  const getColorFromName = (userId: string): string => {
+    const colors = [
+      'from-blue-500 to-blue-600',
+      'from-purple-500 to-purple-600',
+      'from-green-500 to-green-600',
+      'from-pink-500 to-pink-600',
+      'from-amber-500 to-amber-600',
+      'from-red-500 to-red-600',
+      'from-cyan-500 to-cyan-600',
+      'from-orange-500 to-orange-600',
+    ];
+    
+    const hash = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return colors[hash % colors.length];
+  };
+
+  const getInitials = (name: string): string => {
+    return name
+      .split(' ')
+      .map(word => word[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  if (isGuest) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-[#0B101B] text-gray-900 dark:text-white pb-24">
+        <AppHeader />
+        <div className="px-5 py-12 text-center">
+          <div className="text-6xl mb-4">🏆</div>
+          <h2 className="text-2xl font-bold mb-2">Global Leaderboard</h2>
+          <p className="text-gray-600 dark:text-white/60 mb-6">
+            Sign in to compete with other users and see where you rank!
+          </p>
+          <button
+            onClick={() => useChallengeStore.setState({ currentScreen: 'profile' })}
+            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold"
+          >
+            Sign In to Compete
+          </button>
+        </div>
+        <BottomNavigation currentScreen="leaderboard" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0B101B] text-gray-900 dark:text-white pb-24">
+      <AppHeader />
+
+      <main className="px-5 py-6 max-w-2xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-6">
+          <h1 className="text-3xl font-black mb-2">🏆 Global Leaderboard</h1>
+          <p className="text-sm text-gray-600 dark:text-white/60">
+            Top users ranked by total XP
+          </p>
+        </div>
+
+        {/* My Position Card */}
+        {myPosition && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-4 mb-6 shadow-lg"
+          >
+            <div className="flex items-center justify-between text-white">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wide opacity-80">Your Rank</div>
+                <div className="text-3xl font-black">#{myPosition.my_rank}</div>
+              </div>
+              <div className="text-right">
+                <div className="text-xs opacity-80">out of {myPosition.total_users.toLocaleString()} users</div>
+                <div className="text-lg font-bold">Top {myPosition.percentile}%</div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Leaderboard List */}
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mb-4"></div>
+            <p className="text-gray-400 text-sm">Loading leaderboard...</p>
+          </div>
+        ) : leaderboard.length === 0 ? (
+          <div className="bg-white dark:bg-[#151A25] rounded-2xl p-8 text-center">
+            <div className="text-4xl mb-4">🏆</div>
+            <h3 className="text-lg font-bold mb-2">No rankings yet</h3>
+            <p className="text-gray-600 dark:text-white/60 text-sm">
+              Start completing challenges to appear on the leaderboard!
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {leaderboard.map((entry, index) => (
+              <motion.div
+                key={entry.user_id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.05 }}
+                className={`
+                  bg-white dark:bg-[#151A25] rounded-xl p-4 flex items-center gap-4
+                  ${entry.is_current_user ? 'ring-2 ring-blue-500 shadow-lg' : 'border border-gray-200 dark:border-white/10'}
+                  transition-all hover:shadow-md
+                `}
+              >
+                {/* Rank */}
+                <div className="flex-shrink-0 w-12 text-center">
+                  {getMedalEmoji(entry.rank) ? (
+                    <span className="text-3xl">{getMedalEmoji(entry.rank)}</span>
+                  ) : (
+                    <span className="text-lg font-bold text-gray-500 dark:text-white/50">
+                      #{entry.rank}
+                    </span>
+                  )}
+                </div>
+
+                {/* Avatar */}
+                <div 
+                  className={`flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br ${getColorFromName(entry.user_id)} flex items-center justify-center text-white font-bold shadow-md`}
+                >
+                  {getInitials(entry.display_name)}
+                </div>
+
+                {/* User Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-bold text-gray-900 dark:text-white truncate">
+                      {entry.display_name}
+                    </h3>
+                    {entry.is_current_user && (
+                      <span className="bg-blue-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                        YOU
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-gray-600 dark:text-white/60">
+                    <span className="flex items-center gap-1">
+                      {getLevelEmoji(entry.level)} Lvl {entry.level}
+                    </span>
+                    <span>•</span>
+                    <span className="flex items-center gap-1">
+                      🔥 {entry.current_streak}d
+                    </span>
+                    <span>•</span>
+                    <span className="flex items-center gap-1">
+                      ✓ {entry.total_challenges_completed}
+                    </span>
+                  </div>
+                </div>
+
+                {/* XP */}
+                <div className="flex-shrink-0 text-right">
+                  <div className="text-lg font-black text-gray-900 dark:text-white">
+                    {entry.xp.toLocaleString()}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-white/50">XP</div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
+
+        {/* Refresh Button */}
+        <div className="mt-6 text-center">
+          <button
+            onClick={loadLeaderboard}
+            className="text-sm text-blue-600 dark:text-blue-400 font-semibold hover:underline"
+          >
+            🔄 Refresh Leaderboard
+          </button>
+        </div>
+      </main>
+
+      <BottomNavigation currentScreen="leaderboard" />
+    </div>
+  );
+}

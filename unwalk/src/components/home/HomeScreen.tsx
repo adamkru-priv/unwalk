@@ -12,10 +12,10 @@ import { HeroHeader } from './sections/HeroHeader';
 import { CompletedChallengesList } from './sections/CompletedChallengesList';
 import { HeroCarousel } from './sections/HeroCarousel';
 import { PausedChallengesGrid } from './sections/PausedChallengesGrid';
-import { JourneyTimeline } from './sections/JourneyTimeline';
 import { useHealthKit } from '../../hooks/useHealthKit';
 import { teamService, type TeamMember } from '../../lib/auth';
 import { getUserGamificationStats, getNextStreakMilestone } from '../../lib/gamification';
+import { JourneyModal } from './modals/JourneyModal';
 
 export function HomeScreen() {
   const [unclaimedChallenges, setUnclaimedChallenges] = useState<UserChallenge[]>([]);
@@ -31,6 +31,9 @@ export function HomeScreen() {
   const [gamificationStats, setGamificationStats] = useState<UserGamificationStats | null>(null);
   const [showLevelUpModal, setShowLevelUpModal] = useState(false);
   const [levelUpValue, setLevelUpValue] = useState(1);
+
+  // ✨ NEW: Journey modal state
+  const [showJourneyModal, setShowJourneyModal] = useState(false);
 
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
   const pausedChallenges = useChallengeStore((s) => s.pausedChallenges);
@@ -378,21 +381,24 @@ export function HomeScreen() {
         />
       )}
 
+      {/* ✅ NEW: Journey Modal - opened by clicking progress bar */}
+      {!isGuest && gamificationStats && (
+        <JourneyModal
+          isOpen={showJourneyModal}
+          onClose={() => setShowJourneyModal(false)}
+          currentStreak={gamificationStats.current_streak}
+          longestStreak={gamificationStats.longest_streak}
+          nextMilestone={getNextStreakMilestone(gamificationStats.current_streak) || undefined}
+          onQuestClaimed={handleQuestClaimed}
+        />
+      )}
+
       <main className="pt-6 pb-6 space-y-5">
         <HeroHeader 
           xp={gamificationStats?.xp} 
-          level={gamificationStats?.level} 
+          level={gamificationStats?.level}
+          onProgressClick={() => setShowJourneyModal(true)} // ✅ NEW: Open modal on progress click
         />
-        
-        {/* ✨ NEW: Journey Timeline - combines Quest + Streak in one compact view */}
-        {!isGuest && gamificationStats && (
-          <JourneyTimeline 
-            currentStreak={gamificationStats.current_streak}
-            longestStreak={gamificationStats.longest_streak}
-            nextMilestone={getNextStreakMilestone(gamificationStats.current_streak) || undefined}
-            onQuestClaimed={handleQuestClaimed}
-          />
-        )}
         
         <CompletedChallengesList
           challenges={unclaimedChallenges}

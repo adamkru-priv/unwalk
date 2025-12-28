@@ -18,6 +18,8 @@ import { supabase } from './lib/supabase';
 import './lib/authDebug'; // Debug helper
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
+import { reregisterPushToken } from './lib/push/iosPush';
+import { LeaderboardScreen } from './components/leaderboard/LeaderboardScreen';
 
 function App() {
   const isOnboardingComplete = useChallengeStore((s) => s.isOnboardingComplete);
@@ -185,6 +187,9 @@ function App() {
       if (document.visibilityState === 'visible') {
         console.log('👁️ [App] Tab became visible - refreshing user profile');
         
+        // ✅ FIX: Re-register push token when app becomes visible
+        void reregisterPushToken();
+        
         const { data: { session } } = await supabase.auth.getSession();
         const hasEmail = !!session?.user?.email;
         
@@ -201,6 +206,20 @@ function App() {
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // ✅ NEW: Handle native app state changes (iOS/Android)
+    let appStateListener: any;
+    if (Capacitor.isNativePlatform()) {
+      (async () => {
+        appStateListener = await CapacitorApp.addListener('appStateChange', async ({ isActive }) => {
+          console.log('📱 [App] Native app state changed:', { isActive });
+          if (isActive) {
+            console.log('✅ [App] App became active - re-registering push token...');
+            void reregisterPushToken();
+          }
+        });
+      })();
+    }
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('🔐 [App] Auth state changed:', event, 'user:', session?.user?.id);
@@ -273,6 +292,7 @@ function App() {
     return () => {
       authListener?.subscription.unsubscribe();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      appStateListener?.remove(); // ✅ Clean up native listener
     };
   }, [setActiveChallenge, setPausedChallenges, setUserTier, setDailyStepGoal, setUserProfile, setIsAppReady]); // ✅ REMOVED userProfile - fixes infinite loop!
 
@@ -547,6 +567,8 @@ function App() {
         return <Dashboard />;
       case 'team':
         return <TeamScreen />;
+      case 'leaderboard': // ✅ NEW: Leaderboard screen
+        return <LeaderboardScreen />;
       case 'profile':
         return <ProfileScreen />;
       case 'badges':

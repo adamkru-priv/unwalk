@@ -185,8 +185,47 @@ async function pollNativeFallbackToken(opts?: { attempts?: number; intervalMs?: 
   return false;
 }
 
+/**
+ * Re-register push token from localStorage or native storage.
+ * Call this on app resume or when you suspect the token may have been invalidated.
+ */
+export async function reregisterPushToken(): Promise<void> {
+  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'ios') return;
+
+  console.log('🔔 [Push] reregisterPushToken called');
+
+  try {
+    // Try to get token from localStorage first
+    const storedToken = localStorage.getItem(TOKEN_STORAGE_KEY);
+    if (storedToken) {
+      console.log('🔔 [Push] Found stored token in localStorage, re-registering...');
+      await saveToken(storedToken);
+      return;
+    }
+
+    // Fallback: try to fetch from native storage
+    const nativeToken = await fetchNativeTokenFallback();
+    if (nativeToken) {
+      console.log('🔔 [Push] Found token in native storage, re-registering...');
+      await saveToken(nativeToken);
+      return;
+    }
+
+    console.warn('⚠️ [Push] No token found to re-register');
+  } catch (e) {
+    console.error('❌ [Push] reregisterPushToken failed:', e);
+  }
+}
+
 export async function initIosPushNotifications(): Promise<void> {
-  if (initialized) return;
+  // ✅ FIX: Always try to re-register token on app start, even if already initialized
+  // This handles the case where the app was killed and restarted
+  if (initialized) {
+    console.log('🔔 [Push] Already initialized, re-registering token...');
+    void reregisterPushToken();
+    return;
+  }
+  
   initialized = true;
 
   // Only for native iOS build

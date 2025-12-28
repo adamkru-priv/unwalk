@@ -13,18 +13,8 @@ export function SoloCard({ activeChallenge, progress, onClick, variant = 'carous
       ? 'w-full px-4'
       : 'w-[85%] flex-shrink-0 pl-5 pr-3';
 
-  // Calculate XP reward based on challenge difficulty
-  const calculateXPReward = (goalSteps: number): number => {
-    if (goalSteps <= 5000) return 100;
-    if (goalSteps <= 10000) return 250;
-    if (goalSteps <= 15000) return 350;
-    if (goalSteps <= 25000) return 500;
-    return 750;
-  };
-
-  const xpReward = activeChallenge?.admin_challenge?.goal_steps 
-    ? calculateXPReward(activeChallenge.admin_challenge.goal_steps)
-    : 0;
+  // ✅ FIX: Use real XP from database, not hardcoded calculation
+  const xpReward = activeChallenge?.admin_challenge?.points || 0;
 
   return (
     <div className={outerClassName}>
@@ -87,16 +77,18 @@ export function SoloCard({ activeChallenge, progress, onClick, variant = 'carous
                   {activeChallenge.admin_challenge?.title}
                 </h3>
                 
-                {/* XP Reward Badge */}
+                {/* ✅ FIX: XP Reward Badge - now shows real XP from database */}
                 <div className="flex items-center gap-2 mb-3">
                   <div className="flex-1">
                     <div className="text-sm text-white/80">
                       {activeChallenge.current_steps.toLocaleString()} / {activeChallenge.admin_challenge?.goal_steps.toLocaleString()} steps
                     </div>
                   </div>
-                  <div className="bg-gradient-to-r from-yellow-500 to-amber-500 px-2.5 py-1 rounded-lg shadow-lg">
-                    <div className="text-xs font-black text-white">+{xpReward} XP</div>
-                  </div>
+                  {xpReward > 0 && (
+                    <div className="bg-gradient-to-r from-yellow-500 to-amber-500 px-2.5 py-1 rounded-lg shadow-lg">
+                      <div className="text-xs font-black text-white">+{xpReward} XP</div>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="bg-white/20 rounded-full h-2 overflow-hidden mb-2">

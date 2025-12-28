@@ -271,3 +271,60 @@ export async function checkTodayChallengesSent(): Promise<number> {
     return 0;
   }
 }
+
+// ============================================
+// LEADERBOARD SYSTEM
+// ============================================
+
+export interface LeaderboardEntry {
+  rank: number;
+  user_id: string;
+  display_name: string;
+  email: string;
+  level: number;
+  xp: number;
+  current_streak: number;
+  longest_streak: number;
+  total_challenges_completed: number;
+  is_current_user: boolean;
+}
+
+export interface MyLeaderboardPosition {
+  my_rank: number;
+  total_users: number;
+  percentile: number;
+}
+
+// Get global leaderboard (top 100 by default)
+export async function getGlobalLeaderboard(
+  limit: number = 100,
+  offset: number = 0
+): Promise<LeaderboardEntry[]> {
+  try {
+    const { data, error } = await supabase.rpc('get_global_leaderboard', {
+      p_limit: limit,
+      p_offset: offset,
+    });
+
+    if (error) throw error;
+
+    return data || [];
+  } catch (error) {
+    console.error('Failed to get global leaderboard:', error);
+    return [];
+  }
+}
+
+// Get my position in leaderboard
+export async function getMyLeaderboardPosition(): Promise<MyLeaderboardPosition | null> {
+  try {
+    const { data, error } = await supabase.rpc('get_my_leaderboard_position');
+
+    if (error) throw error;
+
+    return data?.[0] || null;
+  } catch (error) {
+    console.error('Failed to get my leaderboard position:', error);
+    return null;
+  }
+}

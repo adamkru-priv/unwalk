@@ -378,6 +378,13 @@ export function BrowseChallenges({ onCustomClick }: BrowseChallengesProps) {
           {DIFFICULTY_OPTIONS.map((option) => {
             const availableCount = getChallengesByDifficulty(option.level).length;
             
+            // ✅ NEW: Calculate XP range for this difficulty
+            const challengesInLevel = getChallengesByDifficulty(option.level);
+            const xpValues = challengesInLevel.map(c => c.points || 0);
+            const minXP = xpValues.length > 0 ? Math.min(...xpValues) : 0;
+            const maxXP = xpValues.length > 0 ? Math.max(...xpValues) : 0;
+            const xpRangeText = minXP === maxXP ? `${minXP} XP` : `${minXP}-${maxXP} XP`;
+            
             return (
               <motion.button
                 key={option.level}
@@ -401,9 +408,17 @@ export function BrowseChallenges({ onCustomClick }: BrowseChallengesProps) {
                       <span className="text-xs text-white/50 font-medium">{option.subtitle}</span>
                     </div>
                     <p className="text-sm text-white/60 mb-2">{option.stepsRange}</p>
-                    <span className="inline-block bg-white/10 border border-white/20 text-white text-xs font-bold px-2.5 py-1 rounded-lg">
-                      {availableCount} challenges
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block bg-white/10 border border-white/20 text-white text-xs font-bold px-2.5 py-1 rounded-lg">
+                        {availableCount} challenges
+                      </span>
+                      {/* ✅ NEW: Show XP range */}
+                      {availableCount > 0 && (
+                        <span className="inline-block bg-gradient-to-r from-yellow-500/20 to-amber-500/20 border border-yellow-500/30 text-yellow-400 text-xs font-bold px-2.5 py-1 rounded-lg">
+                          {xpRangeText}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   
                   <svg className="w-6 h-6 text-white/30 group-hover:text-white/60 group-hover:translate-x-1 transition-all flex-shrink-0 ml-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
