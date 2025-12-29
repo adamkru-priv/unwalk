@@ -20,6 +20,7 @@ export interface AdminChallenge {
   deadline?: string; // Optional deadline for challenge
   time_limit_hours?: number; // Time limit in hours (NULL = unlimited)
   is_daily?: boolean; // Is this a daily challenge (affects XP reward)
+  is_team_challenge?: boolean; // Is this a team challenge
 }
 
 // User's active/completed challenges (guest mode with device_id)

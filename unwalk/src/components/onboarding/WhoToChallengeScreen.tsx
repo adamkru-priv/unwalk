@@ -74,9 +74,8 @@ export const WhoToChallengeScreen = () => {
         .update({ onboarding_target: target })
         .eq('id', profile.id);
 
-      // ✅ New flow (Guest vs Pro): always continue through onboarding.
-      // Social targets can still be used later to suggest Team features.
-      setCurrentScreen('challengeSelection');
+      // ✅ FIX: Navigate to Home screen instead of challengeSelection
+      setCurrentScreen('home');
     } catch (error) {
       console.error('Error saving target:', error);
     } finally {

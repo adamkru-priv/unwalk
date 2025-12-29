@@ -50,6 +50,9 @@ export function ProfileScreen() {
 
   const [pushEnabled, setPushEnabled] = useState<boolean>(true);
   const [pushSaving, setPushSaving] = useState(false);
+  const [dailyGoalSaving, setDailyGoalSaving] = useState(false); // 🎯 NEW
+  const dailyStepGoal = useChallengeStore((s) => s.dailyStepGoal); // 🎯 NEW
+  const setDailyStepGoal = useChallengeStore((s) => s.setDailyStepGoal); // 🎯 NEW
 
   // ✅ Sync local state when profile changes in store (no auth listener needed - App.tsx handles it)
   useEffect(() => {
@@ -245,6 +248,29 @@ export function ProfileScreen() {
     }
   };
 
+  // 🎯 NEW: Handle daily step goal change
+  const handleDailyStepGoalChange = async (newGoal: number) => {
+    if (!userProfile || isGuest) return;
+
+    const oldGoal = dailyStepGoal;
+    setDailyStepGoal(newGoal); // Optimistic update
+    setDailyGoalSaving(true);
+
+    try {
+      const { error } = await authService.updateProfile({ daily_step_goal: newGoal } as any);
+      if (error) throw error;
+
+      // Update profile in store
+      setUserProfile({ ...userProfile, daily_step_goal: newGoal } as any);
+    } catch (e) {
+      // Rollback on error
+      setDailyStepGoal(oldGoal);
+      alert('Failed to update daily step goal. Please try again.');
+    } finally {
+      setDailyGoalSaving(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0B101B] text-gray-900 dark:text-white pb-20 font-sans">
       <AppHeader />
@@ -337,6 +363,25 @@ export function ProfileScreen() {
           </button>
         )}
 
+        {/* ✅ NEW: My Custom Challenges */}
+        {!isGuest && (
+          <button
+            onClick={() => setCurrentScreen('library')}
+            className="w-full bg-gradient-to-br from-orange-500/10 to-pink-500/10 hover:from-orange-500/20 hover:to-pink-500/20 border border-orange-500/20 dark:border-orange-500/30 rounded-2xl p-4 shadow-sm transition-all text-left flex items-center justify-between group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="text-2xl">✨</div>
+              <div>
+                <div className="text-sm font-semibold text-gray-900 dark:text-white">My Custom Challenges</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">Create & manage your challenges</div>
+              </div>
+            </div>
+            <svg className="w-5 h-5 text-orange-500 dark:text-orange-400 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7-7" />
+            </svg>
+          </button>
+        )}
+
         {/* Apple Health status */}
         <div className="w-full bg-white dark:bg-[#151A25] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-white/5">
           <div className="flex items-start justify-between gap-4">
@@ -371,6 +416,36 @@ export function ProfileScreen() {
             )}
           </div>
         </div>
+
+        {/* 🎯 NEW: Daily Step Goal Setting */}
+        {!isGuest && (
+          <section className="w-full bg-white dark:bg-[#151A25] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-white/5">
+            <div className="mb-3">
+              <div className="text-sm font-semibold text-gray-900 dark:text-white">Daily Step Goal</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Current: {dailyStepGoal.toLocaleString()} steps
+                {dailyGoalSaving && ' (saving...)'}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-5 gap-2">
+              {[5000, 8000, 10000, 12000, 15000].map((goal) => (
+                <button
+                  key={goal}
+                  disabled={dailyGoalSaving}
+                  onClick={() => handleDailyStepGoalChange(goal)}
+                  className={`px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                    dailyStepGoal === goal
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/20'
+                  } ${dailyGoalSaving ? 'opacity-60 cursor-not-allowed' : ''}`}
+                >
+                  {goal >= 1000 ? `${goal / 1000}k` : goal}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
         {!isGuest && (
           <section className="w-full bg-white dark:bg-[#151A25] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-white/5">

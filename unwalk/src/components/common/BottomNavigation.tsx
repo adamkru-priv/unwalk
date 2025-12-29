@@ -1,19 +1,13 @@
 import { useChallengeStore } from '../../stores/useChallengeStore';
 
 interface BottomNavigationProps {
-  currentScreen: 'home' | 'library' | 'dashboard' | 'team' | 'leaderboard';
+  currentScreen: 'home' | 'library' | 'dashboard' | 'team' | 'leaderboard' | 'profile';
   onProfileClick?: () => void;
   onTeamClick?: () => void;
 }
 
 export function BottomNavigation({ currentScreen, onTeamClick }: BottomNavigationProps) {
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
-  const resetExploreView = useChallengeStore((s) => s.resetExploreView);
-
-  const handleExploreClick = () => {
-    resetExploreView(); // Reset explore to menu view
-    setCurrentScreen('library');
-  };
 
   const handleTeamClick = () => {
     if (onTeamClick) {
@@ -37,19 +31,6 @@ export function BottomNavigation({ currentScreen, onTeamClick }: BottomNavigatio
             <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
           </svg>
           <span className="text-xs font-medium">Home</span>
-        </button>
-
-        {/* Challenges */}
-        <button
-          onClick={handleExploreClick}
-          className={`flex flex-col items-center gap-1 transition-colors ${
-            currentScreen === 'library' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-          }`}
-        >
-          <svg className="w-7 h-7" fill={currentScreen === 'library' ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 20 20">
-            <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
-          </svg>
-          <span className="text-xs font-medium">Challenges</span>
         </button>
 
         {/* Team */}
@@ -76,6 +57,19 @@ export function BottomNavigation({ currentScreen, onTeamClick }: BottomNavigatio
             <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M7.73 9.728a6.726 6.726 0 002.748 1.35m8.272-6.842V4.5c0 2.108-.966 3.99-2.48 5.228m2.48-5.492a46.32 46.32 0 012.916.52 6.003 6.003 0 01-5.395 4.972m0 0a6.726 6.726 0 01-2.749 1.35m0 0a6.772 6.772 0 01-3.044 0" />
           </svg>
           <span className="text-xs font-medium">Rankings</span>
+        </button>
+
+        {/* Profile */}
+        <button
+          onClick={() => setCurrentScreen('profile')}
+          className={`flex flex-col items-center gap-1 transition-colors ${
+            currentScreen === 'profile' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+          }`}
+        >
+          <svg className="w-7 h-7" fill={currentScreen === 'profile' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+          </svg>
+          <span className="text-xs font-medium">Profile</span>
         </button>
       </div>
     </nav>

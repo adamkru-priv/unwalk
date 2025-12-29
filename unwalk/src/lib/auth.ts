@@ -15,6 +15,11 @@ export interface UserProfile {
   device_id: string | null;
   push_enabled?: boolean;
   total_points?: number;
+  xp?: number;
+  level?: number;
+  current_streak?: number;
+  longest_streak?: number;
+  achievements?: number;
   created_at: string;
   updated_at: string;
 }

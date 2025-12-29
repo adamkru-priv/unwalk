@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import type { UserChallenge } from '../../types';
 import { calculateChallengePoints, claimCompletedChallenge } from '../../lib/api';
 import { useChallengeStore } from '../../stores/useChallengeStore';
+import { authService } from '../../lib/auth'; // 🎯 NEW: Import authService
 
 interface CelebrationModalProps {
   challenge: UserChallenge;
@@ -12,6 +13,7 @@ interface CelebrationModalProps {
 export function CelebrationModal({ challenge, onClaim }: CelebrationModalProps) {
   const [claiming, setClaiming] = useState(false);
   const userProfile = useChallengeStore((s) => s.userProfile);
+  const setUserProfile = useChallengeStore((s) => s.setUserProfile); // 🎯 NEW: Get setUserProfile action
 
   const handleClaim = async () => {
     try {
@@ -24,6 +26,14 @@ export function CelebrationModal({ challenge, onClaim }: CelebrationModalProps) 
       await claimCompletedChallenge(challenge.id);
       
       console.log('✅ [Claim] Challenge claimed successfully with XP reward!');
+      
+      // 🎯 NEW: Refresh user profile to update XP/Level in header
+      console.log('🔄 [Claim] Refreshing user profile...');
+      const updatedProfile = await authService.getUserProfile();
+      if (updatedProfile) {
+        setUserProfile(updatedProfile);
+        console.log('✅ [Claim] User profile refreshed - XP:', updatedProfile.xp, 'Level:', updatedProfile.level);
+      }
       
       onClaim();
     } catch (error: any) {
@@ -169,7 +179,7 @@ export function CelebrationModal({ challenge, onClaim }: CelebrationModalProps) 
 
             <div className="grid grid-cols-2 gap-3 mb-6">
               {/* Steps */}
-              <div className="bg-gray-50 dark:bg-white/5 rounded-2xl p-4 border border-gray-200 dark:border-white/10">
+              <div className="bg-gray-50 dark:bg.white/5 rounded-2xl p-4 border border-gray-200 dark:border-white/10">
                 <div className="text-3xl font-black text-gray-900 dark:text-white mb-1">
                   {totalSteps.toLocaleString()}
                 </div>
@@ -183,27 +193,27 @@ export function CelebrationModal({ challenge, onClaim }: CelebrationModalProps) 
                 <div className="text-3xl font-black text-gray-900 dark:text-white mb-1">
                   {totalDistance}km
                 </div>
-                <div className="text-xs text-gray-600 dark:text-white/60 uppercase tracking-wide font-semibold">
+                <div className="text-xs text-gray-600 dark:text.white/60 uppercase tracking-wide font-semibold">
                   Distance
                 </div>
               </div>
 
               {/* Calories */}
-              <div className="bg-gray-50 dark:bg-white/5 rounded-2xl p-4 border border-gray-200 dark:border-white/10">
+              <div className="bg-gray-50 dark:bg.white/5 rounded-2xl p-4 border border-gray-200 dark:border-white/10">
                 <div className="text-3xl font-black text-gray-900 dark:text-white mb-1">
                   {totalCalories}
                 </div>
-                <div className="text-xs text-gray-600 dark:text-white/60 uppercase tracking-wide font-semibold">
+                <div className="text-xs text-gray-600 dark:text.white/60 uppercase tracking-wide font-semibold">
                   Calories
                 </div>
               </div>
 
               {/* Duration */}
-              <div className="bg-gray-50 dark:bg-white/5 rounded-2xl p-4 border border-gray-200 dark:border-white/10">
+              <div className="bg-gray-50 dark:bg.white/5 rounded-2xl p-4 border border-gray-200 dark:border-white/10">
                 <div className="text-3xl font-black text-gray-900 dark:text-white mb-1">
                   {duration}
                 </div>
-                <div className="text-xs text-gray-600 dark:text-white/60 uppercase tracking-wide font-semibold">
+                <div className="text-xs text-gray-600 dark:text.white/60 uppercase tracking-wide font-semibold">
                   Duration
                 </div>
               </div>

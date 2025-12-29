@@ -97,14 +97,47 @@ export function TeamChallengeInviteModal({ isOpen, onClose, onSuccess }: TeamCha
   };
 
   const handleSendInvitations = async () => {
-    if (!selectedChallenge || selectedFriends.size === 0) return;
+    if (!selectedChallenge) return;
 
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Send invitations to selected members - Convert Set to Array!
+      // Get device_id for user_challenge
+      const { getDeviceId } = await import('../../../lib/deviceId');
+      const deviceId = getDeviceId();
+
+      // 🎯 STEP 1: ALWAYS create user_challenge first (whether solo or with friends)
+      const { error: challengeError } = await supabase
+        .from('user_challenges')
+        .insert({
+          user_id: user.id,
+          device_id: deviceId,
+          admin_challenge_id: selectedChallenge.id,
+          status: 'active',
+          current_steps: 0,
+          started_at: new Date().toISOString(),
+          last_resumed_at: new Date().toISOString()
+          // 🎯 REMOVED: is_team_challenge - this column doesn't exist
+          // We can identify team challenges via admin_challenge.is_team_challenge
+        });
+
+      if (challengeError) {
+        console.error('Failed to create user_challenge:', challengeError);
+        throw challengeError;
+      }
+
+      // 🎯 STEP 2: If no friends selected, we're done - it's solo
+      if (selectedFriends.size === 0) {
+        alert('✅ Team Challenge started! You can invite friends later.');
+        onSuccess();
+        handleClose();
+        setLoading(false);
+        return;
+      }
+
+      // 🎯 STEP 3: Send invitations to selected friends
       const invitations = Array.from(selectedFriends).map(memberId => ({
         invited_by: user.id,
         invited_user: memberId,
@@ -112,20 +145,18 @@ export function TeamChallengeInviteModal({ isOpen, onClose, onSuccess }: TeamCha
         status: 'pending'
       }));
 
-      // Use upsert to handle duplicates gracefully
       const { error: inviteError } = await supabase
         .from('team_challenge_invitations')
         .upsert(invitations, {
           onConflict: 'invited_user,challenge_id,invited_by',
-          ignoreDuplicates: false // Update existing invitations
+          ignoreDuplicates: false
         });
 
       if (inviteError) {
-        console.error('Invite error:', inviteError);
+        console.error('Failed to send invitations:', inviteError);
         throw inviteError;
       }
 
-      // Show success message
       const friendCount = selectedFriends.size;
       const friendNames = teamMembers
         .filter(m => selectedFriends.has(m.id))
@@ -137,13 +168,14 @@ export function TeamChallengeInviteModal({ isOpen, onClose, onSuccess }: TeamCha
       onSuccess();
       handleClose();
     } catch (error: any) {
-      console.error('Failed to send invitations:', error);
+      console.error('Failed to start challenge:', error);
       
-      // Better error message
       if (error.code === '23505') {
         alert('⚠️ Some invitations were already sent to these friends for this challenge.');
+      } else if (error.code === '23503') {
+        alert('⚠️ Challenge not found. Please try selecting a different challenge.');
       } else {
-        alert('❌ Failed to send invitations. Please try again.');
+        alert(`❌ Failed to start challenge: ${error.message || 'Please try again.'}`);
       }
     } finally {
       setLoading(false);
@@ -327,14 +359,19 @@ export function TeamChallengeInviteModal({ isOpen, onClose, onSuccess }: TeamCha
             {step === 'select-friends' && (
               <button
                 onClick={handleSendInvitations}
-                disabled={loading || selectedFriends.size === 0}
+                disabled={loading}
                 className={`flex-1 px-6 py-3 rounded-xl font-black text-white transition-all ${
-                  loading || selectedFriends.size === 0
+                  loading
                     ? 'bg-gray-400 dark:bg-gray-700 cursor-not-allowed'
                     : 'bg-gradient-to-r from-orange-500 to-pink-500 hover:scale-105 active:scale-95 shadow-xl'
                 }`}
               >
-                {loading ? 'Sending...' : `Send ${selectedFriends.size} Invitation${selectedFriends.size !== 1 ? 's' : ''}`}
+                {loading 
+                  ? 'Starting...' 
+                  : selectedFriends.size === 0 
+                    ? 'Start Challenge Solo' 
+                    : `Send ${selectedFriends.size} Invitation${selectedFriends.size !== 1 ? 's' : ''}`
+                }
               </button>
             )}
           </div>

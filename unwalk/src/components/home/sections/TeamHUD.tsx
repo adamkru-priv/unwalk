@@ -1,253 +1,82 @@
-import { useEffect, useState, useCallback } from 'react';
-import { supabase } from '../../../lib/supabase';
 import { useChallengeStore } from '../../../stores/useChallengeStore';
-import type { UserChallenge } from '../../../types';
+import { useState } from 'react';
+import { useTeamChallenge } from './TeamHUD/useTeamChallenge';
+import { useTeamChallengeActions } from './TeamHUD/useTeamChallengeActions';
+import type { TeamHUDProps } from './TeamHUD/types';
+import { useHealthKit } from '../../../hooks/useHealthKit'; // 🎯 NEW: HealthKit hook
 
-interface TeamMember {
-  id: string;
-  name: string;
-  avatar?: string;
-  steps: number;
-  percentage: number;
-}
-
-interface PendingInvitation {
-  id: string;
-  status: 'pending' | 'accepted' | 'rejected';
-  invited_at: string;
-  invited_user: {
-    id: string;
-    display_name: string;
-    avatar_url?: string;
-  };
-}
-
-interface PendingChallenge {
-  challenge_id: string;
-  title: string;
-  goal_steps: number;
-  time_limit_hours: number;
-  points: number;
-  invitations: PendingInvitation[];
-  acceptedCount: number;
-  pendingCount: number;
-  currentUserId?: string; // 🎯 NEW: Current user ID to mark "You"
-}
-
-interface TeamHUDProps {
-  teamChallenge: UserChallenge | null;
-  teamMembers: TeamMember[];
-  onClick: () => void; // Choose challenge
-  onInviteMoreClick?: (challengeId: string, challengeTitle: string, alreadyInvitedUserIds: string[]) => void;
-  onChallengeStarted?: () => void; // 🎯 NEW: Callback after challenge starts
-  onChallengeCancelled?: () => void; // 🎯 NEW: Callback after challenge cancelled
-}
-
-export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick, onChallengeStarted, onChallengeCancelled }: TeamHUDProps) {
-  const [pendingChallenge, setPendingChallenge] = useState<PendingChallenge | null>(null);
-  const [starting, setStarting] = useState(false);
+export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick, onChallengeStarted, onChallengeCancelled, onChallengeEnded }: TeamHUDProps) {
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
-
-  const loadPendingChallenge = useCallback(async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Load pending invitations
-      const { data, error } = await supabase
-        .from('team_challenge_invitations')
-        .select(`
-          id,
-          status,
-          invited_at,
-          challenge_id,
-          invited_user:users!invited_user(id, display_name, avatar_url),
-          challenge:admin_challenges!challenge_id(id, title, goal_steps, time_limit_hours, points)
-        `)
-        .eq('invited_by', user.id)
-        .order('invited_at', { ascending: false });
-
-      if (error) throw error;
-
-      if (!data || data.length === 0) {
-        setPendingChallenge(null);
-        return;
-      }
-
-      // Get latest challenge - fix typing
-      const latestChallengeId = data[0].challenge_id;
-      const challengeInfo = data[0].challenge as any;
-      
-      const challengeData: PendingChallenge = {
-        challenge_id: latestChallengeId,
-        title: challengeInfo.title,
-        goal_steps: challengeInfo.goal_steps,
-        time_limit_hours: challengeInfo.time_limit_hours,
-        points: challengeInfo.points,
-        invitations: [],
-        acceptedCount: 0,
-        pendingCount: 0,
-        currentUserId: user.id
-      };
-
-      data
-        .filter((inv: any) => inv.challenge_id === latestChallengeId)
-        .forEach((inv: any) => {
-          challengeData.invitations.push({
-            id: inv.id,
-            status: inv.status,
-            invited_at: inv.invited_at,
-            invited_user: inv.invited_user
-          });
-
-          if (inv.status === 'accepted') challengeData.acceptedCount++;
-          if (inv.status === 'pending') challengeData.pendingCount++;
-        });
-
-      console.log('🎯 Pending Challenge loaded:', challengeData.title);
-      setPendingChallenge(challengeData);
-    } catch (error) {
-      console.error('Failed to load pending challenge:', error);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadPendingChallenge();
-  }, [loadPendingChallenge]);
-
-  // 🎯 FIX: Clear pending challenge when teamChallenge becomes active
-  useEffect(() => {
-    console.log('🔍 TeamHUD useEffect - teamChallenge:', teamChallenge ? 'ACTIVE' : 'NULL');
-    if (teamChallenge) {
-      // Challenge is now active - clear pending state
-      console.log('✅ Active challenge detected - clearing pending state');
-      setPendingChallenge(null);
-    } else {
-      // No active challenge - check for pending invitations
-      console.log('🔄 No active challenge - loading pending invitations');
-      loadPendingChallenge();
-    }
-  }, [teamChallenge, loadPendingChallenge]);
+  const [isExpanded, setIsExpanded] = useState(false); // 🎯 NEW: Track expanded state
+  const [isUpdating, setIsUpdating] = useState(false); // 🎯 NEW: Track updating state
+  
+  // 🎯 NEW: Check if running on native iOS
+  const { isNative } = useHealthKit();
+  
+  // 🎯 Use custom hooks
+  const { pendingChallenge, setPendingChallenge } = useTeamChallenge(teamChallenge);
+  const { starting, cancelChallenge, startChallenge, endChallenge } = useTeamChallengeActions({
+    onChallengeStarted,
+    onChallengeCancelled,
+    onChallengeEnded // 🎯 FIX: Use callback instead of reload
+  });
 
   const handleCancelChallenge = async () => {
-    if (!pendingChallenge) return;
-    
-    if (!confirm(`🗑️ Cancel "${pendingChallenge.title}" and delete all invitations?`)) {
-      return;
-    }
-    
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      // Delete all invitations for this challenge
-      const { error } = await supabase
-        .from('team_challenge_invitations')
-        .delete()
-        .eq('invited_by', user.id)
-        .eq('challenge_id', pendingChallenge.challenge_id);
-
-      if (error) throw error;
-
-      alert('✅ Challenge cancelled');
-      setPendingChallenge(null); // Clear UI
-
-      // 🎯 NEW: Trigger callback after challenge cancelled
-      if (onChallengeCancelled) {
-        onChallengeCancelled();
-      }
-    } catch (error) {
-      console.error('Failed to cancel challenge:', error);
-      alert('❌ Failed to cancel challenge. Please try again.');
+    const success = await cancelChallenge(pendingChallenge!);
+    if (success) {
+      setPendingChallenge(null);
     }
   };
 
   const handleStartChallenge = async () => {
-    if (!pendingChallenge || starting) return;
-    
-    try {
-      setStarting(true);
-      
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      // 🎯 FIX: Check if user already has an active challenge
-      const { data: existingChallenge } = await supabase
-        .from('user_challenges')
-        .select('id, admin_challenge:admin_challenges(title)')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .single();
-
-      if (existingChallenge) {
-        const challengeData = existingChallenge.admin_challenge as any;
-        const currentTitle = challengeData?.title || 'Unknown';
-        if (!confirm(`⚠️ You already have an active challenge: "${currentTitle}".\n\nEnd it first to start "${pendingChallenge.title}"?`)) {
-          return;
-        }
-
-        // End existing challenge
-        await supabase
-          .from('user_challenges')
-          .update({ status: 'completed' })
-          .eq('id', existingChallenge.id);
-      }
-
-      // Create user_challenge for this team challenge
-      const { data: newChallenge, error } = await supabase
-        .from('user_challenges')
-        .insert({
-          device_id: user.id,
-          user_id: user.id,
-          admin_challenge_id: pendingChallenge.challenge_id,
-          status: 'active'
-        })
-        .select(`
-          *,
-          admin_challenge:admin_challenges(*)
-        `)
-        .single();
-
-      if (error) throw error;
-
-      console.log('✅ Team challenge started!', newChallenge);
-
-      // 🎯 FIX: Call callback ONCE to refresh parent data
-      if (onChallengeStarted) {
-        console.log('🔄 Calling onChallengeStarted callback...');
-        await onChallengeStarted();
-      }
-
-      // Navigate to dashboard AFTER data refresh
+    const success = await startChallenge(pendingChallenge!);
+    if (success) {
       setCurrentScreen('dashboard');
-    } catch (error) {
-      console.error('Failed to start challenge:', error);
-      alert('Failed to start challenge. Please try again.');
-    } finally {
-      setStarting(false);
     }
   };
 
   const handleEndChallenge = async () => {
-    if (!teamChallenge) return;
-    
-    if (!confirm('Are you sure you want to end this team challenge?')) {
-      return;
+    if (teamChallenge) {
+      await endChallenge(teamChallenge.id);
     }
+  };
+
+  // 🎯 FIX: Handle adding steps without reloading entire page
+  const handleAddSteps = async (steps: number) => {
+    if (isUpdating || !teamChallenge) return;
     
     try {
+      setIsUpdating(true);
+      const { supabase } = await import('../../../lib/supabase');
+      
+      // 🎯 FIX: Update user_challenges table directly (not team_challenge_participants)
+      const currentSteps = teamChallenge.current_steps || 0;
+      const goalSteps = teamChallenge.admin_challenge?.goal_steps || 0;
+      const newSteps = Math.min(currentSteps + steps, goalSteps); // Don't exceed goal
+      
+      console.log('📊 [TeamHUD] Adding steps:', steps, '- Current:', currentSteps, '→ New:', newSteps);
+      
       const { error } = await supabase
         .from('user_challenges')
-        .update({ status: 'completed' })
+        .update({ current_steps: newSteps })
         .eq('id', teamChallenge.id);
-
-      if (error) throw error;
-
-      // Refresh page
-      window.location.reload();
+      
+      if (error) {
+        console.error('❌ [TeamHUD] Failed to update steps:', error);
+        throw error;
+      }
+      
+      console.log('✅ [TeamHUD] Steps updated successfully');
+      
+      // 🎯 FIX: Use callback instead of reload to keep current slide
+      if (onChallengeStarted) {
+        await onChallengeStarted();
+      }
     } catch (error) {
-      console.error('Failed to end challenge:', error);
-      alert('Failed to end challenge. Please try again.');
+      console.error('❌ [TeamHUD] Failed to update steps:', error);
+      alert('Failed to update progress. Please try again.');
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -264,6 +93,13 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
       return (
         <div className="w-full px-4">
           <div className="bg-white dark:bg-[#151A25] rounded-3xl p-6 shadow-xl">
+            {/* Single label above the circle */}
+            <div className="text-center mb-4">
+              <h3 className="text-xl font-black text-gray-800 dark:text-white">
+                My Team Challenge
+              </h3>
+            </div>
+
             {/* Giant Empty Progress Ring */}
             <div className="flex justify-center mb-6">
               <div className="relative" style={{ width: size, height: size }}>
@@ -311,6 +147,13 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
     return (
       <div className="w-full px-4">
         <div className="bg-white dark:bg-[#151A25] rounded-3xl p-6 shadow-xl">
+          {/* Single label above the circle */}
+          <div className="text-center mb-4">
+            <h3 className="text-xl font-black text-gray-800 dark:text-white">
+              My Team Challenge
+            </h3>
+          </div>
+
           {/* Giant Empty Progress Ring (0% - not started yet) */}
           <div className="flex justify-center mb-6">
             <div className="relative" style={{ width: size, height: size }}>
@@ -472,13 +315,20 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
 
   return (
     <div className="w-full px-4">
-      <div 
-        className="bg-white dark:bg-[#151A25] rounded-3xl p-6 shadow-xl cursor-pointer"
-        onClick={onClick}
-      >
+      <div className="bg-white dark:bg-[#151A25] rounded-3xl p-6 shadow-xl">
+        {/* Single label above the circle */}
+        <div className="text-center mb-4">
+          <h3 className="text-xl font-black text-gray-800 dark:text-white">
+            My Team Challenge
+          </h3>
+        </div>
+
         {/* Giant Progress Ring - SAME STYLE */}
-        <div className="flex justify-center mb-6">
-          <div className="relative" style={{ width: size, height: size }}>
+        <div 
+          className="flex justify-center mb-6 cursor-pointer group"
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          <div className="relative transition-transform duration-200 group-hover:scale-105" style={{ width: size, height: size }}>
             {/* Background ring */}
             <svg className="transform -rotate-90" width={size} height={size}>
               <circle
@@ -530,6 +380,10 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
               <div className="mt-2 text-lg font-black text-orange-600 dark:text-orange-400">
                 {progressPercent}%
               </div>
+              {/* Tap hint */}
+              <div className="mt-2 text-xs text-gray-400 dark:text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                👆 Tap for details
+              </div>
             </div>
           </div>
         </div>
@@ -540,7 +394,7 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
             {teamChallenge.admin_challenge?.title}
           </h3>
           <p className="text-xs text-gray-600 dark:text-gray-400">
-            👥 {teamMembers.length} members walking together
+            👥 {teamMembers.length} member{teamMembers.length !== 1 ? 's' : ''} walking together
           </p>
         </div>
 
@@ -548,7 +402,6 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
         <div className="flex items-center justify-center gap-6 mb-6 text-sm">
           {/* XP Reward */}
           <div className="flex items-center gap-2">
-            <span className="text-lg">💎</span>
             <div>
               <div className="font-black text-gray-900 dark:text-white">{xpReward} XP</div>
               <div className="text-xs text-gray-500 dark:text-gray-400">Reward</div>
@@ -560,7 +413,6 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
 
           {/* Deadline */}
           <div className="flex items-center gap-2">
-            <span className="text-lg">⏱️</span>
             <div>
               <div className="font-black text-gray-900 dark:text-white">{deadline_text}</div>
               <div className="text-xs text-gray-500 dark:text-gray-400">Left</div>
@@ -568,60 +420,176 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
           </div>
         </div>
 
-        {/* Team Members List - Compact */}
-        <div className="mb-4 bg-orange-500/10 dark:bg-orange-500/20 border border-orange-500/30 rounded-xl p-3">
-          <div className="text-xs text-gray-600 dark:text-gray-400 font-bold uppercase mb-2">
-            Team Members
-          </div>
-          <div className="space-y-1.5">
-            {sortedMembers.map((member, index) => (
-              <div key={member.id} className="flex items-center justify-between text-sm">
-                <span className="text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center text-white text-xs font-bold">
-                    {member.avatar ? (
-                      <img src={member.avatar} alt={member.name} className="w-full h-full rounded-full object-cover" />
-                    ) : (
-                      member.name.charAt(0).toUpperCase()
-                    )}
-                  </div>
-                  <span className="truncate max-w-[120px]">{member.name}</span>
-                  {index === 0 && <span className="text-xs">👑</span>}
-                </span>
-                <div className="text-right">
-                  <div className="font-bold text-gray-900 dark:text-white text-xs">
-                    {member.steps.toLocaleString()}
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                    {member.percentage}%
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* View Details Button */}
+        {/* Toggle Details Button */}
         <button 
           onClick={(e) => {
             e.stopPropagation();
-            setCurrentScreen('dashboard');
+            setIsExpanded(!isExpanded);
           }}
-          className="w-full bg-gradient-to-r from-orange-500 to-pink-500 text-white py-4 rounded-2xl font-bold text-base shadow-lg hover:shadow-xl active:scale-98 transition-all duration-200 mb-4"
+          className="w-full bg-gradient-to-r from-orange-500 to-pink-500 text-white py-4 rounded-2xl font-bold text-base shadow-lg hover:shadow-xl active:scale-98 transition-all duration-200 flex items-center justify-center gap-2"
         >
-          View Team Details
+          {isExpanded ? 'Hide Details' : 'View Details'}
+          <svg 
+            className={`w-5 h-5 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
         </button>
 
-        {/* End Challenge - Small text link at bottom */}
-        <div className="text-center">
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              handleEndChallenge();
-            }}
-            className="text-xs text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors underline"
-          >
-            End Challenge
-          </button>
+        {/* 🎯 NEW: Expanded Details Panel */}
+        <div 
+          className={`overflow-hidden transition-all duration-500 ease-in-out ${
+            isExpanded ? 'max-h-[1000px] opacity-100 mt-4' : 'max-h-0 opacity-0'
+          }`}
+        >
+          <div className="space-y-3">
+            {/* Team Members List - Detailed */}
+            <div className="bg-orange-500/10 dark:bg-orange-500/20 border border-orange-500/30 rounded-xl p-4">
+              <div className="text-xs text-gray-600 dark:text-gray-400 font-bold uppercase mb-3">
+                Team Leaderboard
+              </div>
+              <div className="space-y-2">
+                {sortedMembers.map((member, index) => (
+                  <div key={member.id} className="flex items-center justify-between p-2 rounded-lg bg-white/50 dark:bg-black/20">
+                    <span className="text-gray-700 dark:text-gray-300 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center text-white font-bold flex-shrink-0">
+                        {member.avatar ? (
+                          <img src={member.avatar} alt={member.name} className="w-full h-full rounded-full object-cover" />
+                        ) : (
+                          member.name.charAt(0).toUpperCase()
+                        )}
+                      </div>
+                      <div>
+                        <div className="font-bold text-sm flex items-center gap-1">
+                          {member.name}
+                          {index === 0 && <span className="text-base">👑</span>}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {member.percentage}% contribution
+                        </div>
+                      </div>
+                    </span>
+                    <div className="text-right">
+                      <div className="font-black text-gray-900 dark:text-white">
+                        {member.steps.toLocaleString()}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        steps
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Stats Grid */}
+            <div className="grid grid-cols-2 gap-3">
+              {/* Distance */}
+              <div className="bg-gray-50 dark:bg-[#0B101B] border border-gray-200 dark:border-gray-800 rounded-xl p-3">
+                <div className="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase mb-1">Team Distance</div>
+                <div className="text-xl font-black text-gray-900 dark:text-white">
+                  {(totalSteps * 0.000762).toFixed(2)} km
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  / {(goalSteps * 0.000762).toFixed(2)} km
+                </div>
+              </div>
+
+              {/* Time Remaining */}
+              <div className="bg-gradient-to-br from-red-500/10 to-orange-500/10 border border-red-500/20 rounded-xl p-3">
+                <div className="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase mb-1">Time Left</div>
+                <div className="text-xl font-black text-gray-900 dark:text-white">
+                  {deadline_text}
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  to complete
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-2 pt-2">
+              {/* 🎯 NEW: Step Simulator (Web/PWA only) */}
+              {progressPercent < 100 && !isNative && (
+                <div className="bg-blue-900/80 backdrop-blur-sm rounded-xl p-3 border border-blue-700/50">
+                  <p className="text-xs font-semibold text-blue-200 mb-2">Step Simulator (Web/Test Only)</p>
+                  <div className="grid grid-cols-4 gap-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddSteps(100);
+                      }}
+                      disabled={isUpdating}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50 transition-colors"
+                    >
+                      +100
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddSteps(500);
+                      }}
+                      disabled={isUpdating}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50 transition-colors"
+                    >
+                      +500
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddSteps(1000);
+                      }}
+                      disabled={isUpdating}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50 transition-colors"
+                    >
+                      +1K
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddSteps(5000);
+                      }}
+                      disabled={isUpdating}
+                      className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50 transition-colors"
+                    >
+                      +5K
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Invite More Friends Button */}
+              {teamMembers.length < 5 && onInviteMoreClick && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onInviteMoreClick(
+                      teamChallenge.admin_challenge_id,
+                      teamChallenge.admin_challenge?.title || 'Team Challenge',
+                      teamMembers.filter(m => m.name !== 'You').map(m => m.id)
+                    );
+                  }}
+                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-xl font-semibold text-sm shadow-md hover:shadow-lg active:scale-98 transition-all duration-200"
+                >
+                  Invite Friends ({5 - teamMembers.length} spots left)
+                </button>
+              )}
+
+              {/* End Challenge Button */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEndChallenge();
+                }}
+                className="w-full bg-gradient-to-r from-red-500/10 to-orange-500/10 hover:from-red-500/20 hover:to-orange-500/20 border border-red-500/30 text-red-600 dark:text-red-400 py-3 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2"
+              >
+                🏁 End Challenge
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

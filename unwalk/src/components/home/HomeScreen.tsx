@@ -16,18 +16,20 @@ import { useHealthKit } from '../../hooks/useHealthKit'; // 🎯 FIX: Import fro
 export function HomeScreen() {
   const [selectedCompletedChallenge, setSelectedCompletedChallenge] = useState<UserChallenge | null>(null);
   const [showJourneyModal, setShowJourneyModal] = useState(false);
-  const [showTeamInviteModal, setShowTeamInviteModal] = useState(false);
-  const [showInviteMoreModal, setShowInviteMoreModal] = useState(false); // 🎯 NEW
+  const [showSoloSelectModal, setShowSoloSelectModal] = useState(false); // 🎯 NEW: Solo challenge selection
+  const [showTeamSelectModal, setShowTeamSelectModal] = useState(false); // 🎯 NEW: Team challenge selection
+  const [showInviteMoreModal, setShowInviteMoreModal] = useState(false);
   const [inviteMoreData, setInviteMoreData] = useState<{
     challengeId: string;
     challengeTitle: string;
     alreadyInvitedUserIds: string[];
-  } | null>(null); // 🎯 NEW
+  } | null>(null);
 
   // Store state
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
   const pausedChallenges = useChallengeStore((s) => s.pausedChallenges);
   const userProfile = useChallengeStore((s) => s.userProfile);
+  const dailyStepGoal = useChallengeStore((s) => s.dailyStepGoal); // 🎯 NEW: Get daily step goal from store
   const resumeChallenge = useChallengeStore((s) => s.resumeChallenge);
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
   const setActiveChallenge = useChallengeStore((s) => s.setActiveChallenge);
@@ -78,12 +80,20 @@ export function HomeScreen() {
     if (activeUserChallenge) {
       setCurrentScreen('dashboard');
     } else {
-      setCurrentScreen('library');
+      // 🎯 NEW: Open Solo challenge selection modal instead of going to library
+      setShowSoloSelectModal(true);
     }
   };
 
-  const handleTeamInviteSuccess = async () => {
+  const handleSoloSelectSuccess = async () => {
     await loadActiveChallenge();
+    setShowSoloSelectModal(false);
+  };
+
+  const handleTeamSelectSuccess = async () => {
+    await loadActiveChallenge();
+    await loadTeamChallenges();
+    setShowTeamSelectModal(false);
   };
 
   // 🎯 NEW: Handler for daily activity card - opens quest modal
@@ -115,6 +125,13 @@ export function HomeScreen() {
     console.log('🔄 Challenge cancelled - refreshing data...');
     await loadActiveChallenge();
     await loadTeamChallenges(); // 🎯 FIX: Reload team challenges to clear pending state
+  };
+
+  // 🎯 NEW: Refresh data after challenge ends
+  const handleChallengeEnded = async () => {
+    console.log('🔄 Challenge ended - refreshing data...');
+    await loadActiveChallenge();
+    await loadTeamChallenges(); // 🎯 FIX: Reload team challenges to clear ended challenge
   };
 
   // Utility functions
@@ -155,9 +172,12 @@ export function HomeScreen() {
         longestStreak={gamificationStats?.longest_streak || 0}
         nextMilestone={nextStreakMilestone}
         onQuestClaimed={handleQuestClaimed}
-        showTeamInviteModal={showTeamInviteModal}
-        onCloseTeamInvite={() => setShowTeamInviteModal(false)}
-        onTeamInviteSuccess={handleTeamInviteSuccess}
+        showSoloSelectModal={showSoloSelectModal}
+        showTeamSelectModal={showTeamSelectModal}
+        onCloseSoloSelect={() => setShowSoloSelectModal(false)}
+        onCloseTeamSelect={() => setShowTeamSelectModal(false)}
+        onSoloSelectSuccess={handleSoloSelectSuccess}
+        onTeamSelectSuccess={handleTeamSelectSuccess}
         showInviteMoreModal={showInviteMoreModal}
         onCloseInviteMore={() => setShowInviteMoreModal(false)}
         onInviteMoreSuccess={handleInviteMoreSuccess}
@@ -186,12 +206,14 @@ export function HomeScreen() {
           currentStreak={gamificationStats?.current_streak || 0}
           xpReward={activeUserChallenge?.admin_challenge?.points || 0}
           todaySteps={todaySteps}
+          dailyStepGoal={dailyStepGoal || 10000} // 🎯 NEW: Pass daily step goal (default 10,000)
           onSoloClick={handleSoloClick}
-          onTeamClick={() => setShowTeamInviteModal(true)}
+          onTeamClick={() => setShowTeamSelectModal(true)} // 🎯 FIX: Use new Team selection modal
           onDailyActivityClick={handleDailyActivityClick}
           onInviteMoreClick={handleInviteMoreClick}
           onChallengeStarted={handleChallengeStarted}
           onChallengeCancelled={handleChallengeCancelled}
+          onChallengeEnded={handleChallengeEnded}
         />
 
         <PausedChallengesGrid

@@ -18,10 +18,7 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
   const [notificationCount, setNotificationCount] = useState(0);
   
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
-  const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
   const userProfile = useChallengeStore((s) => s.userProfile);
-  const currentScreen = useChallengeStore((s) => s.currentScreen);
-  const previousScreen = useChallengeStore((s) => s.previousScreen);
 
   const loadNotifications = useCallback(async () => {
     try {
@@ -91,6 +88,31 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
   // Check if user is guest
   const isGuest = userProfile?.is_guest || false;
 
+  // Calculate XP and level progress
+  const calculateXPForLevel = (lvl: number) => {
+    if (lvl <= 1) return 0;
+    return Math.floor(100 * (Math.pow(1.5, lvl - 1) - 1) / 0.5);
+  };
+
+  const getLevelEmoji = (lvl: number) => {
+    if (lvl < 10) return '🌱';
+    if (lvl < 20) return '🗺️';
+    if (lvl < 30) return '⚔️';
+    if (lvl < 40) return '🏆';
+    return '👑';
+  };
+
+  const calculateTotalXPProgress = (currentXP: number, currentLevel: number): number => {
+    if (currentLevel >= 50) return 100;
+    const nextLevelXP = calculateXPForLevel(currentLevel + 1);
+    return Math.min(100, Math.max(0, (currentXP / nextLevelXP) * 100));
+  };
+
+  const xp = userProfile?.xp || 0;
+  const level = userProfile?.level || 1;
+  const progress = calculateTotalXPProgress(xp, level);
+  const nextLevelXP = calculateXPForLevel(level + 1);
+
   // Determine account type display
   const getAccountTypeBadge = () => {
     if (isGuest) {
@@ -110,16 +132,11 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
 
   return (
     <header className="bg-gray-50/80 dark:bg-[#0B101B]/80 backdrop-blur-md sticky top-0 z-20 px-6 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)] border-b border-gray-200 dark:border-transparent transition-all duration-300">
-      {/* Back button removed by design: header must never show a back arrow */}
-
       <div className="flex items-center justify-between">
-        {/* Left side - Back button or Logo */}
+        {/* Left side - Logo */}
         <div className="flex items-center gap-3">
-          {/* Back button moved to overlay above */}
-
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              <span className="text-blue-600 dark:text-blue-400 inline-block" style={{ transform: 'scaleX(-1)' }}>🚶</span>
               MOVEE
               {/* Show account type badge for all users */}
               {getAccountTypeBadge()}
@@ -131,8 +148,43 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
           </div>
         </div>
 
-        {/* Right side - Notifications, Active Challenge & Profile */}
+        {/* Right side - XP/Level, Daily Challenge, Notifications */}
         <div className="flex items-center gap-3">
+          {/* XP & Level Progress - Click to view Daily Challenge */}
+          {!isGuest && (
+            <button
+              onClick={() => setCurrentScreen('badges')}
+              className="flex items-center gap-2 bg-white dark:bg-[#151A25] border border-gray-200 dark:border-white/10 rounded-full px-3 py-1.5 relative group hover:bg-gray-50 dark:hover:bg-[#1A1F2E] transition-all active:scale-95 cursor-pointer"
+              title={`Level ${level} • ${xp.toLocaleString()} / ${nextLevelXP.toLocaleString()} XP to reach Level ${level + 1}\n\nClick to view daily challenge & quests`}
+            >
+              <span className="text-base">{getLevelEmoji(level)}</span>
+              <div className="flex flex-col items-start">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-bold text-gray-900 dark:text-white">{level}</span>
+                  <div className="w-12 h-1.5 bg-gray-200 dark:bg-white/10 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                </div>
+                <span className="text-[9px] text-gray-500 dark:text-white/50 font-medium">
+                  {xp.toLocaleString()} / {nextLevelXP.toLocaleString()} XP
+                </span>
+              </div>
+
+              {/* Subtle arrow hint */}
+              <svg
+                className="w-3 h-3 text-gray-400 dark:text-white/30 opacity-0 group-hover:opacity-100 transition-opacity"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          )}
+
           {/* Notifications Button - Real data */}
           {!isGuest && notificationCount > 0 && (
             <button
@@ -149,120 +201,6 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
               </div>
             </button>
           )}
-
-          {/* Active Challenge Indicator */}
-          {activeUserChallenge && (
-            <button
-              onClick={() => setCurrentScreen('dashboard')}
-              className="relative group flex items-center"
-              title="Active challenge in progress"
-            >
-              {(() => {
-                const progress = activeUserChallenge.admin_challenge?.goal_steps 
-                  ? Math.min(100, Math.round((activeUserChallenge.current_steps / activeUserChallenge.admin_challenge.goal_steps) * 100))
-                  : 0;
-                
-                // Calculate circle progress (circumference = 2πr, for r=10: ~62.83)
-                const radius = 10;
-                const circumference = 2 * Math.PI * radius;
-                const strokeDashoffset = circumference - (progress / 100) * circumference;
-
-                return (
-                  <div className="relative w-7 h-7 flex items-center justify-center flex-shrink-0">
-                    {/* Background circle */}
-                    <svg className="absolute w-full h-full transform -rotate-90" viewBox="0 0 24 24">
-                      <circle
-                        cx="12"
-                        cy="12"
-                        r={radius}
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        className="text-gray-300 dark:text-gray-700"
-                      />
-                      {/* Progress circle with glow */}
-                      <circle
-                        cx="12"
-                        cy="12"
-                        r={radius}
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeDasharray={circumference}
-                        strokeDashoffset={strokeDashoffset}
-                        strokeLinecap="round"
-                        className="text-blue-500 dark:text-blue-400 transition-all duration-500 drop-shadow-[0_0_6px_rgba(59,130,246,0.6)]"
-                      />
-                    </svg>
-                    {/* Percentage number only */}
-                    <span className="relative z-10 text-[9px] font-medium text-gray-700 dark:text-white leading-none">
-                      {progress}
-                    </span>
-                  </div>
-                );
-              })()}
-            </button>
-          )}
-
-          {/* Profile / Close Settings Button */}
-          <button
-            onClick={() => {
-              if (currentScreen === 'profile') {
-                const target = previousScreen || 'home';
-                if (target && target !== 'profile') setCurrentScreen(target);
-                else setCurrentScreen('home');
-                return;
-              }
-              setCurrentScreen('profile');
-            }}
-            className="relative text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white transition-colors"
-            title={currentScreen === 'profile' ? 'Close' : 'Profile & Settings'}
-            aria-label={currentScreen === 'profile' ? 'Close settings' : 'Profile & Settings'}
-          >
-            {currentScreen === 'profile' ? (
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            ) : (
-              (() => {
-                const name = userProfile?.display_name || userProfile?.email || '';
-
-                // Extract a stable suffix from common guest names like "Guest_1234".
-                const suffixMatch = typeof name === 'string' ? /(guest[_-]?)(\w{3,8})/i.exec(name) : null;
-                const suffix = suffixMatch?.[2]?.toUpperCase() ?? '';
-
-                return (
-                  <div className="flex items-center gap-1.5">
-                    {/* Profile icon instead of avatar circle */}
-                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-                      isGuest 
-                        ? 'bg-gray-200 dark:bg-white/10' 
-                        : 'bg-gradient-to-br from-amber-500 to-orange-600 shadow-md shadow-amber-600/20'
-                    }`}>
-                      <svg className={`w-4 h-4 ${
-                        isGuest 
-                          ? 'text-gray-600 dark:text-white/60' 
-                          : 'text-white'
-                      }`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                    </div>
-
-                    {/* Email/Name label - max 6 chars */}
-                    {isGuest ? (
-                      <span className="text-[10px] font-black tracking-[0.12em] uppercase text-gray-500 dark:text-white/45">
-                        {suffix ? `G-${suffix.slice(0, 3)}` : 'Guest'}
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-bold text-gray-700 dark:text-white/70">
-                        {(userProfile?.email?.split('@')[0] || 'Pro').slice(0, 6)}
-                      </span>
-                    )}
-                  </div>
-                );
-              })()
-            )}
-          </button>
         </div>
       </div>
     </header>

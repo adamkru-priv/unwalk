@@ -1,7 +1,7 @@
 import { CelebrationModal } from '../CelebrationModal';
 import { LevelUpModal } from '../LevelUpModal';
 import { JourneyModal } from './JourneyModal';
-import { TeamChallengeInviteModal } from './TeamChallengeInviteModal';
+import { SelectChallengeModal } from './SelectChallengeModal'; // 🎯 NEW: Universal modal
 import { InviteMoreToTeamChallengeModal } from './InviteMoreToTeamChallengeModal';
 import type { UserChallenge } from '../../../types';
 
@@ -23,10 +23,13 @@ interface ModalManagerProps {
   nextMilestone?: { steps: number; title: string; icon: string };
   onQuestClaimed: (xpEarned: number) => void;
   
-  // Team Challenge Invite Modal
-  showTeamInviteModal: boolean;
-  onCloseTeamInvite: () => void;
-  onTeamInviteSuccess: () => void;
+  // 🎯 NEW: Universal Challenge Selection Modal (replaces Team Invite Modal)
+  showSoloSelectModal: boolean;
+  showTeamSelectModal: boolean;
+  onCloseSoloSelect: () => void;
+  onCloseTeamSelect: () => void;
+  onSoloSelectSuccess: () => void;
+  onTeamSelectSuccess: () => void;
   
   // Invite More Modal
   showInviteMoreModal: boolean;
@@ -54,9 +57,12 @@ export function ModalManager({
   longestStreak,
   nextMilestone,
   onQuestClaimed,
-  showTeamInviteModal,
-  onCloseTeamInvite,
-  onTeamInviteSuccess,
+  showSoloSelectModal,
+  showTeamSelectModal,
+  onCloseSoloSelect,
+  onCloseTeamSelect,
+  onSoloSelectSuccess,
+  onTeamSelectSuccess,
   showInviteMoreModal,
   onCloseInviteMore,
   onInviteMoreSuccess,
@@ -92,11 +98,20 @@ export function ModalManager({
         />
       )}
 
-      {/* Team Challenge Invite Modal - select challenge and send invitations */}
-      <TeamChallengeInviteModal
-        isOpen={showTeamInviteModal}
-        onClose={onCloseTeamInvite}
-        onSuccess={onTeamInviteSuccess}
+      {/* 🎯 NEW: Solo Challenge Selection Modal */}
+      <SelectChallengeModal
+        isOpen={showSoloSelectModal}
+        onClose={onCloseSoloSelect}
+        onSuccess={onSoloSelectSuccess}
+        mode="solo"
+      />
+
+      {/* 🎯 NEW: Team Challenge Selection Modal */}
+      <SelectChallengeModal
+        isOpen={showTeamSelectModal}
+        onClose={onCloseTeamSelect}
+        onSuccess={onTeamSelectSuccess}
+        mode="team"
       />
 
       {/* Invite More Modal - invite additional friends to existing challenge */}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DailyActivityHUD } from './DailyActivityHUD';
 import { RunnerHUD } from './RunnerHUD';
 import { TeamHUD } from './TeamHUD';
@@ -20,12 +20,14 @@ interface ChallengeCarouselProps {
   currentStreak: number;
   xpReward: number;
   todaySteps: number; // 🎯 NEW: Today's steps from Apple Health
+  dailyStepGoal: number; // 🎯 NEW: Daily step goal from user profile
   onSoloClick: () => void;
   onTeamClick: () => void;
   onDailyActivityClick?: () => void; // 🎯 NEW: Handler for daily activity card
   onInviteMoreClick?: (challengeId: string, challengeTitle: string, alreadyInvitedUserIds: string[]) => void; // 🎯 NEW
   onChallengeStarted?: () => void; // 🎯 NEW: Refresh after challenge starts
   onChallengeCancelled?: () => void; // 🎯 NEW: Refresh after challenge cancelled
+  onChallengeEnded?: () => void; // 🎯 NEW: Refresh after challenge ends
 }
 
 export function ChallengeCarousel({
@@ -33,17 +35,35 @@ export function ChallengeCarousel({
   teamChallenge,
   teamMembers,
   todaySteps,
+  dailyStepGoal, // 🎯 NEW
   onSoloClick,
   onTeamClick,
   onDailyActivityClick,
   onInviteMoreClick,
   onChallengeStarted,
   onChallengeCancelled,
+  onChallengeEnded,
   xpReward
 }: ChallengeCarouselProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
+
+  // 🎯 FIX: Auto-switch to Solo Challenge slide when challenge starts
+  useEffect(() => {
+    if (soloChallenge && currentSlide === 0) {
+      // If user just started a solo challenge, switch to slide 1 (Solo Challenge)
+      setCurrentSlide(1);
+    }
+  }, [soloChallenge?.id]); // Only trigger when challenge ID changes
+
+  // 🎯 FIX: Auto-switch to Team Challenge slide when challenge starts
+  useEffect(() => {
+    if (teamChallenge?.status === 'active' && currentSlide === 0) {
+      // If team challenge just became active, switch to slide 2 (Team Challenge)
+      setCurrentSlide(2);
+    }
+  }, [teamChallenge?.status]); // Trigger when status changes to 'active'
 
   const handleTouchStart = (e: React.TouchEvent) => {
     setTouchStart(e.targetTouches[0].clientX);
@@ -122,6 +142,7 @@ export function ChallengeCarousel({
           <div className="w-full flex-shrink-0">
             <DailyActivityHUD
               todaySteps={todaySteps}
+              dailyStepGoal={dailyStepGoal}
               onClick={onDailyActivityClick || (() => setCurrentSlide(1))}
             />
           </div>
@@ -144,6 +165,7 @@ export function ChallengeCarousel({
               onInviteMoreClick={onInviteMoreClick}
               onChallengeStarted={onChallengeStarted}
               onChallengeCancelled={onChallengeCancelled}
+              onChallengeEnded={onChallengeEnded}
             />
           </div>
         </div>

@@ -20,9 +20,17 @@ export function useHomeData() {
   const loadActiveChallenge = async () => {
     try {
       const activeChallenge = await getActiveUserChallenge();
+      
+      // 🎯 FIX: Don't load team challenges as active solo challenge
+      if (activeChallenge && activeChallenge.admin_challenge?.is_team_challenge) {
+        console.log('⏭️ [useHomeData] Skipping team challenge from solo slot:', activeChallenge.admin_challenge?.title);
+        setActiveChallenge(null);
+        return;
+      }
+      
       if (activeChallenge) {
         setActiveChallenge(activeChallenge);
-        console.log('✅ [useHomeData] Loaded active challenge:', activeChallenge.admin_challenge?.title);
+        console.log('✅ [useHomeData] Loaded active solo challenge:', activeChallenge.admin_challenge?.title);
       }
     } catch (err) {
       console.error('Failed to load active challenge:', err);
@@ -72,22 +80,25 @@ export function useHomeData() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Load active team challenge
-      const { data: activeTeamChallenge, error } = await supabase
+      // 🎯 FIX: Load ALL active challenges, then filter by admin_challenge.is_team_challenge
+      const { data: userChallenges, error } = await supabase
         .from('user_challenges')
         .select(`
           *,
           admin_challenge:admin_challenges(*)
         `)
         .eq('user_id', user.id)
-        .eq('status', 'active')
-        .gte('admin_challenge.goal_steps', 50000) // Team challenges are 50k+
-        .single();
+        .eq('status', 'active');
 
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         console.error('Failed to load team challenge:', error);
         return;
       }
+
+      // Filter for team challenges (is_team_challenge flag is on admin_challenge)
+      const activeTeamChallenge = (userChallenges || []).find(
+        challenge => challenge.admin_challenge?.is_team_challenge === true
+      );
 
       if (!activeTeamChallenge) {
         setTeamChallenge(null);
@@ -107,20 +118,25 @@ export function useHomeData() {
         .eq('invited_by', user.id)
         .eq('status', 'accepted');
 
-      // Calculate team members with their steps
+      // 🎯 FIX: Calculate contribution percentage based on TEAM TOTAL, not goal
+      const mySteps = activeTeamChallenge.current_steps;
+      const otherMembersSteps = (invitations || []).map(() => 0); // TODO: Load actual steps
+      const totalTeamSteps = mySteps + otherMembersSteps.reduce((sum, s) => sum + s, 0);
+      
+      // Calculate team members with their steps and contribution percentage
       const members = [
         {
           id: user.id,
           name: 'You',
-          steps: activeTeamChallenge.current_steps,
-          percentage: Math.round((activeTeamChallenge.current_steps / (activeTeamChallenge.admin_challenge?.goal_steps || 1)) * 100)
+          steps: mySteps,
+          percentage: totalTeamSteps > 0 ? Math.round((mySteps / totalTeamSteps) * 100) : 0
         },
-        ...(invitations || []).map((inv: any) => ({
+        ...(invitations || []).map((inv: any, index: number) => ({
           id: inv.invited_user.id,
           name: inv.invited_user.display_name,
           avatar: inv.invited_user.avatar_url,
-          steps: 0, // TODO: Load actual steps from their user_challenge
-          percentage: 0
+          steps: otherMembersSteps[index], // TODO: Load actual steps from their user_challenge
+          percentage: totalTeamSteps > 0 ? Math.round((otherMembersSteps[index] / totalTeamSteps) * 100) : 0
         }))
       ];
 
