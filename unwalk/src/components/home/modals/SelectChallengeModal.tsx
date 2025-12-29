@@ -209,19 +209,35 @@ export function SelectChallengeModal({ isOpen, onClose, onSuccess, mode }: Selec
       }
 
       // Create user_challenge
-      const { error: challengeError } = await supabase
+      // 🎯 FIX: Generate team_id for team challenges
+      const teamId = mode === 'team' ? crypto.randomUUID() : null;
+      
+      console.log(`🎯 [SelectChallengeModal] Creating ${mode} challenge with team_id:`, teamId);
+      
+      const { data: userChallengeData, error: challengeError } = await supabase
         .from('user_challenges')
         .insert({
           user_id: user.id,
           device_id: deviceId,
           admin_challenge_id: challengeId,
+          team_id: teamId, // 🎯 FIX: Set team_id for team challenges
           status: 'active',
           current_steps: 0,
           started_at: new Date().toISOString(),
           last_resumed_at: new Date().toISOString()
-        });
+        })
+        .select()
+        .single();
 
       if (challengeError) throw challengeError;
+      
+      // 🎯 CRITICAL: Verify team_id was set for team challenges
+      if (mode === 'team' && !userChallengeData?.team_id) {
+        console.error('❌ [SelectChallengeModal] team_id is NULL after creation!', userChallengeData);
+        alert('⚠️ Warning: Team challenge created but team_id is missing. This may cause display issues.');
+      } else if (mode === 'team') {
+        console.log('✅ [SelectChallengeModal] Team challenge created with team_id:', userChallengeData?.team_id);
+      }
 
       // Send invitations if friends selected
       if (selectedFriends.size > 0) {

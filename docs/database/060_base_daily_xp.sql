@@ -128,7 +128,7 @@ SELECT
   u.today_steps,
   u.today_base_xp,
   u.last_steps_sync_date,
-  u.current_streak,
+  u.current_streak,  -- 🎯 FIX: Explicitly use u.current_streak
   u.xp as total_xp,
   u.level,
   dq.completed as daily_quest_completed,

@@ -1,3 +1,6 @@
+import { useEffect } from 'react';
+import { useHealthKit } from '../../../hooks/useHealthKit';
+
 interface DailyActivityHUDProps {
   todaySteps: number;
   dailyStepGoal: number; // 🎯 NEW: Daily step goal from user profile (default 10,000)
@@ -5,6 +8,29 @@ interface DailyActivityHUDProps {
 }
 
 export function DailyActivityHUD({ todaySteps, dailyStepGoal = 10000, onClick }: DailyActivityHUDProps) {
+  // 🎯 FIX: Auto-refresh steps only on iOS with HealthKit connected
+  const { syncSteps, isNative, isAuthorized } = useHealthKit();
+  
+  useEffect(() => {
+    // Only sync if running on native iOS AND HealthKit is authorized
+    if (!isNative || !isAuthorized) {
+      console.log('⏭️ [DailyActivityHUD] Skipping auto-refresh - not iOS or HealthKit not authorized');
+      return;
+    }
+
+    console.log('🔄 [DailyActivityHUD] Starting auto-refresh for HealthKit steps');
+    
+    // Sync immediately on mount
+    syncSteps();
+    
+    // Then sync every 5 seconds for real-time updates
+    const interval = setInterval(() => {
+      syncSteps();
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, [syncSteps, isNative, isAuthorized]);
+
   const progressPercent = Math.min(100, Math.round((todaySteps / dailyStepGoal) * 100));
 
   // Circle progress properties

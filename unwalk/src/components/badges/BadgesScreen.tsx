@@ -99,7 +99,7 @@ export function BadgesScreen() {
       {/* Header */}
       <AppHeader />
 
-      <main className="px-5 pt-6 pb-6 max-w-md mx-auto space-y-6">
+      <main className="px-5 pt-6 pb-6 space-y-6">
         
         {/* Guest users see locked screen */}
         {showLockedScreen ? (

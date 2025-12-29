@@ -42,6 +42,8 @@ export interface UserChallenge {
   assigned_by_avatar?: string; // Avatar URL of person who assigned
   is_group_challenge?: boolean; // Is this a group challenge
   group_members?: string[]; // Array of device IDs in the group
+  team_id?: string; // 🎯 NEW: If set, this is a team challenge (linked to parent team challenge)
+  user_id?: string; // 🎯 NEW: User ID for authenticated users
 }
 
 // Legacy Challenge type (keeping for backward compatibility)

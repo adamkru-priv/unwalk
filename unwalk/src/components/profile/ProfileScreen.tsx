@@ -10,7 +10,7 @@ import { PausedChallengesWarning } from './PausedChallengesWarning';
 import { GamificationGuide } from './GamificationGuide';
 import { APP_VERSION, BUILD_DATE } from '../../version';
 import { useHealthKit } from '../../hooks/useHealthKit';
-import { StatsScreen } from '../stats/StatsScreen';
+import { ChallengeHistory } from '../stats/ChallengeHistory'; // 🎯 NEW: Replace StatsScreen
 
 export function ProfileScreen() {
   const setUserTier = useChallengeStore((s) => s.setUserTier);
@@ -23,7 +23,6 @@ export function ProfileScreen() {
   const userProfile = useChallengeStore((s) => s.userProfile); // ✅ Read from store
   const setUserProfile = useChallengeStore((s) => s.setUserProfile); // For updates
   const isHealthConnected = useChallengeStore((s) => s.isHealthConnected);
-  // removed: currentScreen/previousScreen (handled by AppHeader close button)
 
   const isGuest = userProfile?.is_guest || false;
 
@@ -45,8 +44,8 @@ export function ProfileScreen() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [authSuccess, setAuthSuccess] = useState<string | null>(null);
   const [showPausedWarning, setShowPausedWarning] = useState(false);
-  const [showStats, setShowStats] = useState(false);
-  const [showGamificationGuide, setShowGamificationGuide] = useState(false);
+  const [showHistory, setShowHistory] = useState(false); // 🎯 NEW: Renamed from showStats
+  const [showGamificationGuide, setShowGamificationGuide] = useState(false); // 🎯 FIX: Re-add missing state
 
   const [pushEnabled, setPushEnabled] = useState<boolean>(true);
   const [pushSaving, setPushSaving] = useState(false);
@@ -54,17 +53,14 @@ export function ProfileScreen() {
   const dailyStepGoal = useChallengeStore((s) => s.dailyStepGoal); // 🎯 NEW
   const setDailyStepGoal = useChallengeStore((s) => s.setDailyStepGoal); // 🎯 NEW
 
-  // ✅ Sync local state when profile changes in store (no auth listener needed - App.tsx handles it)
   useEffect(() => {
     if (userProfile) {
-      // Authenticated users are always Pro; guests can be treated as Pro internally too.
       setUserTier('pro');
     }
   }, [userProfile, setUserTier]);
 
   useEffect(() => {
     if (userProfile && !isGuest) {
-      // default true if column not present yet
       setPushEnabled(userProfile.push_enabled ?? true);
     }
   }, [userProfile, isGuest]);
@@ -75,7 +71,6 @@ export function ProfileScreen() {
     try {
       console.log('🔓 [ProfileScreen] Starting sign out...');
 
-      // 1. Sign out from Supabase FIRST (clears server session and storage)
       const { error } = await authService.signOut();
       if (error) {
         console.error('❌ Sign out error:', error);
@@ -85,20 +80,16 @@ export function ProfileScreen() {
 
       console.log('✅ [ProfileScreen] Supabase sign out successful');
 
-      // 2. Clear store state
       console.log('🧹 [ProfileScreen] Clearing store...');
       setUserProfile(null);
       resetToInitialState();
 
-      // 3. Small delay to ensure cleanup completes
       await new Promise((resolve) => setTimeout(resolve, 200));
 
-      // 4. Navigate back to onboarding
       console.log('📍 [ProfileScreen] Navigating to onboarding...');
       setOnboardingComplete(false);
       setCurrentScreen('onboarding');
 
-      // 5. Web-only: Ensure URL is under /app
       try {
         if (typeof window !== 'undefined' && window.location.pathname === '/') {
           window.history.replaceState({}, '', '/app');
@@ -110,8 +101,7 @@ export function ProfileScreen() {
       console.log('✅ [ProfileScreen] Sign out complete!');
     } catch (err) {
       console.error('❌ Unexpected error during sign out:', err);
-      
-      // Emergency fallback: force clean state
+
       try {
         const { Capacitor } = await import('@capacitor/core');
         if (Capacitor.isNativePlatform()) {
@@ -123,7 +113,7 @@ export function ProfileScreen() {
       } catch {
         // ignore
       }
-      
+
       setUserProfile(null);
       resetToInitialState();
       setOnboardingComplete(false);
@@ -143,7 +133,6 @@ export function ProfileScreen() {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) throw new Error('Please enter a valid email');
 
-      // Send OTP (requires Email OTP enabled in Supabase Auth settings)
       const { error } = await authService.signInWithOTP(email);
       if (error) throw error;
 
@@ -188,20 +177,21 @@ export function ProfileScreen() {
   };
 
   const handleDeleteAccount = async () => {
-    const confirmText = 'Are you sure you want to delete your account?\n\n' +
+    const confirmText =
+      'Are you sure you want to delete your account?\n\n' +
       '⚠️ This will permanently delete:\n' +
       '• Your profile and progress\n' +
       '• All your challenges\n' +
       '• Team connections\n' +
       '• Badges and points\n\n' +
       'This action CANNOT be undone.';
-    
+
     if (!confirm(confirmText)) return;
     if (!confirm('Last chance! Delete your account forever?')) return;
 
     try {
       const { error } = await authService.deleteAccount();
-      
+
       if (error) {
         alert('Failed to delete account. Please try again or contact support.');
         console.error('Delete account error:', error);
@@ -240,7 +230,6 @@ export function ProfileScreen() {
 
       setUserProfile({ ...userProfile, push_enabled: next });
     } catch (e) {
-      // rollback
       setPushEnabled(userProfile.push_enabled ?? true);
       alert('Failed to update notification settings. Please try again.');
     } finally {
@@ -248,22 +237,19 @@ export function ProfileScreen() {
     }
   };
 
-  // 🎯 NEW: Handle daily step goal change
   const handleDailyStepGoalChange = async (newGoal: number) => {
     if (!userProfile || isGuest) return;
 
     const oldGoal = dailyStepGoal;
-    setDailyStepGoal(newGoal); // Optimistic update
+    setDailyStepGoal(newGoal);
     setDailyGoalSaving(true);
 
     try {
       const { error } = await authService.updateProfile({ daily_step_goal: newGoal } as any);
       if (error) throw error;
 
-      // Update profile in store
       setUserProfile({ ...userProfile, daily_step_goal: newGoal } as any);
     } catch (e) {
-      // Rollback on error
       setDailyStepGoal(oldGoal);
       alert('Failed to update daily step goal. Please try again.');
     } finally {
@@ -298,255 +284,208 @@ export function ProfileScreen() {
         onCancel={() => setShowPausedWarning(false)}
       />
 
-      {/* ✨ NEW: Gamification Guide Modal */}
       <GamificationGuide
         isOpen={showGamificationGuide}
         onClose={() => setShowGamificationGuide(false)}
       />
 
-      <main className="px-5 py-6 max-w-md mx-auto space-y-4">
-        {/* Close Settings button (X) moved into header */}
+      <main className="px-4 py-6 max-w-2xl mx-auto">
+        {/* Account Card */}
+        <div className="bg-white dark:bg-[#151A25] rounded-3xl shadow-sm border border-gray-100 dark:border-white/5 overflow-hidden mb-6">
+          <AccountSection
+            userProfile={userProfile}
+            isGuest={isGuest}
+            onSignOut={handleSignOut}
+            onEmailSignIn={() => setShowAuthModal(true)}
+            onAppleSignIn={handleSignInWithApple}
+            onGoogleSignIn={undefined}
+          />
+        </div>
 
-        <AccountSection
-          userProfile={userProfile}
-          isGuest={isGuest}
-          onSignOut={handleSignOut}
-          onEmailSignIn={() => setShowAuthModal(true)}
-          onAppleSignIn={handleSignInWithApple}
-          // Google sign-in disabled
-          onGoogleSignIn={undefined}
-        />
-
-        {/* Stats moved here from the top header */}
-        {!isGuest && (
-          <section className="w-full bg-white dark:bg-[#151A25] rounded-2xl shadow-sm border border-gray-100 dark:border-white/5 overflow-hidden">
-            <button
-              onClick={() => setShowStats((v) => !v)}
-              className="w-full p-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-[#1a1f2e] transition-colors"
-              aria-expanded={showStats}
-            >
-              <div className="flex items-center gap-3">
+        {/* Settings List */}
+        <div className="space-y-3">
+          {/* Challenge History */}
+          {!isGuest && (
+            <div className="bg-white dark:bg-[#151A25] rounded-2xl shadow-sm border border-gray-100 dark:border-white/5 overflow-hidden">
+              <button
+                onClick={() => setShowHistory((v) => !v)}
+                className="w-full px-4 py-3.5 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-white/5 transition-colors active:bg-gray-100 dark:active:bg-white/10"
+              >
                 <div>
-                  <div className="text-sm font-semibold text-gray-900 dark:text-white">Statistics</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">Your stats & challenge history</div>
+                  <div className="text-[15px] font-medium text-gray-900 dark:text-white">Challenge History</div>
+                  <div className="text-[13px] text-gray-500 dark:text-gray-400">Completed challenges & XP earned</div>
                 </div>
-              </div>
-              <svg className={`w-5 h-5 text-gray-400 transition-transform ${showStats ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
+                <svg className={`w-5 h-5 text-gray-400 transition-transform ${showHistory ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
 
-            {showStats && (
-              <div className="px-4 pb-4">
-                <StatsScreen embedded={true} />
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* ✅ NEW: Rewards & Badges - Navigate to Badges Screen */}
-        {!isGuest && (
-          <button
-            onClick={() => setCurrentScreen('badges')}
-            className="w-full bg-gradient-to-br from-amber-500/10 to-yellow-500/10 hover:from-amber-500/20 hover:to-yellow-500/20 border border-amber-500/20 dark:border-amber-500/30 rounded-2xl p-4 shadow-sm transition-all text-left flex items-center justify-between group"
-          >
-            <div className="flex items-center gap-3">
-              <div className="text-2xl">🏆</div>
-              <div>
-                <div className="text-sm font-semibold text-gray-900 dark:text-white">Rewards & Badges</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">View your achievements & milestones</div>
-              </div>
-            </div>
-            <svg className="w-5 h-5 text-amber-500 dark:text-amber-400 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7-7" />
-            </svg>
-          </button>
-        )}
-
-        {/* ✅ NEW: My Custom Challenges */}
-        {!isGuest && (
-          <button
-            onClick={() => setCurrentScreen('library')}
-            className="w-full bg-gradient-to-br from-orange-500/10 to-pink-500/10 hover:from-orange-500/20 hover:to-pink-500/20 border border-orange-500/20 dark:border-orange-500/30 rounded-2xl p-4 shadow-sm transition-all text-left flex items-center justify-between group"
-          >
-            <div className="flex items-center gap-3">
-              <div className="text-2xl">✨</div>
-              <div>
-                <div className="text-sm font-semibold text-gray-900 dark:text-white">My Custom Challenges</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">Create & manage your challenges</div>
-              </div>
-            </div>
-            <svg className="w-5 h-5 text-orange-500 dark:text-orange-400 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7-7" />
-            </svg>
-          </button>
-        )}
-
-        {/* Apple Health status */}
-        <div className="w-full bg-white dark:bg-[#151A25] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-white/5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="text-sm font-semibold text-gray-900 dark:text-white">Apple Health</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Status:{' '}
-                {isNative && healthKitAvailable
-                  ? isHealthConnected
-                    ? 'Connected'
-                    : 'Not connected'
-                  : 'Unavailable'}
-              </div>
-              {isNative && healthKitAvailable && isHealthConnected && (
-                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Today: {todaySteps.toLocaleString()} steps
+              {showHistory && (
+                <div className="border-t border-gray-100 dark:border-white/5">
+                  <ChallengeHistory embedded={true} />
                 </div>
               )}
             </div>
+          )}
 
-            {isNative && healthKitAvailable && (
-              <button
-                disabled={healthKitLoading}
-                onClick={async () => {
-                  const ok = await connectHealthKit();
-                  if (ok) await refreshHealthKitSteps();
-                }}
-                className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-xs font-semibold"
-              >
-                {healthKitAuthorized ? 'Refresh' : 'Connect'}
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* 🎯 NEW: Daily Step Goal Setting */}
-        {!isGuest && (
-          <section className="w-full bg-white dark:bg-[#151A25] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-white/5">
-            <div className="mb-3">
-              <div className="text-sm font-semibold text-gray-900 dark:text-white">Daily Step Goal</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Current: {dailyStepGoal.toLocaleString()} steps
-                {dailyGoalSaving && ' (saving...)'}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-5 gap-2">
-              {[5000, 8000, 10000, 12000, 15000].map((goal) => (
-                <button
-                  key={goal}
-                  disabled={dailyGoalSaving}
-                  onClick={() => handleDailyStepGoalChange(goal)}
-                  className={`px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                    dailyStepGoal === goal
-                      ? 'bg-blue-600 text-white shadow-md'
-                      : 'bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/20'
-                  } ${dailyGoalSaving ? 'opacity-60 cursor-not-allowed' : ''}`}
-                >
-                  {goal >= 1000 ? `${goal / 1000}k` : goal}
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {!isGuest && (
-          <section className="w-full bg-white dark:bg-[#151A25] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-white/5">
-            <div className="flex items-center justify-between gap-4">
+          {/* My Custom Challenges */}
+          {!isGuest && (
+            <button
+              onClick={() => setCurrentScreen('customChallenge')}
+              className="w-full bg-white dark:bg-[#151A25] rounded-2xl px-4 py-3.5 shadow-sm border border-gray-100 dark:border-white/5 hover:bg-gray-50 dark:hover:bg-white/5 active:bg-gray-100 dark:active:bg-white/10 transition-colors text-left flex items-center justify-between group"
+            >
               <div>
-                <div className="text-sm font-semibold text-gray-900 dark:text-white">Notifications</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Push notifications: {pushEnabled ? 'ON' : 'OFF'}
-                  {pushSaving ? ' (saving...)' : ''}
+                <div className="text-[15px] font-medium text-gray-900 dark:text-white">My Custom Challenges</div>
+                <div className="text-[13px] text-gray-500 dark:text-gray-400">Create & manage</div>
+              </div>
+              <svg className="w-5 h-5 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7-7" />
+              </svg>
+            </button>
+          )}
+
+          {/* Apple Health */}
+          <div className="bg-white dark:bg-[#151A25] rounded-2xl px-4 py-3.5 shadow-sm border border-gray-100 dark:border-white/5">
+            <div className="flex items-center justify-between">
+              <div className="flex-1 min-w-0">
+                <div className="text-[15px] font-medium text-gray-900 dark:text-white">Apple Health</div>
+                <div className="text-[13px] text-gray-500 dark:text-gray-400">
+                  {isNative && healthKitAvailable
+                    ? isHealthConnected
+                      ? `${todaySteps.toLocaleString()} steps today`
+                      : 'Not connected'
+                    : 'Unavailable'}
                 </div>
               </div>
 
-              <button
-                type="button"
-                disabled={pushSaving}
-                onClick={() => handleTogglePushEnabled(!pushEnabled)}
-                className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
-                  pushEnabled ? 'bg-green-600' : 'bg-gray-300 dark:bg-white/20'
-                } ${pushSaving ? 'opacity-60' : ''}`}
-                aria-pressed={pushEnabled}
-                aria-label="Toggle push notifications"
-              >
-                <span
-                  className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
-                    pushEnabled ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
+              {isNative && healthKitAvailable && (
+                <button
+                  disabled={healthKitLoading}
+                  onClick={async () => {
+                    const ok = await connectHealthKit();
+                    if (ok) await refreshHealthKitSteps();
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-[13px] font-medium transition-colors"
+                >
+                  {healthKitAuthorized ? 'Sync' : 'Connect'}
+                </button>
+              )}
             </div>
-          </section>
-        )}
+          </div>
 
-        {/* ✨ NEW: How It Works - Gamification Guide */}
-        {!isGuest && (
-          <button
-            onClick={() => setShowGamificationGuide(true)}
-            className="w-full bg-gradient-to-br from-blue-500/10 to-purple-500/10 hover:from-blue-500/20 hover:to-purple-500/20 border border-blue-500/20 dark:border-blue-500/30 rounded-2xl p-4 shadow-sm transition-all text-left flex items-center justify-between group"
-          >
-            <div className="flex items-center gap-3">
-              <div>
-                <div className="text-sm font-semibold text-gray-900 dark:text-white">How It Works</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">Learn about XP, Levels & Streaks</div>
+          {/* Daily Step Goal */}
+          {!isGuest && (
+            <div className="bg-white dark:bg-[#151A25] rounded-2xl px-4 py-3.5 shadow-sm border border-gray-100 dark:border-white/5">
+              <div className="mb-3">
+                <div className="text-[15px] font-medium text-gray-900 dark:text-white">Daily Step Goal</div>
+                <div className="text-[13px] text-gray-500 dark:text-gray-400">
+                  {dailyStepGoal.toLocaleString()} steps
+                </div>
+              </div>
+
+              <div className="grid grid-cols-5 gap-2">
+                {[5000, 8000, 10000, 12000, 15000].map((goal) => (
+                  <button
+                    key={goal}
+                    disabled={dailyGoalSaving}
+                    onClick={() => handleDailyStepGoalChange(goal)}
+                    className={`py-2 rounded-lg text-[13px] font-medium transition-all ${
+                      dailyStepGoal === goal
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/15'
+                    } ${dailyGoalSaving ? 'opacity-60' : ''}`}
+                  >
+                    {goal >= 1000 ? `${goal / 1000}k` : goal}
+                  </button>
+                ))}
               </div>
             </div>
-            <svg className="w-5 h-5 text-blue-500 dark:text-blue-400 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          )}
+
+          {/* Notifications */}
+          {!isGuest && (
+            <div className="bg-white dark:bg-[#151A25] rounded-2xl px-4 py-3.5 shadow-sm border border-gray-100 dark:border-white/5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-[15px] font-medium text-gray-900 dark:text-white">Notifications</div>
+                  <div className="text-[13px] text-gray-500 dark:text-gray-400">
+                    {pushEnabled ? 'Enabled' : 'Disabled'}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={pushSaving}
+                  onClick={() => handleTogglePushEnabled(!pushEnabled)}
+                  className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${
+                    pushEnabled ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-700'
+                  } ${pushSaving ? 'opacity-60' : ''}`}
+                >
+                  <span
+                    className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform shadow-sm ${
+                      pushEnabled ? 'translate-x-7' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Theme Selector - Simple Icon Only */}
+          <div className="bg-white dark:bg-[#151A25] rounded-2xl px-4 py-3.5 shadow-sm border border-gray-100 dark:border-white/5">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-[15px] font-medium text-gray-900 dark:text-white">Appearance</div>
+                <div className="text-[13px] text-gray-500 dark:text-gray-400 capitalize">{theme}</div>
+              </div>
+              <ThemeSelector theme={theme} onThemeChange={setTheme} />
+            </div>
+          </div>
+
+          {/* Start Screen */}
+          <button
+            onClick={() => {
+              setOnboardingComplete(false);
+              setCurrentScreen('onboarding');
+            }}
+            className="w-full bg-white dark:bg-[#151A25] rounded-2xl px-4 py-3.5 shadow-sm border border-gray-100 dark:border-white/5 hover:bg-gray-50 dark:hover:bg-white/5 active:bg-gray-100 dark:active:bg-white/10 transition-colors text-left flex items-center justify-between group"
+          >
+            <div className="text-[15px] font-medium text-gray-900 dark:text-white">Start Screen</div>
+            <svg className="w-5 h-5 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7-7" />
             </svg>
           </button>
-        )}
+        </div>
 
-        <button
-          onClick={() => {
-            setOnboardingComplete(false);
-            setCurrentScreen('onboarding');
-          }}
-          className="w-full bg-white dark:bg-[#151A25] hover:bg-gray-50 dark:hover:bg-[#1a1f2e] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-white/5 transition-colors text-left flex items-center justify-between"
-        >
-          <div className="flex items-center gap-3">
-            <div>
-              <div className="text-sm font-semibold text-gray-900 dark:text-white">Start Screen</div>
-            </div>
-          </div>
-          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7-7" />
-          </svg>
-        </button>
-
-        {/* Footer Links - Small text at bottom */}
-        <div className="pt-8 pb-4 flex flex-col items-center gap-3">
-          {/* Centered Theme toggle above links */}
-          <div className="flex justify-center">
-            <ThemeSelector theme={theme} onThemeChange={setTheme} />
-          </div>
-
-          <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-white/40">
+        {/* Footer */}
+        <div className="mt-8 pt-6 border-t border-gray-200 dark:border-white/5 flex flex-col items-center gap-3">
+          <div className="flex items-center gap-3 text-[13px] text-gray-500 dark:text-gray-400">
             <button
               onClick={() => window.open('https://movee.app/privacy', '_blank')}
-              className="hover:text-gray-700 dark:hover:text-white/60 transition-colors underline"
+              className="hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
             >
-              Privacy Policy
+              Privacy
             </button>
             <span>•</span>
             <button
               onClick={() => window.open('https://movee.app/terms', '_blank')}
-              className="hover:text-gray-700 dark:hover:text-white/60 transition-colors underline"
+              className="hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
             >
-              Terms of Service
+              Terms
             </button>
           </div>
 
           {!isGuest && (
             <button
               onClick={handleDeleteAccount}
-              className="text-xs text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors underline"
+              className="text-[13px] text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors"
             >
               Delete Account
             </button>
           )}
 
-          <div className="text-xs text-gray-400 dark:text-white/30">
-            Movee v{APP_VERSION} • {BUILD_DATE}
+          <div className="text-[12px] text-gray-400 dark:text-gray-500">
+            Movee v{APP_VERSION}
           </div>
         </div>
       </main>

@@ -6,10 +6,11 @@ import { syncDailySteps, getTodayQuest, updateQuestProgress } from '../lib/gamif
 
 export function useHealthKit() {
   const setHealthConnected = useChallengeStore((s) => s.setHealthConnected);
+  const setTodaySteps = useChallengeStore((s) => s.setTodaySteps); // 🎯 NEW: Use global store
+  const todaySteps = useChallengeStore((s) => s.todaySteps); // 🎯 NEW: Read from global store
 
   const [isAvailable, setIsAvailable] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(false);
-  const [todaySteps, setTodaySteps] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
 
   // Initial setup and authorization check
@@ -18,7 +19,6 @@ export function useHealthKit() {
       const available = await healthKitService.isAvailable();
       setIsAvailable(available);
 
-      // If available, attempt authorization once so we can persist a meaningful "connected" flag.
       if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios' && available) {
         const granted = await healthKitService.requestAuthorization();
         setIsAuthorized(granted);
@@ -28,14 +28,14 @@ export function useHealthKit() {
         if (granted) {
           try {
             const steps = await healthKitService.getTodaySteps();
-            setTodaySteps(steps);
+            setTodaySteps(steps); // 🎯 Update global store
             
             // Sync to backend
             try {
               await syncDailySteps(steps);
               console.log(`✅ Initial sync: ${steps} steps → ${Math.floor(steps / 1000)} Base XP`);
               
-              // 🎯 NEW: Update Daily Quest progress if quest is steps-based
+              // Update Daily Quest progress if quest is steps-based
               try {
                 const quest = await getTodayQuest();
                 if (quest && quest.quest_type === 'steps' && !quest.claimed) {
@@ -56,7 +56,7 @@ export function useHealthKit() {
         setHealthConnected(false);
       }
     })();
-  }, [setHealthConnected]);
+  }, [setHealthConnected, setTodaySteps]);
 
   const requestPermission = useCallback(async (): Promise<boolean> => {
     setIsLoading(true);
@@ -82,14 +82,14 @@ export function useHealthKit() {
     setIsLoading(true);
     try {
       const steps = await healthKitService.getTodaySteps();
-      setTodaySteps(steps);
+      setTodaySteps(steps); // 🎯 Update global store - this triggers re-render in ALL components!
       
-      // 🎯 Sync steps to backend and award Base XP (1 XP per 1000 steps)
+      // Sync steps to backend and award Base XP
       try {
         await syncDailySteps(steps);
         console.log(`✅ Synced ${steps} steps → ${Math.floor(steps / 1000)} Base XP`);
         
-        // 🎯 NEW: Update Daily Quest progress if quest is steps-based
+        // Update Daily Quest progress if quest is steps-based
         try {
           const quest = await getTodayQuest();
           if (quest && quest.quest_type === 'steps' && !quest.claimed) {
@@ -107,7 +107,7 @@ export function useHealthKit() {
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthorized, isAvailable, requestPermission]);
+  }, [isAuthorized, isAvailable, requestPermission, setTodaySteps]);
 
   const getSteps = useCallback(
     async (startDate: Date, endDate: Date): Promise<number> => {
@@ -124,7 +124,7 @@ export function useHealthKit() {
   return {
     isAvailable,
     isAuthorized,
-    todaySteps,
+    todaySteps, // 🎯 Return from global store
     isLoading,
     isNative: Capacitor.isNativePlatform(),
     requestPermission,

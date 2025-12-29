@@ -37,49 +37,59 @@ export function Dashboard() {
 
   // ✅ Sync active challenge progress with HealthKit
   useEffect(() => {
-    if (isNative && healthKitAuthorized && activeUserChallenge) {
-      const syncChallengeProgress = async () => {
-        try {
-          console.log('🔄 [Dashboard] Syncing challenge progress with HealthKit...');
-          const startDate = new Date(activeUserChallenge.started_at);
-          const now = new Date();
-          
-          // Get total steps since challenge started
-          const steps = await getSteps(startDate, now);
-          
-          // Only update if steps have increased
-          if (steps > activeUserChallenge.current_steps) {
-            console.log(`📈 [Dashboard] Updating challenge progress: ${activeUserChallenge.current_steps} -> ${steps}`);
-            
-            // Update DB
-            await updateChallengeProgress(activeUserChallenge.id, steps);
-            
-            // Update local store
-            setActiveChallenge({
-              ...activeUserChallenge,
-              current_steps: steps
-            });
-            
-            // Check for completion
-            if (activeUserChallenge.admin_challenge?.goal_steps && steps >= activeUserChallenge.admin_challenge.goal_steps) {
-               console.log('🎉 [Dashboard] Challenge completed via HealthKit sync!');
-               // Redirect to home for claim flow
-               setCurrentScreen('home');
-            }
-          }
-        } catch (error) {
-          console.error('❌ [Dashboard] Failed to sync challenge progress:', error);
-        }
-      };
-
-      // Sync immediately
-      syncChallengeProgress();
-
-      // And sync periodically (every 10s on dashboard for responsiveness)
-      const interval = setInterval(syncChallengeProgress, 10 * 1000); 
-      return () => clearInterval(interval);
+    // 🎯 FIX: Only sync if running on native iOS AND HealthKit is authorized
+    if (!isNative || !healthKitAuthorized || !activeUserChallenge) {
+      if (!isNative) {
+        console.log('⏭️ [Dashboard] Skipping auto-refresh - not iOS');
+      } else if (!healthKitAuthorized) {
+        console.log('⏭️ [Dashboard] Skipping auto-refresh - HealthKit not authorized');
+      }
+      return;
     }
-  }, [isNative, healthKitAuthorized, activeUserChallenge?.id, getSteps]);
+
+    const syncChallengeProgress = async () => {
+      try {
+        console.log('🔄 [Dashboard] Syncing challenge progress with HealthKit...');
+        const startDate = new Date(activeUserChallenge.started_at);
+        const now = new Date();
+        
+        // Get total steps since challenge started
+        const steps = await getSteps(startDate, now);
+        
+        // Only update if steps have increased
+        if (steps > activeUserChallenge.current_steps) {
+          console.log(`📈 [Dashboard] Updating challenge progress: ${activeUserChallenge.current_steps} -> ${steps}`);
+          
+          // Update DB
+          await updateChallengeProgress(activeUserChallenge.id, steps);
+          
+          // Update local store
+          setActiveChallenge({
+            ...activeUserChallenge,
+            current_steps: steps
+          });
+          
+          // Check for completion
+          if (activeUserChallenge.admin_challenge?.goal_steps && steps >= activeUserChallenge.admin_challenge.goal_steps) {
+             console.log('🎉 [Dashboard] Challenge completed via HealthKit sync!');
+             // Redirect to home for claim flow
+             setCurrentScreen('home');
+          }
+        }
+      } catch (error) {
+        console.error('❌ [Dashboard] Failed to sync challenge progress:', error);
+      }
+    };
+
+    console.log('🔄 [Dashboard] Starting auto-refresh for challenge steps');
+    
+    // Sync immediately
+    syncChallengeProgress();
+
+    // And sync periodically (every 10s on dashboard for responsiveness)
+    const interval = setInterval(syncChallengeProgress, 10 * 1000); 
+    return () => clearInterval(interval);
+  }, [isNative, healthKitAuthorized, activeUserChallenge?.id, getSteps, setActiveChallenge, setCurrentScreen]);
 
   // LOAD ACTIVE CHALLENGE on mount if not in store
   useEffect(() => {

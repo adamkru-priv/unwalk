@@ -157,7 +157,7 @@ export function TeamScreen() {
     return (
       <div className="min-h-screen bg-[#0B101B] text-white pb-24 font-sans">
         <AppHeader />
-        <main className="px-5 pt-6 pb-6 max-w-md mx-auto">
+        <main className="px-5 pt-6 pb-6">
           <div className="text-center py-12">
             <div className="inline-block w-8 h-8 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
             <p className="text-white/50 text-sm mt-3">Loading team...</p>
@@ -181,7 +181,7 @@ export function TeamScreen() {
         onInviteSent={loadTeamData}
       />
 
-      <main className="px-5 pt-6 pb-6 max-w-md mx-auto space-y-6">
+      <main className="px-5 pt-6 pb-6 space-y-6"> {/* 🎯 REMOVED: max-w-md mx-auto for full width */}
         
         {/* Guest users see locked screen */}
         {userProfile?.is_guest ? (

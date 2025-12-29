@@ -45,39 +45,6 @@ export function LeaderboardScreen() {
     return '';
   };
 
-  const getLevelEmoji = (level: number): string => {
-    if (level < 10) return '🌱';
-    if (level < 20) return '🗺️';
-    if (level < 30) return '⚔️';
-    if (level < 40) return '🏆';
-    return '👑';
-  };
-
-  const getColorFromName = (userId: string): string => {
-    const colors = [
-      'from-blue-500 to-blue-600',
-      'from-purple-500 to-purple-600',
-      'from-green-500 to-green-600',
-      'from-pink-500 to-pink-600',
-      'from-amber-500 to-amber-600',
-      'from-red-500 to-red-600',
-      'from-cyan-500 to-cyan-600',
-      'from-orange-500 to-orange-600',
-    ];
-    
-    const hash = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    return colors[hash % colors.length];
-  };
-
-  const getInitials = (name: string): string => {
-    return name
-      .split(' ')
-      .map(word => word[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
   if (isGuest) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-[#0B101B] text-gray-900 dark:text-white pb-24">
@@ -156,7 +123,9 @@ export function LeaderboardScreen() {
           </div>
         ) : (
           <div className="space-y-2">
-            {leaderboard.map((entry, index) => (
+            {leaderboard
+              .filter(entry => entry.xp_in_campaign > 0) // 🎯 FIX: Hide users with 0 XP
+              .map((entry, index) => (
               <motion.div
                 key={entry.user_id}
                 initial={{ opacity: 0, x: -20 }}
@@ -168,7 +137,7 @@ export function LeaderboardScreen() {
                   transition-all hover:shadow-md
                 `}
               >
-                {/* Rank */}
+                {/* Rank with Medal */}
                 <div className="flex-shrink-0 w-12 text-center">
                   {getMedalEmoji(entry.rank) ? (
                     <span className="text-3xl">{getMedalEmoji(entry.rank)}</span>
@@ -179,16 +148,9 @@ export function LeaderboardScreen() {
                   )}
                 </div>
 
-                {/* Avatar */}
-                <div 
-                  className={`flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br ${getColorFromName(entry.user_id)} flex items-center justify-center text-white font-bold shadow-md`}
-                >
-                  {getInitials(entry.display_name)}
-                </div>
-
-                {/* User Info */}
+                {/* User Name */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2">
                     <h3 className="font-bold text-gray-900 dark:text-white truncate">
                       {entry.display_name}
                     </h3>
@@ -198,24 +160,11 @@ export function LeaderboardScreen() {
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-3 text-xs text-gray-600 dark:text-white/60">
-                    <span className="flex items-center gap-1">
-                      {getLevelEmoji(entry.level)} Lvl {entry.level}
-                    </span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      🔥 {entry.current_streak}d
-                    </span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      ✓ {entry.challenges_in_campaign}
-                    </span>
-                  </div>
                 </div>
 
                 {/* Campaign XP */}
                 <div className="flex-shrink-0 text-right">
-                  <div className="text-lg font-black text-gray-900 dark:text-white">
+                  <div className="text-xl font-black text-gray-900 dark:text-white">
                     {entry.xp_in_campaign.toLocaleString()}
                   </div>
                   <div className="text-xs text-gray-500 dark:text-white/50">XP</div>

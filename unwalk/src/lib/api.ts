@@ -45,6 +45,7 @@ export async function getActiveUserChallenge(): Promise<UserChallenge | null> {
   // Get current user (for authenticated users)
   const { data: { user } } = await supabase.auth.getUser();
   
+  // 🎯 FIX: Get SOLO challenge only (team_id IS NULL)
   // Build query - prioritize user_id for authenticated users
   let query = supabase
     .from('user_challenges')
@@ -53,18 +54,18 @@ export async function getActiveUserChallenge(): Promise<UserChallenge | null> {
       admin_challenge:admin_challenges(*)
     `)
     .eq('status', 'active')
+    .is('team_id', null)  // 🎯 FIX: Only Solo challenges (no team_id)
     .order('started_at', { ascending: false })
     .limit(1);
   
   if (user) {
     // Authenticated user - prioritize user_id, fallback to device_id
-    // Use .or() but limit to 1 result to avoid duplicates
     query = query.or(`user_id.eq.${user.id},device_id.eq.${deviceId}`);
-    console.log('🔍 [API] Searching for active challenge by user_id OR device_id');
+    console.log('🔍 [API] Searching for active SOLO challenge by user_id OR device_id');
   } else {
     // Guest - only match by device_id
     query = query.eq('device_id', deviceId);
-    console.log('🔍 [API] Searching for active challenge by device_id (guest)');
+    console.log('🔍 [API] Searching for active SOLO challenge by device_id (guest)');
   }
   
   const { data, error } = await query;
@@ -75,13 +76,13 @@ export async function getActiveUserChallenge(): Promise<UserChallenge | null> {
   }
   
   if (!data || data.length === 0) {
-    console.log('ℹ️ [API] No active challenge found');
+    console.log('ℹ️ [API] No active SOLO challenge found');
     return null;
   }
   
   // Get the first (most recent) challenge
   const challenge = data[0];
-  console.log('✅ [API] Active challenge found:', challenge.admin_challenge?.title);
+  console.log('✅ [API] Active SOLO challenge found:', challenge.admin_challenge?.title);
   
   // If challenge was assigned by someone, fetch assigner info separately
   if (challenge.assigned_by) {
@@ -99,6 +100,59 @@ export async function getActiveUserChallenge(): Promise<UserChallenge | null> {
       };
     }
   }
+  
+  return challenge;
+}
+
+// 🎯 NEW: Get user's active TEAM challenge (separate from Solo)
+export async function getActiveTeamChallenge(): Promise<UserChallenge | null> {
+  const deviceId = getDeviceId();
+  
+  // Get current user (for authenticated users)
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  // 🎯 FIX: Correct Supabase syntax - use .not() with 'is' filter properly
+  // Build query - prioritize user_id for authenticated users
+  let query = supabase
+    .from('user_challenges')
+    .select(`
+      *,
+      admin_challenge:admin_challenges(*)
+    `)
+    .eq('status', 'active')
+    .not('team_id', 'is', null)  // ✅ FIXED: Correct syntax for team_id IS NOT NULL
+    .order('started_at', { ascending: false })
+    .limit(1);
+  
+  if (user) {
+    query = query.or(`user_id.eq.${user.id},device_id.eq.${deviceId}`);
+    console.log('🔍 [API] Searching for active TEAM challenge (team_id NOT NULL)');
+  } else {
+    query = query.eq('device_id', deviceId);
+    console.log('🔍 [API] Searching for active TEAM challenge by device_id (guest)');
+  }
+  
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('❌ [API] Error loading team challenge:', error);
+    throw error;
+  }
+  
+  if (!data || data.length === 0) {
+    console.log('ℹ️ [API] No active TEAM challenge found (no challenges with team_id)');
+    return null;
+  }
+  
+  const challenge = data[0];
+  
+  // 🎯 CRITICAL: Verify team_id is actually set
+  if (!challenge.team_id) {
+    console.error('❌ [API] WARNING: Challenge returned but team_id is NULL!', challenge);
+    return null; // Don't return challenges without team_id
+  }
+  
+  console.log('✅ [API] Active TEAM challenge found:', challenge.admin_challenge?.title, '- team_id:', challenge.team_id);
   
   return challenge;
 }
@@ -126,22 +180,36 @@ export async function getPausedChallenges(): Promise<UserChallenge[]> {
 }
 
 // Start a new challenge (accept from library)
-export async function startChallenge(adminChallengeId: string): Promise<UserChallenge> {
+// 🎯 FIX: Allow multiple active challenges (Solo + Team simultaneously)
+// Do NOT delete existing challenges when starting a new one
+export async function startChallenge(
+  adminChallengeId: string, 
+  teamId?: string  // 🎯 NEW: Optional team_id for team challenges
+): Promise<UserChallenge> {
   const deviceId = getDeviceId();
   
   // Get current user (for Pro users to track badges/achievements)
   const { data: { user } } = await supabase.auth.getUser();
   
+  // 🎯 FIX: Check if this is a team challenge being created
+  // Team challenges should have team_id set to link them together
+  const insertData: any = {
+    device_id: deviceId,
+    user_id: user?.id, // Add user_id for authenticated Pro users (needed for badges)
+    admin_challenge_id: adminChallengeId,
+    current_steps: 0,
+    status: 'active',
+    started_at: new Date().toISOString(),
+  };
+  
+  // 🎯 NEW: Add team_id if this is a team challenge
+  if (teamId) {
+    insertData.team_id = teamId;
+  }
+  
   const { data, error } = await supabase
     .from('user_challenges')
-    .insert({
-      device_id: deviceId,
-      user_id: user?.id, // Add user_id for authenticated Pro users (needed for badges)
-      admin_challenge_id: adminChallengeId,
-      current_steps: 0,
-      status: 'active',
-      started_at: new Date().toISOString(),
-    })
+    .insert(insertData)
     .select(`
       *,
       admin_challenge:admin_challenges(*)
@@ -149,6 +217,8 @@ export async function startChallenge(adminChallengeId: string): Promise<UserChal
     .single();
 
   if (error) throw error;
+  
+  console.log(`✅ [API] Challenge started: ${data.admin_challenge?.title} (Team: ${!!teamId})`);
   return data;
 }
 

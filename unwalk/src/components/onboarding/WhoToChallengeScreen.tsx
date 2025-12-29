@@ -2,85 +2,100 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { authService } from '../../lib/auth';
 import { useChallengeStore } from '../../stores/useChallengeStore';
-import { supabase } from '../../lib/supabase';
-
-type ChallengeTarget = 'self' | 'spouse' | 'friend';
-
-interface TargetOption {
-  id: ChallengeTarget;
-  icon: React.ReactNode;
-  title: string;
-  subtitle: string;
-  color: string;
-}
-
-const targetOptions: TargetOption[] = [
-  {
-    id: 'self',
-    icon: (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-      </svg>
-    ),
-    title: 'Myself',
-    subtitle: 'Personal challenges',
-    color: 'from-blue-600 to-blue-500'
-  },
-  {
-    id: 'spouse',
-    icon: (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-      </svg>
-    ),
-    title: 'Family',
-    subtitle: 'Stronger together',
-    color: 'from-pink-600 to-pink-500'
-  },
-  {
-    id: 'friend',
-    icon: (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-      </svg>
-    ),
-    title: 'Friend',
-    subtitle: 'Stay motivated together',
-    color: 'from-orange-600 to-orange-500'
-  }
-];
 
 export const WhoToChallengeScreen = () => {
-  const [selectedTarget, setSelectedTarget] = useState<ChallengeTarget | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showEmailAuth, setShowEmailAuth] = useState(false);
+  const [authMode, setAuthMode] = useState<'email' | 'verify-otp'>('email');
+  const [email, setEmail] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authSuccess, setAuthSuccess] = useState<string | null>(null);
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
 
-  const handleTargetSelect = async (target: ChallengeTarget) => {
-    setSelectedTarget(target);
+  // Start as guest (Myself option) - deprecated, now requires login
+  const handleGuestStart = () => {
+    setShowEmailAuth(true);
+  };
+
+  // Apple Sign In
+  const handleAppleSignIn = async () => {
     setIsLoading(true);
-
+    setAuthError(null);
+    
     try {
-      const profile = await authService.getUserProfile();
-
-      if (!profile) {
-        console.error('No profile found');
+      const { error } = await authService.signInWithApple();
+      
+      if (error) {
+        setAuthError(error.message);
         setIsLoading(false);
         return;
       }
 
-      // Save onboarding target preference
-      await supabase
-        .from('users')
-        .update({ onboarding_target: target })
-        .eq('id', profile.id);
+      // Success - navigate to home
+      setTimeout(() => {
+        setCurrentScreen('home');
+      }, 500);
+    } catch (e: any) {
+      setAuthError(e?.message || 'Apple sign-in failed');
+      setIsLoading(false);
+    }
+  };
 
-      // ✅ FIX: Navigate to Home screen instead of challengeSelection
-      setCurrentScreen('home');
-    } catch (error) {
-      console.error('Error saving target:', error);
+  // Email OTP - Step 1: Send code
+  const handleSubmitEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    setAuthSuccess(null);
+    setIsLoading(true);
+
+    try {
+      if (!email) throw new Error('Please enter your email');
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) throw new Error('Please enter a valid email');
+
+      const { error } = await authService.signInWithOTP(email);
+      if (error) throw error;
+
+      setAuthSuccess('Check your email for the 6-digit code');
+      setAuthMode('verify-otp');
+    } catch (err: any) {
+      setAuthError(err.message || 'Something went wrong');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Email OTP - Step 2: Verify code
+  const handleVerifyOTP = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    setIsLoading(true);
+
+    try {
+      if (!otpCode || otpCode.length !== 6) throw new Error('Please enter the 6-digit code');
+
+      const { session, error } = await authService.verifyOTP(email, otpCode);
+      if (error) throw error;
+
+      if (session) {
+        setAuthSuccess('✅ Welcome! Loading...');
+        setTimeout(() => {
+          setCurrentScreen('home');
+        }, 800);
+      }
+    } catch (err: any) {
+      setAuthError(err.message || 'Invalid code. Please try again.');
+      setIsLoading(false);
+    }
+  };
+
+  const handleBackFromOTP = () => {
+    setAuthMode('email');
+    setOtpCode('');
+    setAuthError(null);
+    setAuthSuccess(null);
   };
 
   return (
@@ -88,7 +103,7 @@ export const WhoToChallengeScreen = () => {
       className="h-[100dvh] bg-[#0B101B] flex flex-col overflow-hidden relative"
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
-      {/* Watermark background to match onboarding */}
+      {/* Background */}
       <div className="absolute inset-0 pointer-events-none">
         <img
           src="https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?auto=format&fit=crop&w=1400&q=80"
@@ -108,63 +123,168 @@ export const WhoToChallengeScreen = () => {
         >
           <div className="text-white/80 text-xs font-bold tracking-[0.25em] mb-3">MOVEE</div>
           <h1 className="text-4xl font-black text-white mb-2 leading-tight">
-            Who would you like
-            <br />
-            to challenge?
+            {showEmailAuth ? 'Sign in to continue' : 'Ready to start?'}
           </h1>
           <p className="text-white/55 text-sm">
-            Pick a focus. You can set up Team later.
+            {showEmailAuth ? 'Sign in to track your progress & earn rewards' : 'Sign in to get started with challenges'}
           </p>
         </motion.div>
       </div>
 
-      {/* Target Options */}
+      {/* Content */}
       <div className="relative z-10 flex-1 px-6 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] overflow-y-auto scrollbar-hide">
-        <div className="grid grid-cols-1 gap-4">
-          {targetOptions.map((option, index) => (
+        {!showEmailAuth ? (
+          // Initial screen - "Myself" button to trigger auth
+          <div className="grid grid-cols-1 gap-4">
             <motion.button
-              key={option.id}
-              onClick={() => handleTargetSelect(option.id)}
-              disabled={isLoading}
+              onClick={handleGuestStart}
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: index * 0.08 }}
+              transition={{ duration: 0.4 }}
               whileTap={{ scale: 0.98 }}
-              className={`group relative overflow-hidden rounded-2xl p-6 bg-white/5 backdrop-blur-sm border border-white/10 transition-all duration-300 ${
-                selectedTarget === option.id ? 'ring-2 ring-white/30 shadow-xl' : ''
-              } ${isLoading && selectedTarget !== option.id ? 'opacity-40' : 'hover:bg-white/8'} disabled:cursor-not-allowed`}
+              className="group relative overflow-hidden rounded-2xl p-6 bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/8 transition-all duration-300"
             >
-              {/* Gradient Overlay on Hover/Selection */}
-              <div className={`absolute inset-0 bg-gradient-to-r ${option.color} opacity-0 transition-opacity duration-300 ${
-                selectedTarget === option.id ? 'opacity-10' : 'group-hover:opacity-[0.06]'
-              }`} />
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-blue-500 opacity-0 group-hover:opacity-[0.06] transition-opacity duration-300" />
 
-              {/* Content */}
               <div className="relative z-10 flex items-center gap-4">
-                <div className={`flex-shrink-0 w-16 h-16 rounded-2xl bg-gradient-to-r ${option.color} flex items-center justify-center text-3xl shadow-lg`}>
-                  {option.icon}
+                <div className="flex-shrink-0 w-16 h-16 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 flex items-center justify-center shadow-lg">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
                 </div>
 
                 <div className="flex-1 text-left">
-                  <h3 className="text-xl font-bold text-white mb-1">{option.title}</h3>
-                  <p className="text-white/60 text-sm">{option.subtitle}</p>
+                  <h3 className="text-xl font-bold text-white mb-1">Get Started</h3>
+                  <p className="text-white/60 text-sm">Sign in to begin your journey</p>
                 </div>
 
-                {isLoading && selectedTarget === option.id ? (
-                  <div className="flex-shrink-0 w-6 h-6">
-                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-white/30 border-t-white" />
-                  </div>
-                ) : (
-                  <div className="flex-shrink-0 w-6 h-6">
-                    <svg className="w-6 h-6 text-white/35 group-hover:text-white/55 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                )}
+                <div className="flex-shrink-0 w-6 h-6">
+                  <svg className="w-6 h-6 text-white/35 group-hover:text-white/55 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
               </div>
             </motion.button>
-          ))}
-        </div>
+          </div>
+        ) : (
+          // Auth screen
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-4"
+          >
+            {authMode === 'email' ? (
+              // Email input
+              <>
+                <form onSubmit={handleSubmitEmail} className="space-y-4">
+                  <div>
+                    <label className="block text-white/70 text-sm font-medium mb-2">Email Address</label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="you@example.com"
+                      disabled={isLoading}
+                      className="w-full px-4 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
+                    />
+                  </div>
+
+                  {authError && (
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 text-red-400 text-sm">
+                      {authError}
+                    </div>
+                  )}
+
+                  {authSuccess && (
+                    <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3 text-green-400 text-sm">
+                      {authSuccess}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={isLoading || !email}
+                    className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-60 disabled:cursor-not-allowed shadow-lg"
+                  >
+                    {isLoading ? 'Sending...' : 'Continue with Email'}
+                  </button>
+                </form>
+
+                {/* Divider */}
+                <div className="relative py-4">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-white/10"></div>
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-4 bg-[#0B101B] text-white/50">or</span>
+                  </div>
+                </div>
+
+                {/* Apple Sign In */}
+                <button
+                  onClick={handleAppleSignIn}
+                  disabled={isLoading}
+                  className="w-full bg-white text-black font-semibold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-100 transition-colors disabled:opacity-60 shadow-lg"
+                >
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
+                  </svg>
+                  Continue with Apple
+                </button>
+              </>
+            ) : (
+              // OTP verification
+              <>
+                <button
+                  onClick={handleBackFromOTP}
+                  className="flex items-center gap-2 text-white/60 hover:text-white transition-colors mb-4"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Back
+                </button>
+
+                <form onSubmit={handleVerifyOTP} className="space-y-4">
+                  <div>
+                    <label className="block text-white/70 text-sm font-medium mb-2">Verification Code</label>
+                    <input
+                      type="text"
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="000000"
+                      disabled={isLoading}
+                      className="w-full px-4 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white text-center text-2xl tracking-widest placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
+                      maxLength={6}
+                    />
+                    <p className="text-white/50 text-xs mt-2">Enter the 6-digit code sent to {email}</p>
+                  </div>
+
+                  {authError && (
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 text-red-400 text-sm">
+                      {authError}
+                    </div>
+                  )}
+
+                  {authSuccess && (
+                    <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3 text-green-400 text-sm">
+                      {authSuccess}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={isLoading || otpCode.length !== 6}
+                    className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-60 disabled:cursor-not-allowed shadow-lg"
+                  >
+                    {isLoading ? 'Verifying...' : 'Verify & Continue'}
+                  </button>
+                </form>
+              </>
+            )}
+          </motion.div>
+        )}
       </div>
     </div>
   );

@@ -59,7 +59,7 @@ export function MemberDetail({ member, onBack, onRemoved }: MemberDetailProps) {
         />
       )}
       
-      <main className="px-5 pt-6 pb-6 max-w-md mx-auto space-y-6">
+      <main className="px-5 pt-6 pb-6 space-y-6">
         {/* Back Button */}
         <button
           onClick={onBack}

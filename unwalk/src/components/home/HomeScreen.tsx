@@ -30,6 +30,7 @@ export function HomeScreen() {
   const pausedChallenges = useChallengeStore((s) => s.pausedChallenges);
   const userProfile = useChallengeStore((s) => s.userProfile);
   const dailyStepGoal = useChallengeStore((s) => s.dailyStepGoal); // 🎯 NEW: Get daily step goal from store
+  const todaySteps = useChallengeStore((s) => s.todaySteps); // 🎯 NEW: Read from global store
   const resumeChallenge = useChallengeStore((s) => s.resumeChallenge);
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
   const setActiveChallenge = useChallengeStore((s) => s.setActiveChallenge);
@@ -50,10 +51,11 @@ export function HomeScreen() {
     reloadStats
   } = useGamification(isGuest, userProfile?.id);
   
-  useHealthKitSync(activeUserChallenge);
+  // 🎯 FIX: Sync BOTH Solo and Team challenges with HealthKit
+  useHealthKitSync(activeUserChallenge, teamChallenge);
 
-  // 🎯 Get today's steps from HealthKit hook
-  const { todaySteps, syncSteps } = useHealthKit();
+  // 🎯 Get sync function from HealthKit hook
+  const { syncSteps } = useHealthKit();
 
   // 🎯 NEW: Refresh steps and streak when Home screen opens
   useEffect(() => {

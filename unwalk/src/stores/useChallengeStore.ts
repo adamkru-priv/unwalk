@@ -4,7 +4,7 @@ import type { Challenge, UserChallenge, UserTier } from '../types';
 import type { AdminChallenge } from '../types';
 import type { UserProfile } from '../lib/auth';
 
-type Screen = 'onboarding' | 'whoToChallenge' | 'auth' | 'home' | 'dashboard' | 'library' | 'team' | 'leaderboard' | 'profile' | 'badges' | 'challengeSelection' | 'customChallenge'; // ✅ Added 'customChallenge'
+type Screen = 'onboarding' | 'whoToChallenge' | 'auth' | 'home' | 'dashboard' | 'library' | 'myCustomChallenges' | 'team' | 'leaderboard' | 'profile' | 'badges' | 'challengeSelection' | 'customChallenge'; // 🎯 Added 'myCustomChallenges'
 type Theme = 'light' | 'dark';
 
 interface ChallengeStore {
@@ -19,6 +19,7 @@ interface ChallengeStore {
   userProfile: UserProfile | null;
   userTier: UserTier;
   dailyStepGoal: number;
+  todaySteps: number; // 🎯 NEW: Today's steps from HealthKit (global state)
   exploreResetTrigger: number;
   dailyChallenge: AdminChallenge | null;
   dailyChallengeDate: string | null;
@@ -42,6 +43,7 @@ interface ChallengeStore {
   setUserProfile: (profile: UserProfile | null) => void;
   setUserTier: (tier: UserTier) => void;
   setDailyStepGoal: (goal: number) => void;
+  setTodaySteps: (steps: number) => void; // 🎯 NEW: Update today's steps
   resetExploreView: () => void;
   setDailyChallenge: (challenge: AdminChallenge) => void;
   getDailyChallenge: () => AdminChallenge | null;
@@ -65,6 +67,7 @@ export const useChallengeStore = create<ChallengeStore>()(
       userProfile: null, // ✅ NEW: Full user profile
       userTier: 'pro',
       dailyStepGoal: 0,
+      todaySteps: 0, // 🎯 NEW: Initialize today's steps
       exploreResetTrigger: 0,
       dailyChallenge: null,
       dailyChallengeDate: null,
@@ -178,6 +181,8 @@ export const useChallengeStore = create<ChallengeStore>()(
 
       setDailyStepGoal: (goal) => set({ dailyStepGoal: goal }),
 
+      setTodaySteps: (steps) => set({ todaySteps: steps }), // 🎯 NEW: Update today's steps
+
       resetExploreView: () => set((state) => ({ exploreResetTrigger: state.exploreResetTrigger + 1 })),
 
       setDailyChallenge: (challenge) => {
@@ -212,6 +217,7 @@ export const useChallengeStore = create<ChallengeStore>()(
         userProfile: null, // ✅ NEW: Full user profile
         userTier: 'pro',
         dailyStepGoal: 0,
+        todaySteps: 0, // 🎯 NEW: Reset today's steps
         dailyChallenge: null,
         dailyChallengeDate: null,
       }),
