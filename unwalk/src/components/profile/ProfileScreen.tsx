@@ -8,7 +8,7 @@ import { AuthModal } from './AuthModal';
 import { ThemeSelector } from './ThemeSelector';
 import { PausedChallengesWarning } from './PausedChallengesWarning';
 import { GamificationGuide } from './GamificationGuide';
-import { APP_VERSION, BUILD_DATE } from '../../version';
+import { APP_VERSION } from '../../version';
 import { useHealthKit } from '../../hooks/useHealthKit';
 import { ChallengeHistory } from '../stats/ChallengeHistory'; // 🎯 NEW: Replace StatsScreen
 

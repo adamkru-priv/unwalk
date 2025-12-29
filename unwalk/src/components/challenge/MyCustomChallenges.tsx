@@ -41,7 +41,7 @@ export function MyCustomChallenges() {
     }
   };
 
-  const handleEdit = (challenge: AdminChallenge) => {
+  const handleEdit = (_challenge: AdminChallenge) => {
     // TODO: Navigate to edit screen
     alert('Edit functionality coming soon!');
   };
