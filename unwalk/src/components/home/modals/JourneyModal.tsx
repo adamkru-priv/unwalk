@@ -61,21 +61,21 @@ export function JourneyModal({
         const progress = Math.min(todaySteps, quest.target_value);
         if (progress !== quest.current_progress) {
           await updateQuestProgress(quest.id, progress);
-          setQuest({ 
-            ...quest, 
-            current_progress: progress,
-            completed: progress >= quest.target_value
-          });
+          // 🎯 FIX: Reload quest from backend to get accurate completed status
+          const updatedQuest = await getTodayQuest();
+          if (updatedQuest) {
+            setQuest(updatedQuest);
+          }
         }
       } else if (quest.quest_type === 'social' && !quest.completed) {
         const challengesSent = await checkTodayChallengesSent();
         if (challengesSent !== quest.current_progress) {
           await updateQuestProgress(quest.id, challengesSent);
-          setQuest({ 
-            ...quest, 
-            current_progress: challengesSent,
-            completed: challengesSent >= quest.target_value
-          });
+          // 🎯 FIX: Reload quest from backend to get accurate completed status
+          const updatedQuest = await getTodayQuest();
+          if (updatedQuest) {
+            setQuest(updatedQuest);
+          }
         }
       }
     };

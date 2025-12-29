@@ -33,14 +33,22 @@ export function useGamification(isGuest: boolean, userId?: string) {
   const handleQuestClaimed = async (xpEarned: number) => {
     console.log(`🎉 Quest claimed! +${xpEarned} XP`);
     
+    // 🎯 FIX: Wait a bit for backend to process the claim
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
     // Reload stats
     const newStats = await getUserGamificationStats();
     if (newStats && gamificationStats) {
+      console.log(`✅ Stats updated: ${gamificationStats.xp} → ${newStats.xp} XP`);
+      
       // Check if leveled up
       if (newStats.level > gamificationStats.level) {
         setLevelUpValue(newStats.level);
         setShowLevelUpModal(true);
       }
+      setGamificationStats(newStats);
+    } else if (newStats) {
+      console.log(`✅ Stats loaded: ${newStats.xp} XP, Level ${newStats.level}`);
       setGamificationStats(newStats);
     }
   };

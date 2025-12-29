@@ -4,7 +4,7 @@ import type { Challenge, UserChallenge, UserTier } from '../types';
 import type { AdminChallenge } from '../types';
 import type { UserProfile } from '../lib/auth';
 
-type Screen = 'onboarding' | 'whoToChallenge' | 'auth' | 'home' | 'dashboard' | 'library' | 'team' | 'leaderboard' | 'profile' | 'badges' | 'challengeSelection'; // ✅ Added 'leaderboard'
+type Screen = 'onboarding' | 'whoToChallenge' | 'auth' | 'home' | 'dashboard' | 'library' | 'team' | 'leaderboard' | 'profile' | 'badges' | 'challengeSelection' | 'customChallenge'; // ✅ Added 'customChallenge'
 type Theme = 'light' | 'dark';
 
 interface ChallengeStore {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { DailyActivityHUD } from './DailyActivityHUD';
 import { RunnerHUD } from './RunnerHUD';
 import { TeamHUD } from './TeamHUD';
@@ -49,21 +49,9 @@ export function ChallengeCarousel({
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
 
-  // 🎯 FIX: Auto-switch to Solo Challenge slide when challenge starts
-  useEffect(() => {
-    if (soloChallenge && currentSlide === 0) {
-      // If user just started a solo challenge, switch to slide 1 (Solo Challenge)
-      setCurrentSlide(1);
-    }
-  }, [soloChallenge?.id]); // Only trigger when challenge ID changes
-
-  // 🎯 FIX: Auto-switch to Team Challenge slide when challenge starts
-  useEffect(() => {
-    if (teamChallenge?.status === 'active' && currentSlide === 0) {
-      // If team challenge just became active, switch to slide 2 (Team Challenge)
-      setCurrentSlide(2);
-    }
-  }, [teamChallenge?.status]); // Trigger when status changes to 'active'
+  // 🎯 REMOVED: Auto-switch logic - it was causing unwanted slide changes
+  // Users should manually swipe or click dots to navigate between slides
+  // Auto-switching should only happen when user explicitly starts a challenge
 
   const handleTouchStart = (e: React.TouchEvent) => {
     setTouchStart(e.targetTouches[0].clientX);

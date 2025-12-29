@@ -261,7 +261,15 @@ export function RunnerHUD({
       )}
 
       <div className="w-full px-4">
-        <div className="bg-white dark:bg-[#151A25] rounded-3xl p-6 shadow-xl">
+        <div className="bg-white dark:bg-[#151A25] rounded-3xl p-6 shadow-xl relative">
+          {/* 🎯 NEW: In Progress Badge */}
+          <div className="absolute top-4 right-4 z-10">
+            <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-lg flex items-center gap-1.5">
+              <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+              In Progress
+            </div>
+          </div>
+
           {/* Label above the ring */}
           <div className="text-center mb-4">
             <h2 className="text-xl font-black text-gray-800 dark:text-white">My Challenge</h2>
@@ -321,7 +329,7 @@ export function RunnerHUD({
                 <div className="mt-2 text-lg font-black text-blue-600 dark:text-blue-400">
                   {progressPercent}%
                 </div>
-                {/* Tap hint */}
+                {/* 🎯 FIX: Add tap hint like in Team Challenge */}
                 <div className="mt-2 text-xs text-gray-400 dark:text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
                   👆 Tap for details
                 </div>

@@ -1,5 +1,5 @@
 import { useChallengeStore } from '../../stores/useChallengeStore';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AppHeader } from '../common/AppHeader';
 import { BottomNavigation } from '../common/BottomNavigation';
 import type { UserChallenge } from '../../types';
@@ -46,13 +46,42 @@ export function HomeScreen() {
     closeLevelUpModal,
     handleQuestClaimed,
     handleChallengeClaimSuccess,
-    nextStreakMilestone
+    nextStreakMilestone,
+    reloadStats
   } = useGamification(isGuest, userProfile?.id);
   
   useHealthKitSync(activeUserChallenge);
 
-  // 🎯 NEW: Get today's steps from HealthKit hook
-  const { todaySteps } = useHealthKit();
+  // 🎯 Get today's steps from HealthKit hook
+  const { todaySteps, syncSteps } = useHealthKit();
+
+  // 🎯 NEW: Refresh steps and streak when Home screen opens
+  useEffect(() => {
+    const initializeHomeScreen = async () => {
+      // Sync steps from HealthKit
+      await syncSteps();
+      
+      // Update user streak (awards bonus XP at milestones)
+      if (!isGuest) {
+        try {
+          const { updateUserStreak } = await import('../../lib/gamification');
+          const result = await updateUserStreak();
+          if (result) {
+            console.log(`🔥 Streak updated: ${result.current_streak} days`);
+            if (result.streak_bonus_xp > 0) {
+              console.log(`✨ Streak milestone! +${result.streak_bonus_xp} XP`);
+            }
+            // Reload gamification stats to show updated streak and XP
+            await reloadStats();
+          }
+        } catch (error) {
+          console.error('Failed to update streak:', error);
+        }
+      }
+    };
+    
+    initializeHomeScreen();
+  }, []); // Run once when component mounts
 
   // Challenge handlers
   const handleClaimSuccess = async () => {
@@ -96,11 +125,9 @@ export function HomeScreen() {
     setShowTeamSelectModal(false);
   };
 
-  // 🎯 NEW: Handler for daily activity card - opens quest modal
+  // 🎯 Handler for daily activity card - opens quest modal (Journey Modal)
   const handleDailyActivityClick = () => {
-    // If quest is ready to claim, show the quest modal
-    // Otherwise just navigate to next slide
-    console.log('Daily activity clicked - show quest details');
+    setShowJourneyModal(true);
   };
 
   const handleInviteMoreClick = (challengeId: string, challengeTitle: string, alreadyInvitedUserIds: string[]) => {

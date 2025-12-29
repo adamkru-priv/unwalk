@@ -8,6 +8,7 @@ import { AuthRequiredScreen } from './components/onboarding/AuthRequiredScreen';
 import { HomeScreen } from './components/home/HomeScreen';
 import { Dashboard } from './components/dashboard/Dashboard';
 import { ChallengeLibrary } from './components/challenge/ChallengeLibrary';
+import { CustomChallenge } from './components/challenge/CustomChallenge';
 import { TeamScreen } from './components/team/TeamScreen';
 // import { StatsScreen } from './components/stats/StatsScreen';
 import { ProfileScreen } from './components/profile/ProfileScreen';
@@ -563,11 +564,13 @@ function App() {
       case 'library':
       case 'challengeSelection':
         return <ChallengeLibrary />;
+      case 'customChallenge': // 🎯 NEW: Custom Challenge Creator
+        return <CustomChallenge />;
       case 'dashboard':
         return <Dashboard />;
       case 'team':
         return <TeamScreen />;
-      case 'leaderboard': // ✅ NEW: Leaderboard screen
+      case 'leaderboard':
         return <LeaderboardScreen />;
       case 'profile':
         return <ProfileScreen />;

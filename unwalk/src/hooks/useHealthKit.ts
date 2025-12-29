@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { healthKitService } from '../services/healthKit.native';
 import { useChallengeStore } from '../stores/useChallengeStore';
-import { syncDailySteps } from '../lib/gamification';
+import { syncDailySteps, getTodayQuest, updateQuestProgress } from '../lib/gamification';
 
 export function useHealthKit() {
   const setHealthConnected = useChallengeStore((s) => s.setHealthConnected);
@@ -12,6 +12,7 @@ export function useHealthKit() {
   const [todaySteps, setTodaySteps] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Initial setup and authorization check
   useEffect(() => {
     (async () => {
       const available = await healthKitService.isAvailable();
@@ -22,6 +23,35 @@ export function useHealthKit() {
         const granted = await healthKitService.requestAuthorization();
         setIsAuthorized(granted);
         setHealthConnected(granted);
+        
+        // 🎯 Immediately fetch steps after authorization
+        if (granted) {
+          try {
+            const steps = await healthKitService.getTodaySteps();
+            setTodaySteps(steps);
+            
+            // Sync to backend
+            try {
+              await syncDailySteps(steps);
+              console.log(`✅ Initial sync: ${steps} steps → ${Math.floor(steps / 1000)} Base XP`);
+              
+              // 🎯 NEW: Update Daily Quest progress if quest is steps-based
+              try {
+                const quest = await getTodayQuest();
+                if (quest && quest.quest_type === 'steps' && !quest.claimed) {
+                  await updateQuestProgress(quest.id, steps);
+                  console.log(`✅ Updated Daily Quest progress: ${steps} / ${quest.target_value} steps`);
+                }
+              } catch (questError) {
+                console.error('Failed to update quest progress:', questError);
+              }
+            } catch (error) {
+              console.error('Failed to sync daily steps to backend:', error);
+            }
+          } catch (error) {
+            console.error('Failed to fetch initial steps:', error);
+          }
+        }
       } else {
         setHealthConnected(false);
       }
@@ -54,10 +84,21 @@ export function useHealthKit() {
       const steps = await healthKitService.getTodaySteps();
       setTodaySteps(steps);
       
-      // 🎯 NEW: Sync steps to backend and award Base XP (1 XP per 1000 steps)
+      // 🎯 Sync steps to backend and award Base XP (1 XP per 1000 steps)
       try {
         await syncDailySteps(steps);
         console.log(`✅ Synced ${steps} steps → ${Math.floor(steps / 1000)} Base XP`);
+        
+        // 🎯 NEW: Update Daily Quest progress if quest is steps-based
+        try {
+          const quest = await getTodayQuest();
+          if (quest && quest.quest_type === 'steps' && !quest.claimed) {
+            await updateQuestProgress(quest.id, steps);
+            console.log(`✅ Updated Daily Quest progress: ${steps} / ${quest.target_value} steps`);
+          }
+        } catch (questError) {
+          console.error('Failed to update quest progress:', questError);
+        }
       } catch (error) {
         console.error('Failed to sync daily steps to backend:', error);
       }

@@ -315,7 +315,15 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
 
   return (
     <div className="w-full px-4">
-      <div className="bg-white dark:bg-[#151A25] rounded-3xl p-6 shadow-xl">
+      <div className="bg-white dark:bg-[#151A25] rounded-3xl p-6 shadow-xl relative">
+        {/* 🎯 NEW: In Progress Badge */}
+        <div className="absolute top-4 right-4 z-10">
+          <div className="bg-gradient-to-r from-orange-500 to-pink-500 text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-lg flex items-center gap-1.5">
+            <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+            In Progress
+          </div>
+        </div>
+
         {/* Single label above the circle */}
         <div className="text-center mb-4">
           <h3 className="text-xl font-black text-gray-800 dark:text-white">
