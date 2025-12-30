@@ -368,6 +368,80 @@ function App() {
     }
   }, [isAppReady, addToast]);
 
+  // ✅ Handle OAuth callback for WEB (hash fragment with tokens)
+  useEffect(() => {
+    // Skip on native - it's handled by appUrlOpen listener
+    if (Capacitor.isNativePlatform()) return;
+
+    const handleWebOAuthCallback = async () => {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
+      const type = hashParams.get('type');
+
+      // Check if this is an OAuth callback (has tokens in hash)
+      if (accessToken && refreshToken && type) {
+        console.log('🔗 [Auth] Web OAuth callback detected');
+        
+        try {
+          // Set session from tokens
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+
+          if (error) {
+            console.error('❌ [Auth] Failed to set session from web OAuth:', error);
+            addToast({ message: 'Sign-in failed. Please try again.', type: 'error' });
+            return;
+          }
+
+          if (data.session) {
+            console.log('✅ [Auth] Web OAuth session established');
+            
+            // Clean URL hash
+            window.history.replaceState({}, '', window.location.pathname);
+            
+            // Force-refresh profile
+            const profile = await authService.getUserProfile();
+            if (profile) {
+              console.log('✅ [Auth] Profile refreshed after web OAuth:', {
+                id: profile.id,
+                email: profile.email,
+                is_guest: profile.is_guest,
+              });
+              setUserProfile(profile);
+              setUserTier(profile.tier);
+              setDailyStepGoal(profile.daily_step_goal);
+              
+              // Navigate to appropriate screen
+              const currentScreen = useChallengeStore.getState().currentScreen;
+              const activeChallenge = useChallengeStore.getState().activeUserChallenge;
+              
+              if (currentScreen === 'auth') {
+                if (activeChallenge) {
+                  console.log('📍 [Auth] Navigating to dashboard (has active challenge)');
+                  useChallengeStore.setState({ currentScreen: 'dashboard' });
+                } else {
+                  console.log('📍 [Auth] Navigating to home (no active challenge)');
+                  useChallengeStore.setState({ currentScreen: 'home' });
+                }
+              }
+              
+              addToast({ message: 'Signed in! 🎉', type: 'success', duration: 2500 });
+            }
+          }
+        } catch (e) {
+          console.error('❌ [Auth] Web OAuth handler error:', e);
+          addToast({ message: 'Sign-in failed. Please try again.', type: 'error' });
+        }
+      }
+    };
+
+    // Run on mount
+    handleWebOAuthCallback();
+  }, [addToast, setDailyStepGoal, setUserProfile, setUserTier]);
+
   // ✅ Check for pending invitation after user signs in
   useEffect(() => {
     const checkPendingInvitation = async () => {
@@ -491,7 +565,23 @@ function App() {
             setUserProfile(profile);
             setUserTier(profile.tier);
             setDailyStepGoal(profile.daily_step_goal);
-            addToast({ message: 'Signed in', type: 'success', duration: 2500 });
+            
+            // 🎯 FIX: Navigate to appropriate screen after successful OAuth
+            const currentScreen = useChallengeStore.getState().currentScreen;
+            const activeChallenge = useChallengeStore.getState().activeUserChallenge;
+            
+            // If user was on auth screen, redirect to home or dashboard
+            if (currentScreen === 'auth') {
+              if (activeChallenge) {
+                console.log('📍 [Auth] Navigating to dashboard (has active challenge)');
+                useChallengeStore.setState({ currentScreen: 'dashboard' });
+              } else {
+                console.log('📍 [Auth] Navigating to home (no active challenge)');
+                useChallengeStore.setState({ currentScreen: 'home' });
+              }
+            }
+            
+            addToast({ message: 'Signed in! 🎉', type: 'success', duration: 2500 });
           }
         } catch (e) {
           console.error('❌ [Auth] appUrlOpen handler error:', e);
