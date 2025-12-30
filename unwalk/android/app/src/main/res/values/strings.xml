@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MOVEE</string>
+    <string name="title_activity_main">MOVEE</string>
+    <string name="package_name">com.adamkruszewski.movee</string>
+    <string name="custom_url_scheme">com.adamkruszewski.movee</string>
+</resources>

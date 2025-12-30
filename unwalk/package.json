@@ -10,13 +10,18 @@
     "build:web": "tsc -b && vite build",
     "build:ios": "npm run build:ios:web && npx cap sync ios && npm run postcap:ios",
     "build:ios:web": "tsc -b && vite build -c vite.ios.config.ts",
+    "build:android": "npm run build:android:web && npx cap sync android",
+    "build:android:web": "tsc -b && vite build -c vite.android.config.ts",
     "open:ios": "npx cap open ios",
+    "open:android": "npx cap open android",
     "sync:ios": "npx cap sync ios",
+    "sync:android": "npx cap sync android",
     "postcap:ios": "node scripts/patch-ios-capacitor-config.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^8.0.0",
     "@capacitor/app": "^8.0.0",
     "@capacitor/cli": "^8.0.0",
     "@capacitor/core": "^8.0.0",
