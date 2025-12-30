@@ -2,38 +2,37 @@ import { useEffect } from 'react';
 import { useChallengeStore } from './stores/useChallengeStore';
 import { useToastStore } from './stores/useToastStore';
 import { ToastContainer } from './components/common/Toast';
-import { OnboardingScreen } from './components/onboarding/OnboardingScreen';
+import { OnboardingScreen } from './components/onboarding/OnboardingScreen'; // 🎯 RESTORED: Landing page needed after sign out
 import { WhoToChallengeScreen } from './components/onboarding/WhoToChallengeScreen';
 import { AuthRequiredScreen } from './components/onboarding/AuthRequiredScreen';
 import { HomeScreen } from './components/home/HomeScreen';
 import { Dashboard } from './components/dashboard/Dashboard';
 import { ChallengeLibrary } from './components/challenge/ChallengeLibrary';
 import { CustomChallenge } from './components/challenge/CustomChallenge';
-import { MyCustomChallenges } from './components/challenge/MyCustomChallenges'; // 🎯 NEW
+import { MyCustomChallenges } from './components/challenge/MyCustomChallenges';
 import { TeamScreen } from './components/team/TeamScreen';
-// import { StatsScreen } from './components/stats/StatsScreen';
 import { ProfileScreen } from './components/profile/ProfileScreen';
 import { BadgesScreen } from './components/badges/BadgesScreen';
 import { authService } from './lib/auth';
 import { getActiveUserChallenge, getPausedChallenges } from './lib/api';
 import { supabase } from './lib/supabase';
-import './lib/authDebug'; // Debug helper
+import './lib/authDebug';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { reregisterPushToken } from './lib/push/iosPush';
 import { LeaderboardScreen } from './components/leaderboard/LeaderboardScreen';
 
 function App() {
-  const isOnboardingComplete = useChallengeStore((s) => s.isOnboardingComplete);
+  const isOnboardingComplete = useChallengeStore((s) => s.isOnboardingComplete); // 🎯 RESTORED: Needed for landing page
   const currentScreen = useChallengeStore((s) => s.currentScreen);
   const theme = useChallengeStore((s) => s.theme) || 'dark';
-  const isAppReady = useChallengeStore((s) => s.isAppReady); // ✅ NEW
+  const isAppReady = useChallengeStore((s) => s.isAppReady);
   const setActiveChallenge = useChallengeStore((s) => s.setActiveChallenge);
   const setPausedChallenges = useChallengeStore((s) => s.setPausedChallenges);
   const setUserTier = useChallengeStore((s) => s.setUserTier);
   const setDailyStepGoal = useChallengeStore((s) => s.setDailyStepGoal);
   const setUserProfile = useChallengeStore((s) => s.setUserProfile);
-  const setIsAppReady = useChallengeStore((s) => s.setIsAppReady); // ✅ NEW
+  const setIsAppReady = useChallengeStore((s) => s.setIsAppReady);
   const addToast = useToastStore((s) => s.addToast);
 
   // Toast management
@@ -319,12 +318,6 @@ function App() {
           // Clear URL params
           window.history.replaceState({}, '', '/app');
           
-          // Show onboarding if needed
-          if (!isOnboardingComplete) {
-            console.log('📋 [App] Showing onboarding first');
-            return;
-          }
-          
           addToast({ 
             message: 'Please sign in to accept the team invitation', 
             type: 'info',
@@ -373,7 +366,7 @@ function App() {
     if (isAppReady) {
       handleDeepLink();
     }
-  }, [isAppReady, isOnboardingComplete, addToast]);
+  }, [isAppReady, addToast]);
 
   // ✅ Check for pending invitation after user signs in
   useEffect(() => {
@@ -542,7 +535,7 @@ function App() {
     );
   }
 
-  // Show initial onboarding if not completed
+  // Show onboarding screen if not completed
   if (!isOnboardingComplete) {
     return <div className={theme}><OnboardingScreen /></div>;
   }

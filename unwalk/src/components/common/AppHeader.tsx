@@ -54,7 +54,6 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
   const handleNotificationClick = async () => {
     const addToast = useToastStore.getState().addToast;
     
-    // Show toast based on what notifications user has
     if (pendingChallengesCount > 0) {
       // Get actual challenge details to show in toast
       const challenges = await teamService.getReceivedChallenges();

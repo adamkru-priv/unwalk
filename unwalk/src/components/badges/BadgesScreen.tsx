@@ -5,12 +5,14 @@ import { useChallengeStore } from '../../stores/useChallengeStore';
 import { useState, useEffect } from 'react';
 import { getUserGamificationStats } from '../../lib/gamification';
 import type { UserGamificationStats } from '../../types';
+import { ChallengeHistory } from '../stats/ChallengeHistory'; // 🎯 NEW: Import ChallengeHistory
 
 export function BadgesScreen() {
   const [badges, setBadges] = useState<Badge[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
   const [gamificationStats, setGamificationStats] = useState<UserGamificationStats | null>(null);
+  const [showHistory, setShowHistory] = useState(false); // 🎯 NEW: Challenge History collapsed by default
 
   // ✅ Read from store instead of loading
   const userProfile = useChallengeStore((s) => s.userProfile);
@@ -275,6 +277,30 @@ export function BadgesScreen() {
                     <p className="text-sm text-gray-600 dark:text-white/60 leading-relaxed">
                       Complete challenges and stay active to unlock more badges and earn points
                     </p>
+                  </div>
+                </section>
+
+                {/* 🎯 NEW: Challenge History - moved from ProfileScreen */}
+                <section>
+                  <div className="bg-white dark:bg-[#151A25] border border-gray-200 dark:border-white/5 rounded-2xl overflow-hidden">
+                    <button
+                      onClick={() => setShowHistory(!showHistory)}
+                      className="w-full px-5 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                    >
+                      <div>
+                        <h2 className="text-lg font-bold text-gray-900 dark:text-white">Challenge History</h2>
+                        <p className="text-xs text-gray-500 dark:text-white/50 mt-0.5">Completed challenges & XP earned</p>
+                      </div>
+                      <svg className={`w-5 h-5 text-gray-400 transition-transform ${showHistory ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+
+                    {showHistory && (
+                      <div className="border-t border-gray-200 dark:border-white/5">
+                        <ChallengeHistory embedded={true} />
+                      </div>
+                    )}
                   </div>
                 </section>
               </>

@@ -1,30 +1,31 @@
-import { useState } from 'react';
-import { createPortal } from 'react-dom'; // 🎯 NEW: Import Portal
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import type { UserChallenge } from '../../../types';
 import { useChallengeStore } from '../../../stores/useChallengeStore';
-import { useHealthKit } from '../../../hooks/useHealthKit'; // 🎯 NEW: HealthKit hook
-import { updateChallengeProgress } from '../../../lib/api'; // 🎯 NEW: API function
+import { useHealthKit } from '../../../hooks/useHealthKit';
+import { updateChallengeProgress } from '../../../lib/api';
 
 interface RunnerHUDProps {
   activeChallenge: UserChallenge | null;
   onClick: () => void;
   xpReward?: number;
+  onRefresh?: () => Promise<void>;
 }
 
 export function RunnerHUD({ 
   activeChallenge, 
   onClick,
-  xpReward = 0
+  xpReward = 0,
+  onRefresh
 }: RunnerHUDProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false); // 🎯 NEW: Track updating state
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const setActiveChallenge = useChallengeStore((s) => s.setActiveChallenge);
   
-  // 🎯 NEW: Check if running on native iOS (HealthKit available)
-  const { isNative } = useHealthKit();
+  const { isNative, syncSteps, isAuthorized } = useHealthKit();
 
-  // 🎯 NEW: Handle adding steps (for Web/PWA simulator only)
   const handleAddSteps = async (steps: number) => {
     if (isUpdating || !activeChallenge) return;
     
@@ -36,7 +37,6 @@ export function RunnerHUD({
       const updatedChallenge = await updateChallengeProgress(activeChallenge.id, newSteps);
       setActiveChallenge(updatedChallenge);
 
-      // If completed, reload to show claim UI
       if (newSteps >= goalSteps && goalSteps > 0) {
         setTimeout(() => {
           window.location.reload();
@@ -50,8 +50,32 @@ export function RunnerHUD({
     }
   };
 
+  const handleRefresh = async () => {
+    if (isRefreshing) return;
+    
+    setIsRefreshing(true);
+    try {
+      if (isNative && isAuthorized) {
+        await syncSteps();
+      }
+      
+      if (onRefresh) {
+        await onRefresh();
+      }
+    } catch (error) {
+      console.error('[RunnerHUD] Refresh failed:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeChallenge) {
+      handleRefresh();
+    }
+  }, [activeChallenge?.id]);
+
   if (!activeChallenge) {
-    // 🎯 FIX: Add empty ring like Team Challenge
     const size = 280;
     const strokeWidth = 20;
     const radius = (size - strokeWidth) / 2;
@@ -59,12 +83,10 @@ export function RunnerHUD({
     return (
       <div className="w-full px-4">
         <div className="bg-white dark:bg-[#151A25] rounded-3xl p-6 shadow-xl">
-          {/* Label above the ring */}
           <div className="text-center mb-4">
             <h2 className="text-xl font-black text-gray-800 dark:text-white">My Challenge</h2>
           </div>
 
-          {/* Giant Empty Progress Ring */}
           <div className="flex justify-center mb-6">
             <div className="relative" style={{ width: size, height: size }}>
               <svg className="transform -rotate-90" width={size} height={size}>
@@ -111,14 +133,12 @@ export function RunnerHUD({
   const goalSteps = activeChallenge.admin_challenge?.goal_steps || 1;
   const progressPercent = Math.min(100, Math.round((currentSteps / goalSteps) * 100));
 
-  // Calculate SVG circle properties for progress ring
   const size = 280;
   const strokeWidth = 20;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (progressPercent / 100) * circumference;
 
-  // Calculate deadline (hours remaining)
   const calculateDeadline = () => {
     if (!activeChallenge.admin_challenge?.time_limit_hours || !activeChallenge.started_at) {
       return null;
@@ -137,30 +157,24 @@ export function RunnerHUD({
     const minutes = totalMinutes % 60;
     const days = Math.floor(hours / 24);
     
-    // If more than 1 day, show days and hours
     if (days > 0) {
       return `${days}d ${hours % 24}h`;
     }
     
-    // If less than 1 day, show hours and minutes
     if (hours > 0) {
       return `${hours}h ${minutes}m`;
     }
     
-    // If less than 1 hour, show only minutes
     return `${minutes}m`;
   };
 
   const deadline = calculateDeadline();
 
-  // Calculate distance traveled (km)
-  const distanceKm = (currentSteps * 0.000762).toFixed(2); // Average: 1 step = 0.762m
+  const distanceKm = (currentSteps * 0.000762).toFixed(2);
   const goalDistanceKm = (goalSteps * 0.000762).toFixed(2);
 
-  // Calculate time elapsed
   const timeElapsed = activeChallenge.active_time_seconds || 0;
 
-  // Handle End Challenge
   const handleEndChallenge = async () => {
     if (!activeChallenge) return;
     
@@ -169,7 +183,6 @@ export function RunnerHUD({
     try {
       const { supabase } = await import('../../../lib/supabase');
       
-      // Mark as completed
       const { error } = await supabase
         .from('user_challenges')
         .update({ 
@@ -180,10 +193,8 @@ export function RunnerHUD({
       
       if (error) throw error;
       
-      // Clear from store
       setActiveChallenge(null);
       
-      // Reload to show in completed challenges
       window.location.reload();
     } catch (err) {
       console.error('Failed to end challenge:', err);
@@ -193,7 +204,6 @@ export function RunnerHUD({
 
   return (
     <>
-      {/* Modal with blurred image */}
       {showImageModal && activeChallenge?.admin_challenge?.image_url && createPortal(
         <div 
           className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
@@ -203,7 +213,6 @@ export function RunnerHUD({
           onClick={() => setShowImageModal(false)}
         >
           <div className="relative max-w-4xl w-full">
-            {/* Close button */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -216,9 +225,7 @@ export function RunnerHUD({
               </svg>
             </button>
             
-            {/* Blurred image container - NO SHARP IMAGE */}
             <div className="relative rounded-2xl overflow-hidden bg-black" style={{ height: '70vh' }}>
-              {/* Only blurred image filling entire modal */}
               <div 
                 className="absolute inset-0 w-full h-full"
                 style={{
@@ -229,13 +236,11 @@ export function RunnerHUD({
                 }}
               />
               
-              {/* Progress overlay at bottom */}
               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-6 z-20">
                 <h2 className="text-3xl font-black text-white drop-shadow-lg mb-4">
                   {activeChallenge.admin_challenge.title}
                 </h2>
                 
-                {/* Progress bar */}
                 <div className="mb-3">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-bold text-white/90">Progress</span>
@@ -249,7 +254,6 @@ export function RunnerHUD({
                   </div>
                 </div>
                 
-                {/* Steps info */}
                 <div className="text-white/90 text-base font-semibold">
                   {currentSteps.toLocaleString()} / {goalSteps.toLocaleString()} steps
                 </div>
@@ -262,18 +266,15 @@ export function RunnerHUD({
 
       <div className="w-full px-4">
         <div className="bg-white dark:bg-[#151A25] rounded-3xl p-6 shadow-xl relative">
-          {/* Label above the ring */}
           <div className="text-center mb-4">
             <h2 className="text-xl font-black text-gray-800 dark:text-white">My Challenge</h2>
           </div>
 
-          {/* Giant Progress Ring */}
           <div 
             className="flex justify-center mb-6 cursor-pointer group"
-            onClick={() => setIsExpanded(!isExpanded)}
+            onClick={handleRefresh}
           >
             <div className="relative transition-transform duration-200 group-hover:scale-105" style={{ width: size, height: size }}>
-              {/* Background ring */}
               <svg className="transform -rotate-90" width={size} height={size}>
                 <circle
                   cx={size / 2}
@@ -284,7 +285,6 @@ export function RunnerHUD({
                   fill="transparent"
                   className="text-gray-200 dark:text-gray-800"
                 />
-                {/* Progress ring */}
                 <circle
                   cx={size / 2}
                   cy={size / 2}
@@ -300,7 +300,6 @@ export function RunnerHUD({
                     filter: 'drop-shadow(0 0 8px rgba(59, 130, 246, 0.5))'
                   }}
                 />
-                {/* Gradient definition */}
                 <defs>
                   <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
                     <stop offset="0%" stopColor="#3b82f6" />
@@ -310,35 +309,40 @@ export function RunnerHUD({
                 </defs>
               </svg>
 
-              {/* Center content - Steps */}
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <div className="text-5xl font-black text-gray-900 dark:text-white mb-1">
-                  {currentSteps.toLocaleString()}
-                </div>
-                <div className="text-sm text-gray-500 dark:text-gray-400 font-semibold">
-                  / {goalSteps.toLocaleString()} steps
-                </div>
-                <div className="mt-2 text-lg font-black text-blue-600 dark:text-blue-400">
-                  {progressPercent}%
-                </div>
-                {/* 🎯 FIX: Add tap hint like in Team Challenge */}
+                {isRefreshing ? (
+                  <div className="text-blue-600 dark:text-blue-400 animate-spin">
+                    <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-5xl font-black text-gray-900 dark:text-white mb-1">
+                      {currentSteps.toLocaleString()}
+                    </div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400 font-semibold">
+                      / {goalSteps.toLocaleString()} steps
+                    </div>
+                    <div className="mt-2 text-lg font-black text-blue-600 dark:text-blue-400">
+                      {progressPercent}%
+                    </div>
+                  </>
+                )}
                 <div className="mt-2 text-xs text-gray-400 dark:text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                  👆 Tap for details
+                  👆 Tap to refresh
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Challenge Title */}
           <div className="text-center mb-4">
             <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-1">
               {activeChallenge.admin_challenge?.title}
             </h3>
           </div>
 
-          {/* Compact Stats Row */}
           <div className="flex items-center justify-center gap-6 mb-6 text-sm">
-            {/* XP Reward */}
             <div className="flex items-center gap-2">
               <span className="text-lg">💎</span>
               <div>
@@ -347,10 +351,8 @@ export function RunnerHUD({
               </div>
             </div>
 
-            {/* Divider */}
             <div className="w-px h-8 bg-gray-300 dark:bg-gray-700"></div>
 
-            {/* Deadline */}
             {deadline && (
               <div className="flex items-center gap-2">
                 <span className="text-lg">⏱️</span>
@@ -362,7 +364,6 @@ export function RunnerHUD({
             )}
           </div>
 
-          {/* Toggle Details Button */}
           <button 
             onClick={(e) => {
               e.stopPropagation();
@@ -381,14 +382,12 @@ export function RunnerHUD({
             </svg>
           </button>
 
-          {/* Expanded Details Panel */}
           <div 
             className={`overflow-hidden transition-all duration-500 ease-in-out ${
               isExpanded ? 'max-h-[1000px] opacity-100 mt-4' : 'max-h-0 opacity-0'
             }`}
           >
             <div className="space-y-3">
-              {/* Challenge Image Card - only blurred background, no foreground image */}
               {activeChallenge.admin_challenge?.image_url && (
                 <div 
                   onClick={(e) => {
@@ -397,7 +396,6 @@ export function RunnerHUD({
                   }}
                   className="relative h-48 rounded-xl overflow-hidden cursor-pointer group/img"
                 >
-                  {/* Full blurred image covering entire card */}
                   <div 
                     className="absolute inset-0 w-full h-full"
                     style={{
@@ -408,12 +406,10 @@ export function RunnerHUD({
                     }}
                   />
                   
-                  {/* Bottom gradient with title */}
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-4">
                     <h4 className="text-white font-black text-lg">{activeChallenge.admin_challenge.title}</h4>
                   </div>
                   
-                  {/* Hover hint */}
                   <div className="absolute top-3 right-3 opacity-0 group-hover/img:opacity-100 transition-opacity">
                     <div className="bg-black/80 rounded-lg px-3 py-2 text-white text-xs font-bold">
                       🔍 Click to enlarge
@@ -422,16 +418,13 @@ export function RunnerHUD({
                 </div>
               )}
 
-              {/* Stats Grid - NO IMAGE ANYMORE */}
               <div className="grid grid-cols-2 gap-3">
-                {/* Distance */}
                 <div className="bg-gray-50 dark:bg-[#0B101B] border border-gray-200 dark:border-gray-800 rounded-xl p-3">
                   <div className="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase mb-1">Distance</div>
                   <div className="text-xl font-black text-gray-900 dark:text-white">{distanceKm} km</div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">/ {goalDistanceKm} km</div>
                 </div>
 
-                {/* Time Elapsed */}
                 <div className="bg-gray-50 dark:bg-[#0B101B] border border-gray-200 dark:border-gray-800 rounded-xl p-3">
                   <div className="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase mb-1">Time</div>
                   <div className="text-xl font-black text-gray-900 dark:text-white">
@@ -440,7 +433,6 @@ export function RunnerHUD({
                   <div className="text-xs text-gray-500 dark:text-gray-400">active</div>
                 </div>
 
-                {/* XP Reward */}
                 <div className="bg-gradient-to-br from-amber-500/10 to-yellow-500/10 border border-amber-500/20 rounded-xl p-3">
                   <div className="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase mb-1">Reward</div>
                   <div className="text-xl font-black text-gray-900 dark:text-white flex items-center gap-1">
@@ -449,7 +441,6 @@ export function RunnerHUD({
                   <div className="text-xs text-gray-500 dark:text-gray-400">on completion</div>
                 </div>
 
-                {/* Deadline */}
                 {deadline && (
                   <div className="bg-gradient-to-br from-red-500/10 to-orange-500/10 border border-red-500/20 rounded-xl p-3">
                     <div className="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase mb-1">Deadline</div>
@@ -461,9 +452,7 @@ export function RunnerHUD({
                 )}
               </div>
 
-              {/* Action Buttons - ONLY END CHALLENGE */}
               <div className="pt-2 space-y-2">
-                {/* 🎯 NEW: Step Simulator (Web/PWA only) */}
                 {progressPercent < 100 && !isNative && (
                   <div className="bg-blue-900/80 backdrop-blur-sm rounded-xl p-3 border border-blue-700/50">
                     <p className="text-xs font-semibold text-blue-200 mb-2">Step Simulator (Web/Test Only)</p>
@@ -512,7 +501,6 @@ export function RunnerHUD({
                   </div>
                 )}
 
-                {/* End Challenge Button */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -526,7 +514,6 @@ export function RunnerHUD({
             </div>
           </div>
 
-          {/* Social Challenge Badge (if applicable) */}
           {activeChallenge.assigned_by && (
             <div className="mt-4 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-400/30 rounded-xl p-3">
               <div className="flex items-center gap-3">

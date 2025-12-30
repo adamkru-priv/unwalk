@@ -28,6 +28,7 @@ interface ChallengeCarouselProps {
   onChallengeStarted?: () => void; // 🎯 NEW: Refresh after challenge starts
   onChallengeCancelled?: () => void; // 🎯 NEW: Refresh after challenge cancelled
   onChallengeEnded?: () => void; // 🎯 NEW: Refresh after challenge ends
+  onRefresh?: () => Promise<void>; // 🎯 NEW: Manual refresh callback for all slides
 }
 
 export function ChallengeCarousel({
@@ -43,7 +44,8 @@ export function ChallengeCarousel({
   onChallengeStarted,
   onChallengeCancelled,
   onChallengeEnded,
-  xpReward
+  xpReward,
+  onRefresh // 🎯 NEW
 }: ChallengeCarouselProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [touchStart, setTouchStart] = useState(0);
@@ -132,6 +134,7 @@ export function ChallengeCarousel({
               todaySteps={todaySteps}
               dailyStepGoal={dailyStepGoal}
               onClick={onDailyActivityClick || (() => setCurrentSlide(1))}
+              onRefresh={onRefresh} // 🎯 NEW: Pass refresh callback
             />
           </div>
 
@@ -141,6 +144,7 @@ export function ChallengeCarousel({
               activeChallenge={soloChallenge}
               onClick={onSoloClick}
               xpReward={xpReward}
+              onRefresh={onRefresh} // 🎯 NEW: Pass refresh callback
             />
           </div>
 
@@ -154,6 +158,7 @@ export function ChallengeCarousel({
               onChallengeStarted={onChallengeStarted}
               onChallengeCancelled={onChallengeCancelled}
               onChallengeEnded={onChallengeEnded}
+              onRefresh={onRefresh} // 🎯 NEW: Pass refresh callback
             />
           </div>
         </div>

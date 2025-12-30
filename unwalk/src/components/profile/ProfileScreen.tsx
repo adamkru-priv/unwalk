@@ -7,16 +7,14 @@ import { AccountSection } from './AccountSection';
 import { AuthModal } from './AuthModal';
 import { ThemeSelector } from './ThemeSelector';
 import { PausedChallengesWarning } from './PausedChallengesWarning';
-import { GamificationGuide } from './GamificationGuide';
 import { APP_VERSION } from '../../version';
 import { useHealthKit } from '../../hooks/useHealthKit';
-import { ChallengeHistory } from '../stats/ChallengeHistory'; // 🎯 NEW: Replace StatsScreen
 
 export function ProfileScreen() {
   const setUserTier = useChallengeStore((s) => s.setUserTier);
   const pausedChallenges = useChallengeStore((s) => s.pausedChallenges);
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
-  const setOnboardingComplete = useChallengeStore((s) => s.setOnboardingComplete);
+  const setOnboardingComplete = useChallengeStore((s) => s.setOnboardingComplete); // 🎯 RESTORED: Needed for sign out flow
   const theme = useChallengeStore((s) => s.theme);
   const setTheme = useChallengeStore((s) => s.setTheme);
   const resetToInitialState = useChallengeStore((s) => s.resetToInitialState);
@@ -44,8 +42,6 @@ export function ProfileScreen() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [authSuccess, setAuthSuccess] = useState<string | null>(null);
   const [showPausedWarning, setShowPausedWarning] = useState(false);
-  const [showHistory, setShowHistory] = useState(false); // 🎯 NEW: Renamed from showStats
-  const [showGamificationGuide, setShowGamificationGuide] = useState(false); // 🎯 FIX: Re-add missing state
 
   const [pushEnabled, setPushEnabled] = useState<boolean>(true);
   const [pushSaving, setPushSaving] = useState(false);
@@ -86,9 +82,10 @@ export function ProfileScreen() {
 
       await new Promise((resolve) => setTimeout(resolve, 200));
 
-      console.log('📍 [ProfileScreen] Navigating to onboarding...');
+      console.log('📍 [ProfileScreen] Navigating to landing page...');
+      // 🎯 CHANGED: Show landing page after sign out (user needs to click "Get Started" again)
       setOnboardingComplete(false);
-      setCurrentScreen('onboarding');
+      setCurrentScreen('home'); // Will show OnboardingScreen due to isOnboardingComplete = false
 
       try {
         if (typeof window !== 'undefined' && window.location.pathname === '/') {
@@ -116,8 +113,9 @@ export function ProfileScreen() {
 
       setUserProfile(null);
       resetToInitialState();
+      // 🎯 CHANGED: Show landing page after error during sign out
       setOnboardingComplete(false);
-      setCurrentScreen('onboarding');
+      setCurrentScreen('home');
     }
   };
 
@@ -284,11 +282,6 @@ export function ProfileScreen() {
         onCancel={() => setShowPausedWarning(false)}
       />
 
-      <GamificationGuide
-        isOpen={showGamificationGuide}
-        onClose={() => setShowGamificationGuide(false)}
-      />
-
       <main className="px-4 py-6 max-w-2xl mx-auto">
         {/* Account Card */}
         <div className="bg-white dark:bg-[#151A25] rounded-3xl shadow-sm border border-gray-100 dark:border-white/5 overflow-hidden mb-6">
@@ -304,29 +297,7 @@ export function ProfileScreen() {
 
         {/* Settings List */}
         <div className="space-y-3">
-          {/* Challenge History */}
-          {!isGuest && (
-            <div className="bg-white dark:bg-[#151A25] rounded-2xl shadow-sm border border-gray-100 dark:border-white/5 overflow-hidden">
-              <button
-                onClick={() => setShowHistory((v) => !v)}
-                className="w-full px-4 py-3.5 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-white/5 transition-colors active:bg-gray-100 dark:active:bg-white/10"
-              >
-                <div>
-                  <div className="text-[15px] font-medium text-gray-900 dark:text-white">Challenge History</div>
-                  <div className="text-[13px] text-gray-500 dark:text-gray-400">Completed challenges & XP earned</div>
-                </div>
-                <svg className={`w-5 h-5 text-gray-400 transition-transform ${showHistory ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-
-              {showHistory && (
-                <div className="border-t border-gray-100 dark:border-white/5">
-                  <ChallengeHistory embedded={true} />
-                </div>
-              )}
-            </div>
-          )}
+          {/* 🎯 REMOVED: Challenge History - moved to BadgesScreen */}
 
           {/* My Custom Challenges */}
           {!isGuest && (
@@ -442,19 +413,7 @@ export function ProfileScreen() {
             </div>
           </div>
 
-          {/* Start Screen */}
-          <button
-            onClick={() => {
-              setOnboardingComplete(false);
-              setCurrentScreen('onboarding');
-            }}
-            className="w-full bg-white dark:bg-[#151A25] rounded-2xl px-4 py-3.5 shadow-sm border border-gray-100 dark:border-white/5 hover:bg-gray-50 dark:hover:bg-white/5 active:bg-gray-100 dark:active:bg-white/10 transition-colors text-left flex items-center justify-between group"
-          >
-            <div className="text-[15px] font-medium text-gray-900 dark:text-white">Start Screen</div>
-            <svg className="w-5 h-5 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7-7" />
-            </svg>
-          </button>
+          {/* 🎯 REMOVED: Start Screen button - onboarding screen no longer needed */}
         </div>
 
         {/* Footer */}

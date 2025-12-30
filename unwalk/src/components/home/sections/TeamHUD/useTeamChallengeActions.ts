@@ -25,14 +25,32 @@ export function useTeamChallengeActions({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const { error } = await supabase
+      // 🎯 FIX: Delete invitations
+      const { error: invitationsError } = await supabase
         .from('team_challenge_invitations')
         .delete()
         .eq('invited_by', user.id)
         .eq('challenge_id', pendingChallenge.challenge_id);
 
-      if (error) throw error;
+      if (invitationsError) {
+        console.error('Failed to delete invitations:', invitationsError);
+        throw invitationsError;
+      }
 
+      // 🎯 FIX: Also delete any user_challenges with this challenge_id and user_id
+      // This handles cases where challenge was partially started
+      const { error: challengesError } = await supabase
+        .from('user_challenges')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('admin_challenge_id', pendingChallenge.challenge_id);
+
+      if (challengesError) {
+        console.error('Failed to delete user challenges:', challengesError);
+        // Don't throw - invitations are already deleted
+      }
+
+      console.log('✅ [CancelChallenge] Deleted invitations and user challenges for challenge:', pendingChallenge.challenge_id);
       alert('✅ Challenge cancelled');
       onChallengeCancelled?.();
       return true;

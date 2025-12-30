@@ -6,6 +6,7 @@ interface TeamMemberOption {
   id: string;
   display_name: string;
   avatar_url?: string;
+  email: string; // 🎯 FIX: Add email
 }
 
 interface TeamChallengeInviteModalProps {
@@ -55,10 +56,10 @@ export function TeamChallengeInviteModal({ isOpen, onClose, onSuccess }: TeamCha
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Get all team members (excluding current user)
+      // 🎯 FIX: Get email too for sending invitations
       const { data, error } = await supabase
         .from('team_members')
-        .select('member_id, member:users!member_id(id, display_name, avatar_url)')
+        .select('member_id, member:users!member_id(id, display_name, avatar_url, email)')
         .eq('user_id', user.id)
         .neq('member_id', user.id);
 
@@ -72,7 +73,8 @@ export function TeamChallengeInviteModal({ isOpen, onClose, onSuccess }: TeamCha
         .map((m: any) => ({
           id: m.member.id,
           display_name: m.member.display_name || 'Unknown',
-          avatar_url: m.member.avatar_url
+          avatar_url: m.member.avatar_url,
+          email: m.member.email // 🎯 FIX: Add email
         }));
 
       setTeamMembers(members);
@@ -155,6 +157,82 @@ export function TeamChallengeInviteModal({ isOpen, onClose, onSuccess }: TeamCha
       if (inviteError) {
         console.error('Failed to send invitations:', inviteError);
         throw inviteError;
+      }
+
+      console.log('✅ [TeamChallengeInviteModal] Invitations inserted, now sending emails...');
+
+      // 🎯 NEW: Send email notifications to invited users
+      try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        
+        console.log('📧 [TeamChallengeInviteModal] Starting to send email notifications...');
+        console.log('📧 [TeamChallengeInviteModal] Supabase URL:', supabaseUrl);
+        console.log('📧 [TeamChallengeInviteModal] Team members:', teamMembers);
+        
+        for (const invitation of invitations) {
+          const invitedMember = teamMembers.find(m => m.id === invitation.invited_user);
+          
+          console.log('📧 [TeamChallengeInviteModal] Processing invitation for:', invitedMember?.display_name, invitedMember?.email);
+          
+          if (!invitedMember?.email) {
+            console.error('❌ [TeamChallengeInviteModal] No email for user:', invitedMember?.display_name);
+            continue;
+          }
+          
+          // Get the invitation ID from the database
+          const { data: invitationData, error: fetchError } = await supabase
+            .from('team_challenge_invitations')
+            .select('id')
+            .eq('invited_by', user.id)
+            .eq('invited_user', invitation.invited_user)
+            .eq('challenge_id', selectedChallenge.id)
+            .single();
+
+          if (fetchError) {
+            console.error('❌ [TeamChallengeInviteModal] Failed to fetch invitation ID:', fetchError);
+            continue;
+          }
+
+          if (invitationData) {
+            console.log('📧 [TeamChallengeInviteModal] Calling Edge Function with:', {
+              recipientEmail: invitedMember.email,
+              senderName: user.user_metadata?.display_name || user.email || 'Someone',
+              challengeTitle: selectedChallenge.title,
+              invitationId: invitationData.id
+            });
+            
+            // 🎯 Use fetch instead of supabase.functions.invoke for better error handling
+            const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-team-challenge-invitation`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${supabaseKey}`,
+              },
+              body: JSON.stringify({
+                recipientEmail: invitedMember.email,
+                senderName: user.user_metadata?.display_name || user.email || 'Someone',
+                challengeTitle: selectedChallenge.title,
+                invitationId: invitationData.id
+              })
+            });
+            
+            const responseText = await emailResponse.text();
+            console.log('📧 [TeamChallengeInviteModal] Edge Function response status:', emailResponse.status);
+            console.log('📧 [TeamChallengeInviteModal] Edge Function response:', responseText);
+            
+            if (!emailResponse.ok) {
+              console.error('❌ [TeamChallengeInviteModal] Edge Function error:', responseText);
+            } else {
+              console.log('✅ [TeamChallengeInviteModal] Email sent successfully to:', invitedMember.email);
+            }
+          }
+        }
+        
+        console.log('✅ [TeamChallengeInviteModal] Email notification process completed');
+      } catch (emailError) {
+        console.error('❌ [TeamChallengeInviteModal] Failed to send email notifications:', emailError);
+        // Don't throw - push notifications will still work
       }
 
       const friendCount = selectedFriends.size;

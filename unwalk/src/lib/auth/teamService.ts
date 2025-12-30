@@ -1,5 +1,5 @@
 import { supabase } from '../supabase';
-import type { Team, TeamInvitation, TeamMember, ChallengeAssignment } from './types';
+import type { Team, TeamInvitation, TeamMember, ChallengeAssignment, TeamChallengeInvitation } from './types';
 import { authService } from './authService';
 
 /**
@@ -332,6 +332,58 @@ export class TeamService {
   }
 
   /**
+   * Get received team challenge invitations (NEW - for team challenges)
+   */
+  async getTeamChallengeInvitations(): Promise<TeamChallengeInvitation[]> {
+    try {
+      const user = await authService.getUser();
+      if (!user) return [];
+
+      const { data, error } = await supabase
+        .from('team_challenge_invitations')
+        .select(`
+          id,
+          invited_by,
+          invited_user,
+          challenge_id,
+          status,
+          invited_at,
+          responded_at,
+          sender:users!team_challenge_invitations_invited_by_fkey(display_name, email, avatar_url),
+          challenge:admin_challenges!team_challenge_invitations_challenge_id_fkey(title, icon, goal_steps, time_limit_hours)
+        `)
+        .eq('invited_user', user.id)
+        .eq('status', 'pending')
+        .order('invited_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Transform data
+      const invitations = (data || []).map((item: any) => ({
+        id: item.id,
+        invited_by: item.invited_by,
+        invited_user: item.invited_user,
+        challenge_id: item.challenge_id,
+        status: item.status,
+        invited_at: item.invited_at,
+        responded_at: item.responded_at,
+        sender_name: item.sender?.display_name || null,
+        sender_email: item.sender?.email || null,
+        sender_avatar: item.sender?.avatar_url || null,
+        challenge_title: item.challenge?.title || 'Unknown Challenge',
+        challenge_icon: item.challenge?.icon || '🎯',
+        challenge_goal_steps: item.challenge?.goal_steps || 0,
+        challenge_time_limit_hours: item.challenge?.time_limit_hours || 0,
+      }));
+
+      return invitations as TeamChallengeInvitation[];
+    } catch (error) {
+      console.error('❌ [Team] Get team challenge invitations error:', error);
+      return [];
+    }
+  }
+
+  /**
    * Cancel invitation (sender)
    * Deletes the invitation instead of updating status to avoid unique constraint issues
    */
@@ -353,6 +405,33 @@ export class TeamService {
       return { error: null };
     } catch (error) {
       console.error('❌ [Team] Cancel invitation error:', error);
+      return { error: error as Error };
+    }
+  }
+
+  /**
+   * Cancel team challenge invitation (sender only)
+   * Deletes the team challenge invitation
+   */
+  async cancelTeamChallengeInvitation(invitationId: string): Promise<{ error: Error | null }> {
+    try {
+      const user = await authService.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Delete invitation - only sender can cancel
+      const { error } = await supabase
+        .from('team_challenge_invitations')
+        .delete()
+        .eq('id', invitationId)
+        .eq('invited_by', user.id) // Security: only sender can cancel
+        .eq('status', 'pending'); // Can only cancel pending invitations
+
+      if (error) throw error;
+
+      console.log('🗑️ [Team] Team challenge invitation cancelled');
+      return { error: null };
+    } catch (error) {
+      console.error('❌ [Team] Cancel team challenge invitation error:', error);
       return { error: error as Error };
     }
   }

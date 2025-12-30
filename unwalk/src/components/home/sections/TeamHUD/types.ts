@@ -27,6 +27,8 @@ export interface PendingChallenge {
   acceptedCount: number;
   pendingCount: number;
   currentUserId?: string;
+  isHost?: boolean; // 🎯 NEW: Is current user the host (creator) of the challenge
+  hostId?: string;  // 🎯 NEW: ID of the user who created the challenge
 }
 
 export interface TeamHUDProps {
@@ -37,6 +39,7 @@ export interface TeamHUDProps {
   onChallengeStarted?: () => void;
   onChallengeCancelled?: () => void;
   onChallengeEnded?: () => void; // 🎯 NEW: Callback when challenge ends
+  onRefresh?: () => Promise<void>; // 🎯 NEW: Manual refresh callback
 }
 
 // Re-export TeamMember for convenience

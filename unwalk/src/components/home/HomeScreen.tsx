@@ -57,6 +57,25 @@ export function HomeScreen() {
   // 🎯 Get sync function from HealthKit hook
   const { syncSteps } = useHealthKit();
 
+  // 🎯 NEW: Refresh function for carousel slides
+  const handleRefresh = async () => {
+    console.log('🔄 [HomeScreen] Manual refresh triggered...');
+    try {
+      // Sync HealthKit steps
+      await syncSteps();
+      
+      // Reload all data
+      await loadActiveChallenge();
+      await loadTeamChallenges();
+      await loadUnclaimedChallenges();
+      await reloadStats();
+      
+      console.log('✅ [HomeScreen] Refresh complete');
+    } catch (error) {
+      console.error('❌ [HomeScreen] Refresh failed:', error);
+    }
+  };
+
   // 🎯 NEW: Refresh steps and streak when Home screen opens
   useEffect(() => {
     const initializeHomeScreen = async () => {
@@ -235,14 +254,15 @@ export function HomeScreen() {
           currentStreak={gamificationStats?.current_streak || 0}
           xpReward={activeUserChallenge?.admin_challenge?.points || 0}
           todaySteps={todaySteps}
-          dailyStepGoal={dailyStepGoal || 10000} // 🎯 NEW: Pass daily step goal (default 10,000)
+          dailyStepGoal={dailyStepGoal || 10000}
           onSoloClick={handleSoloClick}
-          onTeamClick={() => setShowTeamSelectModal(true)} // 🎯 FIX: Use new Team selection modal
+          onTeamClick={() => setShowTeamSelectModal(true)}
           onDailyActivityClick={handleDailyActivityClick}
           onInviteMoreClick={handleInviteMoreClick}
           onChallengeStarted={handleChallengeStarted}
           onChallengeCancelled={handleChallengeCancelled}
           onChallengeEnded={handleChallengeEnded}
+          onRefresh={handleRefresh} // 🎯 NEW: Pass refresh callback
         />
 
         <PausedChallengesGrid

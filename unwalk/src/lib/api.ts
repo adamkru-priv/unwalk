@@ -111,50 +111,64 @@ export async function getActiveTeamChallenge(): Promise<UserChallenge | null> {
   // Get current user (for authenticated users)
   const { data: { user } } = await supabase.auth.getUser();
   
-  // 🎯 FIX: Correct Supabase syntax - use .not() with 'is' filter properly
-  // Build query - prioritize user_id for authenticated users
+  // 🎯 DEBUG: Log user info
+  console.log('🔍 [API] getActiveTeamChallenge - user:', user?.id, 'deviceId:', deviceId);
+  
+  // 🎯 FIX: Get STARTED team challenges only (team_id NOT NULL AND started_at NOT NULL)
   let query = supabase
     .from('user_challenges')
-    .select(`
-      *,
-      admin_challenge:admin_challenges(*)
-    `)
+    .select('*')
     .eq('status', 'active')
-    .not('team_id', 'is', null)  // ✅ FIXED: Correct syntax for team_id IS NOT NULL
+    .not('team_id', 'is', null)  // Has team_id
+    .not('started_at', 'is', null)  // ✅ NEW: Must be started
     .order('started_at', { ascending: false })
     .limit(1);
   
   if (user) {
     query = query.or(`user_id.eq.${user.id},device_id.eq.${deviceId}`);
-    console.log('🔍 [API] Searching for active TEAM challenge (team_id NOT NULL)');
+    console.log('🔍 [API] Searching for STARTED team challenge (started_at NOT NULL)');
   } else {
     query = query.eq('device_id', deviceId);
-    console.log('🔍 [API] Searching for active TEAM challenge by device_id (guest)');
+    console.log('🔍 [API] Searching for STARTED team challenge by device_id (guest)');
   }
   
   const { data, error } = await query;
 
+  // 🎯 DEBUG: Log raw response
+  console.log('🔍 [API] getActiveTeamChallenge - raw data:', data);
+  console.log('🔍 [API] getActiveTeamChallenge - error:', error);
+
   if (error) {
     console.error('❌ [API] Error loading team challenge:', error);
-    throw error;
+    return null;  // 🎯 FIX: Return null instead of throwing
   }
   
   if (!data || data.length === 0) {
-    console.log('ℹ️ [API] No active TEAM challenge found (no challenges with team_id)');
+    console.log('ℹ️ [API] No STARTED team challenge found');
     return null;
   }
   
   const challenge = data[0];
   
-  // 🎯 CRITICAL: Verify team_id is actually set
-  if (!challenge.team_id) {
-    console.error('❌ [API] WARNING: Challenge returned but team_id is NULL!', challenge);
-    return null; // Don't return challenges without team_id
+  // 🎯 CRITICAL: Verify team_id AND started_at are set
+  if (!challenge.team_id || !challenge.started_at) {
+    console.error('❌ [API] WARNING: Challenge returned but team_id or started_at is NULL!', challenge);
+    return null;
   }
   
-  console.log('✅ [API] Active TEAM challenge found:', challenge.admin_challenge?.title, '- team_id:', challenge.team_id);
+  // 🎯 FIX: Fetch admin_challenge separately to avoid ambiguous reference
+  const { data: adminChallenge } = await supabase
+    .from('admin_challenges')
+    .select('*')
+    .eq('id', challenge.admin_challenge_id)
+    .single();
   
-  return challenge;
+  console.log('✅ [API] STARTED team challenge found:', adminChallenge?.title, '- team_id:', challenge.team_id);
+  
+  return {
+    ...challenge,
+    admin_challenge: adminChallenge
+  };
 }
 
 // Get user's paused challenges (for Pro users)

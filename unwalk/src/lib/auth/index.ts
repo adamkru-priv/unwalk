@@ -9,6 +9,7 @@ export type {
   TeamMember,
   Team,
   TeamInvitation,
+  TeamChallengeInvitation,
   Badge,
   ChallengeAssignment,
 } from './types';

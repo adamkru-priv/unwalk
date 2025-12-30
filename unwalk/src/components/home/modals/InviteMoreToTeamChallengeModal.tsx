@@ -85,6 +85,20 @@ export function InviteMoreToTeamChallengeModal({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      // Get sender profile for email
+      const { data: senderProfile } = await supabase
+        .from('users')
+        .select('display_name, email')
+        .eq('id', user.id)
+        .single();
+
+      // Get challenge details
+      const { data: challenge } = await supabase
+        .from('admin_challenges')
+        .select('title, goal_steps, time_limit_hours')
+        .eq('id', challengeId)
+        .single();
+
       // Send invitations to selected members
       const invitations = Array.from(selectedFriends).map(memberId => ({
         invited_by: user.id,
@@ -101,6 +115,52 @@ export function InviteMoreToTeamChallengeModal({
         });
 
       if (inviteError) throw inviteError;
+
+      // 🎯 Send email + push notification for each invitation via Edge Function
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      for (const memberId of Array.from(selectedFriends)) {
+        try {
+          // Get recipient email
+          const { data: recipient } = await supabase
+            .from('users')
+            .select('email, display_name')
+            .eq('id', memberId)
+            .single();
+
+          if (!recipient?.email) {
+            console.warn(`No email found for user ${memberId}`);
+            continue;
+          }
+
+          const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-team-challenge-invitation`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseKey}`,
+            },
+            body: JSON.stringify({
+              recipientEmail: recipient.email,
+              recipientName: recipient.display_name || recipient.email.split('@')[0],
+              senderName: senderProfile?.display_name || senderProfile?.email?.split('@')[0] || 'Someone',
+              senderEmail: senderProfile?.email,
+              challengeTitle: challenge?.title || challengeTitle,
+              challengeGoalSteps: challenge?.goal_steps || 0,
+              challengeTimeLimit: challenge?.time_limit_hours || 0,
+              invitedUserId: memberId,
+            }),
+          });
+
+          if (!emailResponse.ok) {
+            console.error('❌ Failed to send invitation email:', await emailResponse.text());
+          } else {
+            console.log('📧 Invitation email sent to:', recipient.email);
+          }
+        } catch (emailError) {
+          console.error('❌ Email sending error:', emailError);
+        }
+      }
 
       const friendCount = selectedFriends.size;
       alert(`✅ Sent ${friendCount} invitation${friendCount > 1 ? 's' : ''}`);

@@ -9,21 +9,16 @@ const slide = {
 
 export function OnboardingScreen() {
   const setOnboardingComplete = useChallengeStore((s) => s.setOnboardingComplete);
+  const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
 
   // kept for future auth flow, but not used on the simplified first screen
   void useState;
 
   const handleGetStarted = () => {
-    // Start app as guest; user can sign in later from Profile.
+    // 🎯 CHANGED: Show auth screen instead of starting as guest immediately
+    // User can choose to sign in or continue as guest from the auth screen
     setOnboardingComplete(true);
-
-    const userProfile = useChallengeStore.getState().userProfile;
-    if (!userProfile || userProfile.is_guest) {
-      console.log('🔄 [Onboarding] Guest user - reloading page for clean state...');
-      setTimeout(() => window.location.reload(), 100);
-    } else {
-      useChallengeStore.setState({ currentScreen: 'whoToChallenge' });
-    }
+    setCurrentScreen('auth'); // Show AuthRequiredScreen with login options
   };
 
   return (
@@ -70,9 +65,9 @@ export function OnboardingScreen() {
                 Get started
               </motion.button>
 
-              {/* Helper text - moved here, closer to button */}
+              {/* Helper text */}
               <div className="mt-6 text-white/55 text-sm max-w-md">
-                Start as a guest. Sign in anytime to sync your progress and unlock team features.
+                Start as a guest or sign in to sync your progress and unlock team features.
               </div>
             </div>
           </div>

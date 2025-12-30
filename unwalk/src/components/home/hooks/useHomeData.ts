@@ -93,38 +93,68 @@ export function useHomeData() {
 
       // 🎯 FIX: Get team_id to find other team members
       const teamId = activeTeamChallenge.team_id || activeTeamChallenge.id;
+      const challengeId = activeTeamChallenge.admin_challenge_id;
       
-      // Load ALL user challenges with this team_id (including the current user's)
+      // 🎯 FIX: Load team challenges WITHOUT nested user select (to avoid ambiguous reference)
       const { data: teamChallenges, error: teamError } = await supabase
         .from('user_challenges')
-        .select(`
-          *,
-          user:users(id, display_name, avatar_url)
-        `)
+        .select('*')
         .eq('team_id', teamId)
         .eq('status', 'active');
 
       if (teamError) {
         console.error('Failed to load team members:', teamError);
+        setTeamChallenge(null);
+        setTeamMembers([]);
+        return;
       }
 
-      // Calculate total team steps and member contributions
+      // 🎯 NEW: Also load pending/accepted invitations for this challenge
+      const { data: invitations, error: invError } = await supabase
+        .from('team_challenge_invitations')
+        .select('invited_user, status')
+        .eq('challenge_id', challengeId)
+        .in('status', ['pending', 'accepted']);
+
+      if (invError) {
+        console.error('Failed to load team invitations:', invError);
+      }
+
+      // 🎯 NEW: Fetch user details separately for all team members + invited users
+      const challengeUserIds = [...new Set((teamChallenges || []).map(tc => tc.user_id).filter(Boolean))];
+      const invitedUserIds = [...new Set((invitations || []).map(inv => inv.invited_user).filter(Boolean))];
+      const allUserIds = [...new Set([...challengeUserIds, ...invitedUserIds])];
+
+      const { data: usersData } = await supabase
+        .from('users')
+        .select('id, display_name, avatar_url')
+        .in('id', allUserIds);
+
+      // Create user lookup map
+      const userMap = new Map(usersData?.map(u => [u.id, u]) || []);
+
+      // Calculate total team steps (only from active user_challenges)
       const totalTeamSteps = (teamChallenges || []).reduce((sum, tc) => sum + (tc.current_steps || 0), 0);
       
-      const members = (teamChallenges || []).map((tc: any) => {
+      // Members with active user_challenges
+      const activeMembers = (teamChallenges || []).map((tc: any) => {
         const isMe = tc.user_id === user.id;
+        const userData = userMap.get(tc.user_id);
         return {
           id: tc.user_id,
-          name: isMe ? 'You' : tc.user?.display_name || 'Unknown',
-          avatar: tc.user?.avatar_url,
+          name: isMe ? 'You' : userData?.display_name || 'Unknown',
+          avatar: userData?.avatar_url,
           steps: tc.current_steps || 0,
-          percentage: totalTeamSteps > 0 ? Math.round((tc.current_steps / totalTeamSteps) * 100) : 0
+          percentage: totalTeamSteps > 0 ? Math.round((tc.current_steps / totalTeamSteps) * 100) : 0,
         };
       });
 
+      // 🎯 FIX: Don't add pending invitations to teamMembers - they should be shown separately
+      // Invited members are handled by TeamChallengeSlots component separately
+
       setTeamChallenge(activeTeamChallenge);
-      setTeamMembers(members);
-      console.log('✅ [useHomeData] Loaded team challenge:', activeTeamChallenge.admin_challenge?.title, '- Members:', members.length, '- Total steps:', totalTeamSteps);
+      setTeamMembers(activeMembers); // Only active members
+      console.log('✅ [useHomeData] Loaded team challenge:', activeTeamChallenge.admin_challenge?.title, '- Active members:', activeMembers.length, '- Pending invitations:', (invitations || []).length, '- Total steps:', totalTeamSteps);
     } catch (err) {
       console.error('Failed to load team challenges:', err);
       setTeamChallenge(null);

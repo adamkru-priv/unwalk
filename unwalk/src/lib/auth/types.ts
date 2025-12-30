@@ -64,6 +64,25 @@ export interface TeamInvitation {
   recipient_avatar?: string;
 }
 
+// 🎯 NEW: Team Challenge Invitation (separate from regular team invitations)
+export interface TeamChallengeInvitation {
+  id: string;
+  invited_by: string;
+  invited_user: string;
+  challenge_id: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  invited_at: string;
+  responded_at: string | null;
+  // Joined data
+  sender_name?: string;
+  sender_email?: string;
+  sender_avatar?: string;
+  challenge_title?: string;
+  challenge_icon?: string;
+  challenge_goal_steps?: number;
+  challenge_time_limit_hours?: number;
+}
+
 export interface Badge {
   id: string;
   title: string;
