@@ -16,43 +16,23 @@ export function useHealthKit() {
   // Initial setup and authorization check
   useEffect(() => {
     (async () => {
-      const available = await healthKitService.isAvailable();
-      setIsAvailable(available);
+      try {
+        console.log('🔍 Checking Health Connect availability...');
+        const available = await healthKitService.isAvailable();
+        console.log('✅ Health Connect available:', available);
+        setIsAvailable(available);
 
-      if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios' && available) {
-        const granted = await healthKitService.requestAuthorization();
-        setIsAuthorized(granted);
-        setHealthConnected(granted);
-        
-        // 🎯 Immediately fetch steps after authorization
-        if (granted) {
-          try {
-            const steps = await healthKitService.getTodaySteps();
-            setTodaySteps(steps); // 🎯 Update global store
-            
-            // Sync to backend
-            try {
-              await syncDailySteps(steps);
-              console.log(`✅ Initial sync: ${steps} steps → ${Math.floor(steps / 1000)} Base XP`);
-              
-              // Update Daily Quest progress if quest is steps-based
-              try {
-                const quest = await getTodayQuest();
-                if (quest && quest.quest_type === 'steps' && !quest.claimed) {
-                  await updateQuestProgress(quest.id, steps);
-                  console.log(`✅ Updated Daily Quest progress: ${steps} / ${quest.target_value} steps`);
-                }
-              } catch (questError) {
-                console.error('Failed to update quest progress:', questError);
-              }
-            } catch (error) {
-              console.error('Failed to sync daily steps to backend:', error);
-            }
-          } catch (error) {
-            console.error('Failed to fetch initial steps:', error);
-          }
+        // 🎯 Only CHECK if authorized, don't REQUEST automatically
+        if (Capacitor.isNativePlatform() && available) {
+          // Check if we already have authorization (don't request it automatically)
+          // User needs to click "Connect" button to request permissions
+          setHealthConnected(false);
+        } else {
+          setHealthConnected(false);
         }
-      } else {
+      } catch (error) {
+        console.error('❌ Error initializing health kit:', error);
+        setIsAvailable(false);
         setHealthConnected(false);
       }
     })();

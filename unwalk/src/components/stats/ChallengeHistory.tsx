@@ -125,7 +125,7 @@ export function ChallengeHistory({ embedded = false }: ChallengeHistoryProps) {
                       )}
                     </div>
                     <div className="flex items-center gap-2 text-[13px] text-gray-500 dark:text-gray-400 mt-0.5">
-                      <span>{challenge.current_steps.toLocaleString()} steps</span>
+                      <span>{Math.min(challenge.current_steps, challenge.admin_challenge?.goal_steps || challenge.current_steps).toLocaleString()} steps</span>
                       <span>•</span>
                       <span>{formatDate(challenge.completed_at || challenge.claimed_at || '')}</span>
                     </div>

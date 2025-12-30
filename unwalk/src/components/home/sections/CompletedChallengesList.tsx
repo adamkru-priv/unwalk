@@ -65,12 +65,12 @@ export function CompletedChallengesList({ challenges, isGuest, onChallengeClick 
                     {challenge.admin_challenge?.title}
                   </h3>
                   <span className="flex-shrink-0 rounded-full border border-white/10 bg-black/20 px-2 py-1 text-[10px] font-bold text-white/60">
-                    {challenge.current_steps.toLocaleString()} steps
+                    {Math.min(challenge.current_steps, challenge.admin_challenge?.goal_steps || challenge.current_steps).toLocaleString()} steps
                   </span>
                 </div>
 
                 <div className="mt-1 text-xs text-white/55">
-                  ≈ {((challenge.current_steps * 0.8) / 1000).toFixed(1)} km
+                  ≈ {((Math.min(challenge.current_steps, challenge.admin_challenge?.goal_steps || challenge.current_steps) * 0.8) / 1000).toFixed(1)} km
                 </div>
 
                 <div className="mt-2 flex items-center justify-between">

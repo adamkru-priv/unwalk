@@ -1,5 +1,5 @@
 import { useChallengeStore } from '../../stores/useChallengeStore';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { AppHeader } from '../common/AppHeader';
 import { BottomNavigation } from '../common/BottomNavigation';
 import type { UserChallenge } from '../../types';
@@ -11,26 +11,32 @@ import { ModalManager } from './modals/ModalManager';
 import { useHomeData } from './hooks/useHomeData';
 import { useGamification } from './hooks/useGamification';
 import { useHealthKitSync } from './hooks/useHealthKitSync';
-import { useHealthKit } from '../../hooks/useHealthKit'; // 🎯 FIX: Import from correct location
+import { useHealthKit } from '../../hooks/useHealthKit';
+import { DailyStepsRewardModal } from './DailyStepsRewardModal';
+import { claimDailyStepsReward } from '../../lib/api';
 
 export function HomeScreen() {
   const [selectedCompletedChallenge, setSelectedCompletedChallenge] = useState<UserChallenge | null>(null);
   const [showJourneyModal, setShowJourneyModal] = useState(false);
-  const [showSoloSelectModal, setShowSoloSelectModal] = useState(false); // 🎯 NEW: Solo challenge selection
-  const [showTeamSelectModal, setShowTeamSelectModal] = useState(false); // 🎯 NEW: Team challenge selection
+  const [showSoloSelectModal, setShowSoloSelectModal] = useState(false);
+  const [showTeamSelectModal, setShowTeamSelectModal] = useState(false);
   const [showInviteMoreModal, setShowInviteMoreModal] = useState(false);
   const [inviteMoreData, setInviteMoreData] = useState<{
     challengeId: string;
     challengeTitle: string;
     alreadyInvitedUserIds: string[];
   } | null>(null);
+  
+  // 🎁 Daily steps reward modal
+  const [showDailyRewardModal, setShowDailyRewardModal] = useState(false);
+  const dailyRewardXP = 0;
 
   // Store state
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
   const pausedChallenges = useChallengeStore((s) => s.pausedChallenges);
   const userProfile = useChallengeStore((s) => s.userProfile);
-  const dailyStepGoal = useChallengeStore((s) => s.dailyStepGoal); // 🎯 NEW: Get daily step goal from store
-  const todaySteps = useChallengeStore((s) => s.todaySteps); // 🎯 NEW: Read from global store
+  const dailyStepGoal = useChallengeStore((s) => s.dailyStepGoal);
+  const todaySteps = useChallengeStore((s) => s.todaySteps);
   const resumeChallenge = useChallengeStore((s) => s.resumeChallenge);
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
   const setActiveChallenge = useChallengeStore((s) => s.setActiveChallenge);
@@ -51,13 +57,13 @@ export function HomeScreen() {
     reloadStats
   } = useGamification(isGuest, userProfile?.id);
   
-  // 🎯 FIX: Sync BOTH Solo and Team challenges with HealthKit
-  useHealthKitSync(activeUserChallenge, teamChallenge);
+  // 🎯 Only handle HealthKit permissions (no auto-sync)
+  useHealthKitSync();
 
   // 🎯 Get sync function from HealthKit hook
   const { syncSteps } = useHealthKit();
 
-  // 🎯 NEW: Refresh function for carousel slides
+  // 🎯 Manual refresh function for carousel slides (triggered by refresh button only)
   const handleRefresh = async () => {
     console.log('🔄 [HomeScreen] Manual refresh triggered...');
     try {
@@ -76,33 +82,34 @@ export function HomeScreen() {
     }
   };
 
-  // 🎯 NEW: Refresh steps and streak when Home screen opens
-  useEffect(() => {
-    const initializeHomeScreen = async () => {
-      // Sync steps from HealthKit
-      await syncSteps();
+  // 🎁 NEW: Manual check for daily steps reward (triggered by button click)
+  const handleCheckDailyReward = async () => {
+    // Open Journey modal to show daily quest
+    setShowJourneyModal(true);
+  };
+
+  // 🎁 NEW: Handle claiming daily steps reward
+  const handleClaimDailyReward = async () => {
+    try {
+      const success = await claimDailyStepsReward(todaySteps, dailyRewardXP);
       
-      // Update user streak (awards bonus XP at milestones)
-      if (!isGuest) {
-        try {
-          const { updateUserStreak } = await import('../../lib/gamification');
-          const result = await updateUserStreak();
-          if (result) {
-            console.log(`🔥 Streak updated: ${result.current_streak} days`);
-            if (result.streak_bonus_xp > 0) {
-              console.log(`✨ Streak milestone! +${result.streak_bonus_xp} XP`);
-            }
-            // Reload gamification stats to show updated streak and XP
-            await reloadStats();
-          }
-        } catch (error) {
-          console.error('Failed to update streak:', error);
-        }
+      if (success) {
+        console.log(`✅ Daily steps reward claimed: +${dailyRewardXP} XP`);
+        
+        // Reload gamification stats to update XP
+        await reloadStats();
+        
+        // Close modal
+        setShowDailyRewardModal(false);
+      } else {
+        console.error('❌ Failed to claim daily reward');
+        alert('Failed to claim reward. Please try again.');
       }
-    };
-    
-    initializeHomeScreen();
-  }, []); // Run once when component mounts
+    } catch (error) {
+      console.error('❌ Error claiming daily reward:', error);
+      alert('An error occurred. Please try again.');
+    }
+  };
 
   // Challenge handlers
   const handleClaimSuccess = async () => {
@@ -144,11 +151,6 @@ export function HomeScreen() {
     await loadActiveChallenge();
     await loadTeamChallenges();
     setShowTeamSelectModal(false);
-  };
-
-  // 🎯 Handler for daily activity card - opens quest modal (Journey Modal)
-  const handleDailyActivityClick = () => {
-    setShowJourneyModal(true);
   };
 
   const handleInviteMoreClick = (challengeId: string, challengeTitle: string, alreadyInvitedUserIds: string[]) => {
@@ -257,12 +259,12 @@ export function HomeScreen() {
           dailyStepGoal={dailyStepGoal || 10000}
           onSoloClick={handleSoloClick}
           onTeamClick={() => setShowTeamSelectModal(true)}
-          onDailyActivityClick={handleDailyActivityClick}
+          onCheckDailyReward={handleCheckDailyReward}
           onInviteMoreClick={handleInviteMoreClick}
           onChallengeStarted={handleChallengeStarted}
           onChallengeCancelled={handleChallengeCancelled}
           onChallengeEnded={handleChallengeEnded}
-          onRefresh={handleRefresh} // 🎯 NEW: Pass refresh callback
+          onRefresh={handleRefresh}
         />
 
         <PausedChallengesGrid
@@ -275,6 +277,15 @@ export function HomeScreen() {
       </main>
 
       <BottomNavigation currentScreen="home" />
+
+      {/* 🎁 NEW: Daily Steps Reward Modal */}
+      {showDailyRewardModal && (
+        <DailyStepsRewardModal
+          steps={todaySteps}
+          xpReward={dailyRewardXP}
+          onClaim={handleClaimDailyReward}
+        />
+      )}
     </div>
   );
 }

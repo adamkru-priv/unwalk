@@ -423,7 +423,7 @@ export function Dashboard() {
               <div className="grid grid-cols-3 gap-4 text-center mb-4">
                 {/* Steps */}
                 <div>
-                  <div className="text-2xl font-bold text-yellow-400">{activeUserChallenge.current_steps.toLocaleString()}</div>
+                  <div className="text-2xl font-bold text-yellow-400">{Math.min(activeUserChallenge.current_steps, activeUserChallenge.admin_challenge?.goal_steps || activeUserChallenge.current_steps).toLocaleString()}</div>
                   <div className="text-xs text-white/50 mt-1">steps</div>
                 </div>
                 {/* Remaining */}

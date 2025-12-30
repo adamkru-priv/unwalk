@@ -104,7 +104,7 @@ export interface XPTransaction {
   id: string;
   user_id: string;
   xp_amount: number;
-  source_type: 'challenge' | 'daily_quest' | 'streak_bonus' | 'badge' | 'milestone' | 'manual';
+  source_type: 'challenge' | 'daily_quest' | 'streak_bonus' | 'badge' | 'milestone' | 'manual' | 'daily_steps';
   source_id?: string;
   description?: string;
   created_at: string;

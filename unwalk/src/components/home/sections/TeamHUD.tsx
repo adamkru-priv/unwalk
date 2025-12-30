@@ -1,5 +1,5 @@
 import { useChallengeStore } from '../../../stores/useChallengeStore';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useTeamChallenge } from './TeamHUD/useTeamChallenge';
 import { useTeamChallengeActions } from './TeamHUD/useTeamChallengeActions';
 import type { TeamHUDProps } from './TeamHUD/types';
@@ -43,13 +43,6 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
       setIsRefreshing(false);
     }
   };
-
-  // 🎯 NEW: Refresh on mount (when slide becomes visible)
-  useEffect(() => {
-    if (teamChallenge) {
-      handleRefresh();
-    }
-  }, [teamChallenge?.id]); // Only when challenge changes
 
   // 🎯 NEW: Handle removing a member from the team
   const handleRemoveMember = async (memberId: string, memberName: string) => {

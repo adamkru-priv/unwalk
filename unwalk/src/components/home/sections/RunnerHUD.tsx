@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { UserChallenge } from '../../../types';
 import { useChallengeStore } from '../../../stores/useChallengeStore';
@@ -69,12 +69,6 @@ export function RunnerHUD({
       setIsRefreshing(false);
     }
   };
-
-  useEffect(() => {
-    if (activeChallenge) {
-      handleRefresh();
-    }
-  }, [activeChallenge?.id]);
 
   if (!activeChallenge) {
     const size = 280;

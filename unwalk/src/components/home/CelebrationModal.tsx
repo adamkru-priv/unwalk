@@ -179,41 +179,41 @@ export function CelebrationModal({ challenge, onClaim }: CelebrationModalProps) 
 
             <div className="grid grid-cols-2 gap-3 mb-6">
               {/* Steps */}
-              <div className="bg-gray-50 dark:bg.white/5 rounded-2xl p-4 border border-gray-200 dark:border-white/10">
-                <div className="text-3xl font-black text-gray-900 dark:text-white mb-1">
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/30 rounded-2xl p-4 border-2 border-blue-200 dark:border-blue-500/30">
+                <div className="text-3xl font-black text-blue-900 dark:text-blue-300 mb-1">
                   {totalSteps.toLocaleString()}
                 </div>
-                <div className="text-xs text-gray-600 dark:text-white/60 uppercase tracking-wide font-semibold">
+                <div className="text-xs text-blue-700 dark:text-blue-400 uppercase tracking-wide font-semibold">
                   Steps Taken
                 </div>
               </div>
 
               {/* Distance */}
-              <div className="bg-gray-50 dark:bg.white/5 rounded-2xl p-4 border border-gray-200 dark:border-white/10">
-                <div className="text-3xl font-black text-gray-900 dark:text-white mb-1">
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950/30 dark:to-purple-900/30 rounded-2xl p-4 border-2 border-purple-200 dark:border-purple-500/30">
+                <div className="text-3xl font-black text-purple-900 dark:text-purple-300 mb-1">
                   {totalDistance}km
                 </div>
-                <div className="text-xs text-gray-600 dark:text.white/60 uppercase tracking-wide font-semibold">
+                <div className="text-xs text-purple-700 dark:text-purple-400 uppercase tracking-wide font-semibold">
                   Distance
                 </div>
               </div>
 
               {/* Calories */}
-              <div className="bg-gray-50 dark:bg.white/5 rounded-2xl p-4 border border-gray-200 dark:border-white/10">
-                <div className="text-3xl font-black text-gray-900 dark:text-white mb-1">
+              <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950/30 dark:to-orange-900/30 rounded-2xl p-4 border-2 border-orange-200 dark:border-orange-500/30">
+                <div className="text-3xl font-black text-orange-900 dark:text-orange-300 mb-1">
                   {totalCalories}
                 </div>
-                <div className="text-xs text-gray-600 dark:text.white/60 uppercase tracking-wide font-semibold">
+                <div className="text-xs text-orange-700 dark:text-orange-400 uppercase tracking-wide font-semibold">
                   Calories
                 </div>
               </div>
 
               {/* Duration */}
-              <div className="bg-gray-50 dark:bg.white/5 rounded-2xl p-4 border border-gray-200 dark:border-white/10">
-                <div className="text-3xl font-black text-gray-900 dark:text-white mb-1">
+              <div className="bg-gradient-to-br from-teal-50 to-teal-100 dark:from-teal-950/30 dark:to-teal-900/30 rounded-2xl p-4 border-2 border-teal-200 dark:border-teal-500/30">
+                <div className="text-3xl font-black text-teal-900 dark:text-teal-300 mb-1">
                   {duration}
                 </div>
-                <div className="text-xs text-gray-600 dark:text.white/60 uppercase tracking-wide font-semibold">
+                <div className="text-xs text-teal-700 dark:text-teal-400 uppercase tracking-wide font-semibold">
                   Duration
                 </div>
               </div>

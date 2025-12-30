@@ -766,3 +766,102 @@ export async function getChallengeAssignmentsWithProgress(): Promise<ChallengeAs
     return [];
   }
 }
+
+// 🎁 NEW: Check and claim daily steps reward
+export async function checkAndClaimDailyStepsReward(steps: number): Promise<{
+  canClaim: boolean;
+  xpReward: number;
+  alreadyClaimed: boolean;
+} | null> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.log('👤 [API] Guest user - daily steps rewards only for authenticated users');
+      return null;
+    }
+
+    // Calculate XP reward based on steps achieved
+    let xpReward = 0;
+    if (steps >= 10000) {
+      xpReward = 50;
+    } else if (steps >= 5000) {
+      xpReward = 25;
+    } else {
+      // Goal not reached
+      return { canClaim: false, xpReward: 0, alreadyClaimed: false };
+    }
+
+    // Check if already claimed today
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    
+    const { data: existingClaim, error: checkError } = await supabase
+      .from('daily_steps_rewards')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('reward_date', today)
+      .maybeSingle();
+
+    if (checkError) {
+      console.error('❌ [API] Error checking daily reward:', checkError);
+      return null;
+    }
+
+    if (existingClaim) {
+      console.log('ℹ️ [API] Daily steps reward already claimed for today');
+      return { canClaim: false, xpReward, alreadyClaimed: true };
+    }
+
+    // Can claim!
+    return { canClaim: true, xpReward, alreadyClaimed: false };
+  } catch (error) {
+    console.error('❌ [API] checkAndClaimDailyStepsReward error:', error);
+    return null;
+  }
+}
+
+// 🎁 NEW: Claim daily steps reward (called after user clicks "Claim")
+export async function claimDailyStepsReward(steps: number, xpReward: number): Promise<boolean> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.log('👤 [API] Guest user - cannot claim daily steps reward');
+      return false;
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+
+    // Insert claim record
+    const { error: insertError } = await supabase
+      .from('daily_steps_rewards')
+      .insert({
+        user_id: user.id,
+        reward_date: today,
+        steps_count: steps,
+        xp_reward: xpReward,
+        claimed_at: new Date().toISOString(),
+      });
+
+    if (insertError) {
+      console.error('❌ [API] Error claiming daily reward:', insertError);
+      return false;
+    }
+
+    // Add XP to user (using 'daily_steps' type so it shows in history)
+    const result = await addXPToUser(
+      xpReward,
+      'daily_steps',
+      undefined,
+      `Daily Steps Reward (${steps.toLocaleString()} steps)`
+    );
+
+    if (result) {
+      console.log(`✅ [API] Claimed daily steps reward: +${xpReward} XP`);
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    console.error('❌ [API] claimDailyStepsReward error:', error);
+    return false;
+  }
+}

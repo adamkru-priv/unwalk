@@ -62,7 +62,7 @@ export function ChallengeCard({ challenge }: ChallengeCardProps) {
           <div className="flex items-end justify-between mb-3">
             <div>
               <p className="text-3xl font-bold">
-                {challenge.current_steps.toLocaleString()}
+                {Math.min(challenge.current_steps, goalSteps).toLocaleString()}
               </p>
               <p className="text-sm opacity-90">
                 / {goalSteps.toLocaleString()} steps

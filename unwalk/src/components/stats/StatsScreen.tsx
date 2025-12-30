@@ -112,7 +112,7 @@ export function StatsScreen({ embedded = false }: StatsScreenProps) {
             <div className="text-center">
               <h3 className="text-xl font-bold text-white mb-2">{selectedChallenge.admin_challenge?.title}</h3>
               <p className="text-white/60 text-sm">
-                {selectedChallenge.current_steps.toLocaleString()} steps • {((selectedChallenge.current_steps * 0.8) / 1000).toFixed(1)}km
+                {Math.min(selectedChallenge.current_steps, selectedChallenge.admin_challenge?.goal_steps || selectedChallenge.current_steps).toLocaleString()} steps • {((Math.min(selectedChallenge.current_steps, selectedChallenge.admin_challenge?.goal_steps || selectedChallenge.current_steps) * 0.8) / 1000).toFixed(1)}km
               </p>
             </div>
           </div>
@@ -247,9 +247,9 @@ export function StatsScreen({ embedded = false }: StatsScreenProps) {
 
                       {/* Stats Row */}
                       <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-white/60 mb-1.5">
-                        <span>{challenge.current_steps.toLocaleString()} steps</span>
+                        <span>{Math.min(challenge.current_steps, challenge.admin_challenge?.goal_steps || challenge.current_steps).toLocaleString()} steps</span>
                         <span>•</span>
-                        <span>{((challenge.current_steps * 0.8) / 1000).toFixed(1)}km</span>
+                        <span>{((Math.min(challenge.current_steps, challenge.admin_challenge?.goal_steps || challenge.current_steps) * 0.8) / 1000).toFixed(1)}km</span>
                         <span>•</span>
                         <span>{formatActiveTime(challenge)}</span>
                       </div>

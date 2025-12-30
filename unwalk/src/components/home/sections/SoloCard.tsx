@@ -93,7 +93,7 @@ export function SoloCard({ activeChallenge, progress, onClick, variant = 'stack'
               <div>
                 {/* Steps info */}
                 <div className="flex items-center justify-between text-white/90 text-sm font-semibold mb-3">
-                  <span>{activeChallenge.current_steps.toLocaleString()} / {activeChallenge.admin_challenge?.goal_steps.toLocaleString()} steps</span>
+                  <span>{Math.min(activeChallenge.current_steps, activeChallenge.admin_challenge?.goal_steps || activeChallenge.current_steps).toLocaleString()} / {activeChallenge.admin_challenge?.goal_steps.toLocaleString()} steps</span>
                   {xpReward > 0 && <span className="text-yellow-400 text-xs font-black">💎 +{xpReward} XP</span>}
                 </div>
 

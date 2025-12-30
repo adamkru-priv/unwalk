@@ -9,6 +9,7 @@ import { ThemeSelector } from './ThemeSelector';
 import { PausedChallengesWarning } from './PausedChallengesWarning';
 import { APP_VERSION } from '../../version';
 import { useHealthKit } from '../../hooks/useHealthKit';
+import { Capacitor } from '@capacitor/core';
 
 export function ProfileScreen() {
   const setUserTier = useChallengeStore((s) => s.setUserTier);
@@ -24,6 +25,10 @@ export function ProfileScreen() {
 
   const isGuest = userProfile?.is_guest || false;
 
+  // 🎯 Determine health service name based on platform
+  const platform = Capacitor.getPlatform();
+  const healthServiceName = platform === 'ios' ? 'Apple Health' : platform === 'android' ? 'Health Connect' : 'Health Data';
+
   const {
     isNative,
     isAvailable: healthKitAvailable,
@@ -33,6 +38,18 @@ export function ProfileScreen() {
     syncSteps: refreshHealthKitSteps,
     todaySteps,
   } = useHealthKit();
+
+  // 🔍 DEBUG: Log health kit status on Android
+  useEffect(() => {
+    console.log('🔍 [ProfileScreen] Health Kit Status:', {
+      platform: Capacitor.getPlatform(),
+      isNative,
+      healthKitAvailable,
+      healthKitAuthorized,
+      isHealthConnected,
+      healthKitLoading,
+    });
+  }, [isNative, healthKitAvailable, healthKitAuthorized, isHealthConnected, healthKitLoading]);
 
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'email' | 'verify-otp'>('email');
@@ -315,11 +332,13 @@ export function ProfileScreen() {
             </button>
           )}
 
-          {/* Apple Health */}
+          {/* Health Data Integration (HealthKit on iOS, Health Connect on Android) */}
           <div className="bg-white dark:bg-[#151A25] rounded-2xl px-4 py-3.5 shadow-sm border border-gray-100 dark:border-white/5">
             <div className="flex items-center justify-between">
               <div className="flex-1 min-w-0">
-                <div className="text-[15px] font-medium text-gray-900 dark:text-white">Apple Health</div>
+                <div className="text-[15px] font-medium text-gray-900 dark:text-white">
+                  {healthServiceName}
+                </div>
                 <div className="text-[13px] text-gray-500 dark:text-gray-400">
                   {isNative && healthKitAvailable
                     ? isHealthConnected
@@ -333,8 +352,13 @@ export function ProfileScreen() {
                 <button
                   disabled={healthKitLoading}
                   onClick={async () => {
+                    console.log('🔵 [Profile] Connect/Sync button clicked');
                     const ok = await connectHealthKit();
-                    if (ok) await refreshHealthKitSteps();
+                    console.log('🔵 [Profile] connectHealthKit result:', ok);
+                    if (ok) {
+                      await refreshHealthKitSteps();
+                      console.log('🔵 [Profile] Steps synced');
+                    }
                   }}
                   className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-[13px] font-medium transition-colors"
                 >

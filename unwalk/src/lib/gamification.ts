@@ -55,7 +55,7 @@ export async function getUserGamificationStats(): Promise<UserGamificationStats 
 // Add XP to user (with level-up logic)
 export async function addXPToUser(
   xpAmount: number,
-  sourceType: 'challenge' | 'daily_quest' | 'streak_bonus' | 'badge' | 'milestone' | 'manual',
+  sourceType: 'challenge' | 'daily_quest' | 'streak_bonus' | 'badge' | 'milestone' | 'manual' | 'daily_steps',
   sourceId?: string,
   description?: string
 ): Promise<LevelUpResult | null> {

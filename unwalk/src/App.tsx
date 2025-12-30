@@ -360,6 +360,68 @@ function App() {
         // Clear URL params
         window.history.replaceState({}, '', '/app');
       }
+
+      // ✅ NEW: Handle team challenge invitation deep link
+      if (action === 'accept_team_challenge' && invitationId) {
+        console.log('🔗 [App] Deep link detected: accept_team_challenge', invitationId);
+
+        // Check if user is authenticated
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session?.user?.id) {
+          // User not logged in - save invitation ID and show onboarding
+          console.log('👤 [App] User not logged in - saving team challenge invitation for later');
+          localStorage.setItem('pending_team_challenge', invitationId);
+          
+          // Clear URL params
+          window.history.replaceState({}, '', '/app');
+          
+          addToast({ 
+            message: 'Please sign in to accept the team challenge', 
+            type: 'info',
+            duration: 5000
+          });
+          return;
+        }
+
+        // User is logged in - accept team challenge invitation
+        console.log('✅ [App] User is logged in - accepting team challenge invitation');
+        
+        try {
+          const { data, error } = await supabase
+            .from('team_challenge_invitations')
+            .update({ status: 'accepted' })
+            .eq('id', invitationId)
+            .select()
+            .single();
+          
+          if (error) {
+            console.error('❌ [App] Failed to accept team challenge:', error);
+            addToast({ 
+              message: 'Failed to accept team challenge: ' + error.message, 
+              type: 'error' 
+            });
+          } else {
+            console.log('🎉 [App] Team challenge accepted!', data);
+            addToast({ 
+              message: 'Team challenge accepted! 🎉', 
+              type: 'success' 
+            });
+            
+            // Navigate to home screen to see the challenge
+            useChallengeStore.setState({ currentScreen: 'home' });
+          }
+        } catch (error) {
+          console.error('❌ [App] Error accepting team challenge:', error);
+          addToast({ 
+            message: 'Failed to accept team challenge', 
+            type: 'error' 
+          });
+        }
+        
+        // Clear URL params
+        window.history.replaceState({}, '', '/app');
+      }
     };
 
     // Run on mount and when app becomes ready

@@ -1,17 +1,19 @@
 import { Capacitor } from '@capacitor/core';
 
-// Native-only plugin loader.
-// Prefer Capacitor.Plugins (native runtime) and fall back to dynamic import
-// for environments where bundling provides the module.
+// Native-only plugin loader - no static imports
+// Load plugin only from Capacitor runtime to avoid bundler issues
 function getMoveeHealthKitPlugin(): any {
+  // ONLY use Capacitor runtime plugins - no bundled imports
   const plugins: any = (Capacitor as any).Plugins;
-  return plugins?.MoveeHealthKit;
+  return plugins?.MoveeHealthKit || null;
 }
 
 async function loadMoveeHealthKit() {
   const plugin = getMoveeHealthKitPlugin();
-  if (plugin) return { MoveeHealthKit: plugin };
-  return import('capacitor-movee-healthkit');
+  if (!plugin) {
+    throw new Error('MoveeHealthKit plugin not available');
+  }
+  return { MoveeHealthKit: plugin };
 }
 
 // Types dla HealthKit
@@ -41,18 +43,20 @@ class HealthKitNativeService implements HealthKitService {
   }
 
   async isAvailable(): Promise<boolean> {
-    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'ios') {
-      console.log('❌ HealthKit: Not iOS platform');
+    // 🎯 Support both iOS (HealthKit) and Android (Health Connect)
+    if (!Capacitor.isNativePlatform()) {
+      console.log('❌ Health: Not a native platform');
       return false;
     }
 
     try {
       const { MoveeHealthKit } = await loadMoveeHealthKit();
       const result = await MoveeHealthKit.isAvailable();
-      console.log('✅ HealthKit available:', result.available);
+      const platform = Capacitor.getPlatform();
+      console.log(`✅ Health available on ${platform}:`, result.available);
       return result.available;
     } catch (error) {
-      console.error('❌ HealthKit availability check failed:', error);
+      console.error('❌ Health availability check failed:', error);
       return false;
     }
   }

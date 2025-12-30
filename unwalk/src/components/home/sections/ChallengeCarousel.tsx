@@ -19,16 +19,16 @@ interface ChallengeCarouselProps {
   progress: number;
   currentStreak: number;
   xpReward: number;
-  todaySteps: number; // 🎯 NEW: Today's steps from Apple Health
-  dailyStepGoal: number; // 🎯 NEW: Daily step goal from user profile
+  todaySteps: number;
+  dailyStepGoal: number;
   onSoloClick: () => void;
   onTeamClick: () => void;
-  onDailyActivityClick?: () => void; // 🎯 NEW: Handler for daily activity card
-  onInviteMoreClick?: (challengeId: string, challengeTitle: string, alreadyInvitedUserIds: string[]) => void; // 🎯 NEW
-  onChallengeStarted?: () => void; // 🎯 NEW: Refresh after challenge starts
-  onChallengeCancelled?: () => void; // 🎯 NEW: Refresh after challenge cancelled
-  onChallengeEnded?: () => void; // 🎯 NEW: Refresh after challenge ends
-  onRefresh?: () => Promise<void>; // 🎯 NEW: Manual refresh callback for all slides
+  onCheckDailyReward?: () => void; // 🎁 Handler for checking daily reward
+  onInviteMoreClick?: (challengeId: string, challengeTitle: string, alreadyInvitedUserIds: string[]) => void;
+  onChallengeStarted?: () => void;
+  onChallengeCancelled?: () => void;
+  onChallengeEnded?: () => void;
+  onRefresh?: () => Promise<void>;
 }
 
 export function ChallengeCarousel({
@@ -36,16 +36,16 @@ export function ChallengeCarousel({
   teamChallenge,
   teamMembers,
   todaySteps,
-  dailyStepGoal, // 🎯 NEW
+  dailyStepGoal,
   onSoloClick,
   onTeamClick,
-  onDailyActivityClick,
+  onCheckDailyReward,
   onInviteMoreClick,
   onChallengeStarted,
   onChallengeCancelled,
   onChallengeEnded,
   xpReward,
-  onRefresh // 🎯 NEW
+  onRefresh
 }: ChallengeCarouselProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [touchStart, setTouchStart] = useState(0);
@@ -133,8 +133,8 @@ export function ChallengeCarousel({
             <DailyActivityHUD
               todaySteps={todaySteps}
               dailyStepGoal={dailyStepGoal}
-              onClick={onDailyActivityClick || (() => setCurrentSlide(1))}
-              onRefresh={onRefresh} // 🎯 NEW: Pass refresh callback
+              onRefresh={onRefresh}
+              onCheckDailyReward={onCheckDailyReward}
             />
           </div>
 

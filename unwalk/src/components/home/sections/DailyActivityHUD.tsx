@@ -4,11 +4,11 @@ import { useHealthKit } from '../../../hooks/useHealthKit';
 interface DailyActivityHUDProps {
   todaySteps: number;
   dailyStepGoal: number;
-  onClick: () => void;
-  onRefresh?: () => Promise<void>; // 🎯 NEW: Manual refresh callback
+  onRefresh?: () => Promise<void>;
+  onCheckDailyReward?: () => void; // 🎁 Handler for checking daily reward
 }
 
-export function DailyActivityHUD({ todaySteps, dailyStepGoal = 10000, onClick, onRefresh }: DailyActivityHUDProps) {
+export function DailyActivityHUD({ todaySteps, dailyStepGoal = 10000, onRefresh, onCheckDailyReward }: DailyActivityHUDProps) {
   const { syncSteps, isNative, isAuthorized } = useHealthKit();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -127,12 +127,12 @@ export function DailyActivityHUD({ todaySteps, dailyStepGoal = 10000, onClick, o
           </p>
         </div>
 
-        {/* View Details Button */}
+        {/* Check Daily Reward Button */}
         <button 
-          onClick={onClick}
+          onClick={onCheckDailyReward}
           className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-4 rounded-2xl font-bold text-base shadow-lg hover:shadow-xl active:scale-98 transition-all duration-200 flex items-center justify-center gap-2"
         >
-          View Challenge Details
+          Check Daily Reward
           <svg 
             className="w-5 h-5" 
             fill="none" 

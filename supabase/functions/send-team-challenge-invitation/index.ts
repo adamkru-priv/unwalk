@@ -32,7 +32,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    const acceptLink = `https://movee.one/app?action=accept_team_challenge&id=${invitationId}`;
+    const acceptLink = `movee://accept_team_challenge?id=${invitationId}`;
+    const webFallback = `https://movee.one/app?action=accept_team_challenge&id=${invitationId}`;
 
     const { data, error } = await resend.emails.send({
       from: "MOVEE <noreply@mail.movee.one>",
@@ -50,7 +51,8 @@ Deno.serve(async (req) => {
           <div style="text-align:center;margin:32px 0">
             <a href="${acceptLink}" style="background:linear-gradient(135deg, #f97316 0%, #ec4899 100%);color:white;padding:16px 40px;text-decoration:none;border-radius:12px;display:inline-block;font-weight:bold;font-size:16px">Accept Invitation</a>
           </div>
-          <p style="color:#6b7280;font-size:12px;text-align:center">Or copy this link: ${acceptLink}</p>
+          <p style="color:#6b7280;font-size:12px;text-align:center">Open in app: ${acceptLink}</p>
+          <p style="color:#6b7280;font-size:12px;text-align:center">Or use web: ${webFallback}</p>
         </div>
       </div>`,
     });
