@@ -510,8 +510,8 @@ function App() {
           // Accept both movee://auth/callback and any URL containing auth/callback
           if (!url.includes('auth/callback')) return;
 
-          // UX: Let user know we're finishing sign-in
-          addToast({ message: 'Signing you in…', type: 'info', duration: 8000 });
+          // 🎯 REMOVED: Toast "Signing you in…" - we have fullscreen loading overlay in AuthRequiredScreen
+          // addToast({ message: 'Signing you in…', type: 'info', duration: 8000 });
 
           const parsed = new URL(url);
 

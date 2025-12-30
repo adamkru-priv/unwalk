@@ -11,12 +11,33 @@ interface DailyActivityHUDProps {
 export function DailyActivityHUD({ todaySteps, dailyStepGoal = 10000, onClick, onRefresh }: DailyActivityHUDProps) {
   const { syncSteps, isNative, isAuthorized } = useHealthKit();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isBackgroundRefresh, setIsBackgroundRefresh] = useState(false); // 🎯 NEW: Silent background refresh
 
-  // 🎯 REMOVED: Auto-refresh interval - now manual only
+  // 🎯 NEW: Background refresh - no loading spinner, just update data
+  const handleBackgroundRefresh = async () => {
+    if (isBackgroundRefresh) return; // Already refreshing in background
+    
+    setIsBackgroundRefresh(true);
+    try {
+      // Sync HealthKit steps silently
+      if (isNative && isAuthorized) {
+        await syncSteps();
+      }
+      
+      // Call parent refresh callback silently
+      if (onRefresh) {
+        await onRefresh();
+      }
+    } catch (error) {
+      console.error('[DailyActivityHUD] Background refresh failed:', error);
+    } finally {
+      setIsBackgroundRefresh(false);
+    }
+  };
   
-  // 🎯 NEW: Manual refresh function - called on mount and click
-  const handleRefresh = async () => {
-    if (isRefreshing) return;
+  // 🎯 NEW: Manual refresh function - shows loading spinner
+  const handleManualRefresh = async () => {
+    if (isRefreshing || isBackgroundRefresh) return;
     
     setIsRefreshing(true);
     try {
@@ -30,15 +51,15 @@ export function DailyActivityHUD({ todaySteps, dailyStepGoal = 10000, onClick, o
         await onRefresh();
       }
     } catch (error) {
-      console.error('[DailyActivityHUD] Refresh failed:', error);
+      console.error('[DailyActivityHUD] Manual refresh failed:', error);
     } finally {
       setIsRefreshing(false);
     }
   };
 
-  // 🎯 NEW: Refresh on mount (when slide becomes visible)
+  // 🎯 NEW: Silent background refresh on mount (when slide becomes visible)
   useEffect(() => {
-    handleRefresh();
+    handleBackgroundRefresh();
   }, []); // Only on mount
 
   const progressPercent = Math.min(100, Math.round((todaySteps / dailyStepGoal) * 100));
@@ -61,7 +82,7 @@ export function DailyActivityHUD({ todaySteps, dailyStepGoal = 10000, onClick, o
         {/* Progress Ring - 🎯 CHANGED: Click to refresh, not expand */}
         <div 
           className="flex justify-center mb-6 cursor-pointer group"
-          onClick={handleRefresh}
+          onClick={handleManualRefresh}
         >
           <div className="relative transition-transform duration-200 group-hover:scale-105" style={{ width: size, height: size }}>
             <svg className="transform -rotate-90" width={size} height={size}>
