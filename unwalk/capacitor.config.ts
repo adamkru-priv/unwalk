@@ -6,8 +6,13 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     androidScheme: 'https',
-    // iOS: start inside the SPA bundle
-    appStartPath: 'app/app.html',
+    iosScheme: 'capacitor',
+  },
+  ios: {
+    contentInset: 'never',
+  },
+  android: {
+    allowMixedContent: false,
   },
   plugins: {
     SplashScreen: {

@@ -318,6 +318,17 @@
 
     <script>
       (function () {
+        // Check if running in Capacitor (native app)
+        const isCapacitor = window.Capacitor !== undefined;
+        
+        if (isCapacitor) {
+          // Redirect to the SPA immediately on native apps
+          console.log('[Landing] Capacitor detected, redirecting to SPA...');
+          window.location.href = '/app/app.html';
+          return;
+        }
+
+        // Web browser - set up normal links
         const links = [
           document.getElementById('moveeAppLink'),
           document.getElementById('moveeAppLink2'),

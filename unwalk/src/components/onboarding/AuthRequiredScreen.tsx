@@ -9,6 +9,7 @@ export const AuthRequiredScreen = () => {
   const [otp, setOtp] = useState('');
   const [step, setStep] = useState<'signin' | 'email' | 'otp'>('signin'); // 🎯 NEW: Start with sign-in options
   const [isLoading, setIsLoading] = useState(false);
+  const [isOAuthLoading, setIsOAuthLoading] = useState(false); // 🎯 NEW: Separate state for OAuth
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
   const setOnboardingComplete = useChallengeStore((s) => s.setOnboardingComplete);
   const addToast = useToastStore((s) => s.addToast);
@@ -18,15 +19,37 @@ export const AuthRequiredScreen = () => {
   };
 
   const handleAppleSignIn = async () => {
+    setIsOAuthLoading(true); // 🎯 NEW: Show fullscreen loading
     setIsLoading(true);
     try {
       const { error } = await authService.signInWithApple();
       if (error) {
         addToast({ message: error.message || 'Apple sign-in failed', type: 'error' });
+        setIsOAuthLoading(false); // 🎯 Hide loading on error
+        setIsLoading(false);
       }
+      // Don't hide loading on success - wait for App.tsx to handle callback
     } catch (e: any) {
       addToast({ message: e?.message || 'Apple sign-in failed', type: 'error' });
-    } finally {
+      setIsOAuthLoading(false); // 🎯 Hide loading on error
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setIsOAuthLoading(true); // 🎯 NEW: Show fullscreen loading
+    setIsLoading(true);
+    try {
+      const { error } = await authService.signInWithGoogle();
+      if (error) {
+        addToast({ message: error.message || 'Google sign-in failed', type: 'error' });
+        setIsOAuthLoading(false); // 🎯 Hide loading on error
+        setIsLoading(false);
+      }
+      // Don't hide loading on success - wait for App.tsx to handle callback
+    } catch (e: any) {
+      addToast({ message: e?.message || 'Google sign-in failed', type: 'error' });
+      setIsOAuthLoading(false); // 🎯 Hide loading on error
       setIsLoading(false);
     }
   };
@@ -103,6 +126,15 @@ export const AuthRequiredScreen = () => {
   if (step === 'signin') {
     return (
       <div className="min-h-screen bg-gradient-to-b from-[#0B101B] to-[#151A25] flex flex-col">
+        {/* 🎯 NEW: Fullscreen OAuth Loading Overlay */}
+        {isOAuthLoading && (
+          <div className="fixed inset-0 z-50 bg-[#0B101B]/95 backdrop-blur-sm flex flex-col items-center justify-center">
+            <div className="w-16 h-16 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mb-6"></div>
+            <p className="text-white text-lg font-bold mb-2">Signing you in...</p>
+            <p className="text-white/60 text-sm">Please wait, do not close this window</p>
+          </div>
+        )}
+
         {/* Back Button */}
         <div className="px-6 pt-8">
           <button
@@ -178,10 +210,11 @@ export const AuthRequiredScreen = () => {
                 </div>
               </button>
 
-              {/* Google Sign In (disabled) */}
+              {/* Google Sign In */}
               <button
-                disabled
-                className="w-full flex items-center gap-4 px-5 py-4 bg-white/5 border border-white/10 rounded-2xl opacity-50 cursor-not-allowed"
+                onClick={handleGoogleSignIn}
+                disabled={isLoading}
+                className="w-full flex items-center gap-4 px-5 py-4 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition-all disabled:opacity-50"
               >
                 <div className="h-12 w-12 rounded-full grid place-items-center bg-white border border-gray-200 shadow-lg shadow-black/10 flex-shrink-0">
                   <svg className="w-6 h-6" viewBox="0 0 48 48" aria-hidden="true">
@@ -193,7 +226,7 @@ export const AuthRequiredScreen = () => {
                 </div>
                 <div className="flex-1 text-left">
                   <div className="text-white font-bold">Continue with Google</div>
-                  <div className="text-white/50 text-sm">Coming soon</div>
+                  <div className="text-white/50 text-sm">Quick & secure</div>
                 </div>
               </button>
             </motion.div>
@@ -308,6 +341,15 @@ export const AuthRequiredScreen = () => {
   // OTP Step
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0B101B] to-[#151A25] flex flex-col">
+      {/* 🎯 NEW: Fullscreen OAuth Loading Overlay */}
+      {isOAuthLoading && (
+        <div className="fixed inset-0 z-50 bg-[#0B101B]/95 backdrop-blur-sm flex flex-col items-center justify-center">
+          <div className="w-16 h-16 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mb-6"></div>
+          <p className="text-white text-lg font-bold mb-2">Signing you in...</p>
+          <p className="text-white/60 text-sm">Please wait, do not close this window</p>
+        </div>
+      )}
+
       {/* Back Button */}
       <div className="px-6 pt-8">
         <button

@@ -329,14 +329,37 @@ class AuthService {
    */
   async signInWithGoogle(): Promise<{ error: Error | null }> {
     try {
-      // Use the same hosted callback page as Apple.
-      const redirectTo = 'https://movee.one/auth/callback';
+      console.log('🔵 [Auth] signInWithGoogle: starting');
 
-      const { error } = await supabase.auth.signInWithOAuth({
+      // Check if we're on native platform
+      let isNative = false;
+      try {
+        const { Capacitor } = await import('@capacitor/core');
+        isNative = Capacitor.isNativePlatform();
+      } catch {
+        isNative = false;
+      }
+
+      // ✅ Use different redirect URLs for web vs native (same as Apple)
+      // - Native (iOS/Android): Use hosted callback page that does deep link back to app
+      // - Web: Redirect back to the web app directly
+      const redirectTo = isNative 
+        ? 'https://movee.one/auth/callback'  // Native: Deep link page
+        : window.location.origin + '/app/';  // Web: Back to app
+
+      console.log('🔵 [Auth] signInWithGoogle redirectTo:', redirectTo, 'isNative:', isNative);
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo,
         },
+      });
+
+      console.log('🔵 [Auth] signInWithGoogle result:', {
+        hasData: !!data,
+        url: (data as any)?.url,
+        error: error ? { name: error.name, message: error.message } : null,
       });
 
       if (error) throw error;

@@ -566,6 +566,9 @@ function App() {
             setUserTier(profile.tier);
             setDailyStepGoal(profile.daily_step_goal);
             
+            // 🎯 FIX: Show welcome toast BEFORE navigating
+            addToast({ message: 'Welcome! 🎉', type: 'success', duration: 2500 });
+            
             // 🎯 FIX: Navigate to appropriate screen after successful OAuth
             const currentScreen = useChallengeStore.getState().currentScreen;
             const activeChallenge = useChallengeStore.getState().activeUserChallenge;
@@ -580,8 +583,6 @@ function App() {
                 useChallengeStore.setState({ currentScreen: 'home' });
               }
             }
-            
-            addToast({ message: 'Signed in! 🎉', type: 'success', duration: 2500 });
           }
         } catch (e) {
           console.error('❌ [Auth] appUrlOpen handler error:', e);
