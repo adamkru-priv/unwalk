@@ -7,18 +7,21 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https',
     iosScheme: 'capacitor',
-    // 🎯 Android uses index.html auto-redirect, iOS uses appStartPath in JSON config
+    // 🎯 ANDROID ONLY: Remove appStartPath, use index.html auto-redirect
+    // 🎯 iOS needs this via platform override below
   },
   ios: {
     contentInset: 'never',
+    // 🎯 iOS will use server.appStartPath from platform override
   },
   android: {
     allowMixedContent: false,
+    // 🎯 Android: index.html detects Capacitor and auto-redirects to /app/app.html
   },
   plugins: {
     SplashScreen: {
       launchShowDuration: 2000,
-      backgroundColor: '#0B101B', // Match app background
+      backgroundColor: '#0B101B',
       showSpinner: false,
       androidSpinnerStyle: 'large',
       iosSpinnerStyle: 'small',
@@ -26,9 +29,9 @@ const config: CapacitorConfig = {
       splashImmersive: true,
     },
     StatusBar: {
-      style: 'DARK', // Light text (white) for dark background
-      backgroundColor: '#0B101B', // Match app background
-      overlaysWebView: true, // Let the app content flow under the status bar
+      style: 'DARK',
+      backgroundColor: '#0B101B',
+      overlaysWebView: true,
     },
   },
 };

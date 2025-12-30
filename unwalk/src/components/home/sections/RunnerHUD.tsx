@@ -55,6 +55,7 @@ export function RunnerHUD({
     
     setIsRefreshing(true);
     try {
+      // 🎯 OPTIMISTIC UI: Refresh in background without blocking UI
       if (isNative && isAuthorized) {
         await syncSteps();
       }
@@ -310,28 +311,22 @@ export function RunnerHUD({
               </svg>
 
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                {isRefreshing ? (
-                  <div className="text-blue-600 dark:text-blue-400 animate-spin">
-                    <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                  </div>
-                ) : (
-                  <>
-                    <div className="text-5xl font-black text-gray-900 dark:text-white mb-1">
-                      {currentSteps.toLocaleString()}
-                    </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400 font-semibold">
-                      / {goalSteps.toLocaleString()} steps
-                    </div>
-                    <div className="mt-2 text-lg font-black text-blue-600 dark:text-blue-400">
-                      {progressPercent}%
-                    </div>
-                  </>
-                )}
-                <div className="mt-2 text-xs text-gray-400 dark:text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                  👆 Tap to refresh
+                {/* 🎯 OPTIMISTIC UI: Always show steps, never show spinner */}
+                <div className="text-5xl font-black text-gray-900 dark:text-white mb-1">
+                  {currentSteps.toLocaleString()}
                 </div>
+                <div className="text-sm text-gray-500 dark:text-gray-400 font-semibold">
+                  / {goalSteps.toLocaleString()} steps
+                </div>
+                <div className="mt-2 text-lg font-black text-blue-600 dark:text-blue-400">
+                  {progressPercent}%
+                </div>
+                {/* 🎯 Show subtle refresh indicator when refreshing in background */}
+                {isRefreshing && (
+                  <div className="mt-2 text-xs text-blue-400 dark:text-blue-300 animate-pulse">
+                    Updating...
+                  </div>
+                )}
               </div>
             </div>
           </div>

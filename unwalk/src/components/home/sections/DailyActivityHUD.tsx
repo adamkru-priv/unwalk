@@ -11,15 +11,14 @@ interface DailyActivityHUDProps {
 export function DailyActivityHUD({ todaySteps, dailyStepGoal = 10000, onClick, onRefresh }: DailyActivityHUDProps) {
   const { syncSteps, isNative, isAuthorized } = useHealthKit();
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isBackgroundRefresh, setIsBackgroundRefresh] = useState(false); // 🎯 NEW: Silent background refresh
 
-  // 🎯 NEW: Background refresh - no loading spinner, just update data
-  const handleBackgroundRefresh = async () => {
-    if (isBackgroundRefresh) return; // Already refreshing in background
+  // 🎯 OPTIMISTIC UI: Always refresh in background, never show spinner
+  const handleRefresh = async () => {
+    if (isRefreshing) return; // Prevent multiple simultaneous refreshes
     
-    setIsBackgroundRefresh(true);
+    setIsRefreshing(true);
     try {
-      // Sync HealthKit steps silently
+      // Sync HealthKit steps silently in background
       if (isNative && isAuthorized) {
         await syncSteps();
       }
@@ -29,37 +28,15 @@ export function DailyActivityHUD({ todaySteps, dailyStepGoal = 10000, onClick, o
         await onRefresh();
       }
     } catch (error) {
-      console.error('[DailyActivityHUD] Background refresh failed:', error);
-    } finally {
-      setIsBackgroundRefresh(false);
-    }
-  };
-  
-  // 🎯 NEW: Manual refresh function - shows loading spinner
-  const handleManualRefresh = async () => {
-    if (isRefreshing || isBackgroundRefresh) return;
-    
-    setIsRefreshing(true);
-    try {
-      // Sync HealthKit steps if on iOS
-      if (isNative && isAuthorized) {
-        await syncSteps();
-      }
-      
-      // Call parent refresh callback
-      if (onRefresh) {
-        await onRefresh();
-      }
-    } catch (error) {
-      console.error('[DailyActivityHUD] Manual refresh failed:', error);
+      console.error('[DailyActivityHUD] Refresh failed:', error);
     } finally {
       setIsRefreshing(false);
     }
   };
 
-  // 🎯 NEW: Silent background refresh on mount (when slide becomes visible)
+  // 🎯 Silent background refresh on mount (when slide becomes visible)
   useEffect(() => {
-    handleBackgroundRefresh();
+    handleRefresh();
   }, []); // Only on mount
 
   const progressPercent = Math.min(100, Math.round((todaySteps / dailyStepGoal) * 100));
@@ -82,7 +59,7 @@ export function DailyActivityHUD({ todaySteps, dailyStepGoal = 10000, onClick, o
         {/* Progress Ring - 🎯 CHANGED: Click to refresh, not expand */}
         <div 
           className="flex justify-center mb-6 cursor-pointer group"
-          onClick={handleManualRefresh}
+          onClick={handleRefresh}
         >
           <div className="relative transition-transform duration-200 group-hover:scale-105" style={{ width: size, height: size }}>
             <svg className="transform -rotate-90" width={size} height={size}>
@@ -120,29 +97,22 @@ export function DailyActivityHUD({ todaySteps, dailyStepGoal = 10000, onClick, o
 
             {/* Center - Steps */}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              {isRefreshing ? (
-                <div className="text-blue-600 dark:text-blue-400 animate-spin">
-                  <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                </div>
-              ) : (
-                <>
-                  <div className="text-5xl font-black text-gray-900 dark:text-white mb-1">
-                    {todaySteps.toLocaleString()}
-                  </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400 font-semibold">
-                    / {dailyStepGoal.toLocaleString()} steps
-                  </div>
-                  <div className="mt-2 text-lg font-black text-blue-600 dark:text-blue-400">
-                    {progressPercent}%
-                  </div>
-                </>
-              )}
-              {/* 🎯 NEW: Tap to refresh hint */}
-              <div className="mt-2 text-xs text-gray-400 dark:text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                👆 Tap to refresh
+              {/* 🎯 ALWAYS show steps - never show spinner, even during refresh */}
+              <div className="text-5xl font-black text-gray-900 dark:text-white mb-1">
+                {todaySteps.toLocaleString()}
               </div>
+              <div className="text-sm text-gray-500 dark:text-gray-400 font-semibold">
+                / {dailyStepGoal.toLocaleString()} steps
+              </div>
+              <div className="mt-2 text-lg font-black text-blue-600 dark:text-blue-400">
+                {progressPercent}%
+              </div>
+              {/* 🎯 Show subtle refresh indicator when refreshing */}
+              {isRefreshing && (
+                <div className="mt-2 text-xs text-blue-400 dark:text-blue-300 animate-pulse">
+                  Updating...
+                </div>
+              )}
             </div>
           </div>
         </div>
