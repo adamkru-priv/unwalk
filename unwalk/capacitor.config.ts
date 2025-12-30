@@ -7,6 +7,8 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https',
     iosScheme: 'capacitor',
+    // 🎯 FIX: iOS needs this to load SPA directly, Android auto-redirects from index.html
+    appStartPath: 'app/app.html',
   },
   ios: {
     contentInset: 'never',
