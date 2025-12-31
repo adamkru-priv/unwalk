@@ -89,7 +89,8 @@ export const useChallengeStore = create<ChallengeStore>()(
         };
         set({ 
           activeUserChallenge: challengeWithTime,
-          currentScreen: 'home'
+          // ✅ FIX: Don't force navigation to home - let user stay on current screen
+          // currentScreen: 'home'
         });
       },
 

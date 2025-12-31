@@ -3,11 +3,13 @@ import { Capacitor } from '@capacitor/core';
 import { healthKitService } from '../services/healthKit.native';
 import { useChallengeStore } from '../stores/useChallengeStore';
 import { syncDailySteps, getTodayQuest, updateQuestProgress } from '../lib/gamification';
+import { updateChallengeProgress } from '../lib/api'; // 🎯 NEW: Import challenge update function
 
 export function useHealthKit() {
   const setHealthConnected = useChallengeStore((s) => s.setHealthConnected);
   const setTodaySteps = useChallengeStore((s) => s.setTodaySteps); // 🎯 NEW: Use global store
   const todaySteps = useChallengeStore((s) => s.todaySteps); // 🎯 NEW: Read from global store
+  const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge); // 🎯 NEW: Get active challenge
 
   const [isAvailable, setIsAvailable] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(false);
@@ -61,33 +63,50 @@ export function useHealthKit() {
 
     setIsLoading(true);
     try {
-      const steps = await healthKitService.getTodaySteps();
-      setTodaySteps(steps); // 🎯 Update global store - this triggers re-render in ALL components!
+      // 🎯 Get TODAY'S steps (from beginning of day) - for Daily XP and Quests
+      const todayStepsCount = await healthKitService.getTodaySteps();
+      setTodaySteps(todayStepsCount);
       
       // Sync steps to backend and award Base XP
       try {
-        await syncDailySteps(steps);
-        console.log(`✅ Synced ${steps} steps → ${Math.floor(steps / 1000)} Base XP`);
+        await syncDailySteps(todayStepsCount);
+        console.log(`✅ Synced ${todayStepsCount} steps → ${Math.floor(todayStepsCount / 1000)} Base XP`);
         
         // Update Daily Quest progress if quest is steps-based
         try {
           const quest = await getTodayQuest();
           if (quest && quest.quest_type === 'steps' && !quest.claimed) {
-            await updateQuestProgress(quest.id, steps);
-            console.log(`✅ Updated Daily Quest progress: ${steps} / ${quest.target_value} steps`);
+            await updateQuestProgress(quest.id, todayStepsCount);
+            console.log(`✅ Updated Daily Quest progress: ${todayStepsCount} / ${quest.target_value} steps`);
           }
         } catch (questError) {
           console.error('Failed to update quest progress:', questError);
+        }
+
+        // 🎯 NEW: Update active challenge progress - count steps SINCE challenge started
+        if (activeUserChallenge?.id && activeUserChallenge?.started_at) {
+          try {
+            const challengeStartDate = new Date(activeUserChallenge.started_at);
+            const now = new Date();
+            
+            // Get steps SINCE challenge started (not from beginning of day!)
+            const challengeSteps = await healthKitService.getSteps(challengeStartDate, now);
+            
+            await updateChallengeProgress(activeUserChallenge.id, challengeSteps);
+            console.log(`✅ Updated challenge progress: ${challengeSteps} steps (since ${challengeStartDate.toLocaleString()})`);
+          } catch (challengeError) {
+            console.error('Failed to update challenge progress:', challengeError);
+          }
         }
       } catch (error) {
         console.error('Failed to sync daily steps to backend:', error);
       }
       
-      return steps;
+      return todayStepsCount;
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthorized, isAvailable, requestPermission, setTodaySteps]);
+  }, [isAuthorized, isAvailable, requestPermission, setTodaySteps, activeUserChallenge]);
 
   const getSteps = useCallback(
     async (startDate: Date, endDate: Date): Promise<number> => {

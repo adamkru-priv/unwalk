@@ -11,6 +11,32 @@ import { TeamChallengeInvitations } from './TeamChallengeInvitations';
 import { InviteModal } from './InviteModal';
 import { MemberDetail } from './MemberDetail';
 
+// 🔧 Helper function: Retry with exponential backoff
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries = 3,
+  baseDelay = 1000
+): Promise<T> {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      const isLastAttempt = i === maxRetries - 1;
+      
+      if (isLastAttempt) {
+        throw error;
+      }
+      
+      // Exponential backoff: 1s, 2s, 4s
+      const delay = baseDelay * Math.pow(2, i);
+      console.log(`⏳ Retry attempt ${i + 1}/${maxRetries} after ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw new Error('Max retries exceeded');
+}
+
 export function TeamScreen() {
   const setCurrentScreen = useChallengeStore((state) => state.setCurrentScreen);
   const userProfile = useChallengeStore((s) => s.userProfile);
@@ -53,11 +79,6 @@ export function TeamScreen() {
 
   const loadTeamData = async () => {
     setLoading(true);
-    
-    // Create a timeout promise
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Request timed out')), 10000)
-    );
 
     try {
       console.log('🔄 [TeamScreen] Loading team data...');
@@ -84,83 +105,102 @@ export function TeamScreen() {
         return;
       }
       
-      // Load team data only for authenticated users
-      // ✅ FIX: Load data sequentially/independently to prevent blocking
-      // and better error handling for each part
+      // 🔧 NEW: Check and refresh session before loading data
+      const { supabase } = await import('../../lib/supabase');
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !sessionData.session) {
+        console.log('⚠️ [TeamScreen] No valid session, attempting refresh...');
+        const { error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (refreshError) {
+          console.error('❌ [TeamScreen] Failed to refresh session:', refreshError);
+          setLoading(false);
+          return;
+        }
+        
+        console.log('✅ [TeamScreen] Session refreshed successfully');
+      }
+      
+      // 🔧 NEW: Load data with retry mechanism
       
       // 1. Team Members
       try {
-        const members = await Promise.race([
-          teamService.getTeamMembers(),
-          timeoutPromise
-        ]) as TeamMember[];
+        const members = await retryWithBackoff(() => teamService.getTeamMembers());
         setTeamMembers(members);
       } catch (e) {
-        console.error('❌ [TeamScreen] Failed to load members:', e);
+        console.error('❌ [TeamScreen] Failed to load members after retries:', e);
+        setTeamMembers([]);
       }
 
       // 2. Invitations (Parallel)
       try {
-        const [received, sent] = await Promise.race([
+        const [received, sent] = await retryWithBackoff(() =>
           Promise.all([
             teamService.getReceivedInvitations(),
             teamService.getSentInvitations()
-          ]),
-          timeoutPromise
-        ]) as [TeamInvitation[], TeamInvitation[]];
+          ])
+        );
         
         setReceivedInvitations(received.filter(inv => inv.status === 'pending'));
         setSentInvitations(sent);
       } catch (e) {
-        console.error('❌ [TeamScreen] Failed to load invitations:', e);
+        console.error('❌ [TeamScreen] Failed to load invitations after retries:', e);
+        setReceivedInvitations([]);
+        setSentInvitations([]);
       }
 
       // 3. Challenges (Parallel)
       try {
-        const [sentHistory, receivedHistory] = await Promise.race([
+        const [sentHistory, receivedHistory] = await retryWithBackoff(() =>
           Promise.all([
             teamService.getSentChallengeAssignments(),
             teamService.getReceivedChallengeHistory(),
-          ]),
-          timeoutPromise
-        ]) as [ChallengeAssignment[], ChallengeAssignment[]];
+          ])
+        );
         
         setSentChallengeHistory(sentHistory);
         setReceivedChallengeHistory(receivedHistory);
       } catch (e) {
-        console.error('❌ [TeamScreen] Failed to load challenges:', e);
+        console.error('❌ [TeamScreen] Failed to load challenges after retries:', e);
+        setSentChallengeHistory([]);
+        setReceivedChallengeHistory([]);
       }
 
       // 🎯 NEW: 4. Team Challenge invitations counts from team_members
       try {
-        const { supabase } = await import('../../lib/supabase');
         const { data: { user } } = await supabase.auth.getUser();
         
         if (user) {
-          // Count sent Team Challenge invitations (where I'm the host)
-          const { count: sentCount } = await supabase
-            .from('team_members')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', user.id)
-            .eq('challenge_status', 'invited')
-            .not('active_challenge_id', 'is', null);
+          const [sentCountResult, receivedCountResult] = await retryWithBackoff(() =>
+            Promise.all([
+              supabase
+                .from('team_members')
+                .select('*', { count: 'exact', head: true })
+                .eq('user_id', user.id)
+                .eq('challenge_status', 'invited')
+                .not('active_challenge_id', 'is', null),
+              supabase
+                .from('team_members')
+                .select('*', { count: 'exact', head: true })
+                .eq('member_id', user.id)
+                .eq('challenge_status', 'invited')
+                .not('active_challenge_id', 'is', null)
+            ])
+          );
           
-          setSentTeamChallengeCount(sentCount || 0);
-
-          // Count received Team Challenge invitations (where I'm the member)
-          const { count: receivedCount } = await supabase
-            .from('team_members')
-            .select('*', { count: 'exact', head: true })
-            .eq('member_id', user.id)
-            .eq('challenge_status', 'invited')
-            .not('active_challenge_id', 'is', null);
+          setSentTeamChallengeCount(sentCountResult.count || 0);
+          setReceivedTeamChallengeCount(receivedCountResult.count || 0);
           
-          setReceivedTeamChallengeCount(receivedCount || 0);
-          
-          console.log('✅ [TeamScreen] Team Challenge counts:', { sent: sentCount, received: receivedCount });
+          console.log('✅ [TeamScreen] Team Challenge counts:', { 
+            sent: sentCountResult.count, 
+            received: receivedCountResult.count 
+          });
         }
       } catch (e) {
-        console.error('❌ [TeamScreen] Failed to load Team Challenge counts:', e);
+        console.error('❌ [TeamScreen] Failed to load Team Challenge counts after retries:', e);
+        setSentTeamChallengeCount(0);
+        setReceivedTeamChallengeCount(0);
       }
       
       console.log('✅ [TeamScreen] All team data loaded successfully');

@@ -5,7 +5,33 @@ import { useChallengeStore } from '../../stores/useChallengeStore';
 import { useState, useEffect } from 'react';
 import { getUserGamificationStats } from '../../lib/gamification';
 import type { UserGamificationStats } from '../../types';
-import { ChallengeHistory } from '../stats/ChallengeHistory'; // 🎯 NEW: Import ChallengeHistory
+import { ChallengeHistory } from '../stats/ChallengeHistory';
+
+// 🔧 Helper function: Retry with exponential backoff
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries = 3,
+  baseDelay = 1000
+): Promise<T> {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      const isLastAttempt = i === maxRetries - 1;
+      
+      if (isLastAttempt) {
+        throw error;
+      }
+      
+      // Exponential backoff: 1s, 2s, 4s
+      const delay = baseDelay * Math.pow(2, i);
+      console.log(`⏳ Retry attempt ${i + 1}/${maxRetries} after ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw new Error('Max retries exceeded');
+}
 
 export function BadgesScreen() {
   const [badges, setBadges] = useState<Badge[]>([]);
@@ -35,11 +61,6 @@ export function BadgesScreen() {
 
   const loadBadgesData = async () => {
     setLoading(true);
-    
-    // Create a timeout promise
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Request timed out')), 10000)
-    );
 
     try {
       // ✅ Use profile from store, no need to fetch
@@ -52,18 +73,33 @@ export function BadgesScreen() {
       if (!isGuest && userProfile?.id) {
         console.log('🔍 [BadgesScreen] Fetching badges from badgesService...');
         
-        const badgesData = await Promise.race([
-          badgesService.getBadges(),
-          timeoutPromise
-        ]) as Badge[];
+        // 🔧 NEW: Check and refresh session before loading data
+        const { supabase } = await import('../../lib/supabase');
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError || !sessionData.session) {
+          console.log('⚠️ [BadgesScreen] No valid session, attempting refresh...');
+          const { error: refreshError } = await supabase.auth.refreshSession();
+          
+          if (refreshError) {
+            console.error('❌ [BadgesScreen] Failed to refresh session:', refreshError);
+            setLoading(false);
+            return;
+          }
+          
+          console.log('✅ [BadgesScreen] Session refreshed successfully');
+        }
+        
+        // 🔧 NEW: Load badges with retry mechanism
+        const badgesData = await retryWithBackoff(() => badgesService.getBadges());
         
         console.log('🔍 [BadgesScreen] Badges fetched, count:', badgesData.length);
         
         // Get total_points from user profile in store
         const userTotalPoints = userProfile?.total_points || 0;
         
-        // ✅ Load gamification stats (XP & Level)
-        const stats = await getUserGamificationStats();
+        // ✅ Load gamification stats (XP & Level) with retry
+        const stats = await retryWithBackoff(() => getUserGamificationStats());
         setGamificationStats(stats);
 
         // 🐛 DEBUG: Log all badges with their unlocked status
@@ -84,7 +120,10 @@ export function BadgesScreen() {
         setGamificationStats(null);
       }
     } catch (error) {
-      console.error('❌ [BadgesScreen] Failed to load badges:', error);
+      console.error('❌ [BadgesScreen] Failed to load badges after retries:', error);
+      // Set empty state on error
+      setBadges([]);
+      setGamificationStats(null);
     } finally {
       console.log('🔍 [BadgesScreen] Setting loading to false');
       setLoading(false);
