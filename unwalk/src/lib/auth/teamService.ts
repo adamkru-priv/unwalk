@@ -480,6 +480,7 @@ export class TeamService {
 
   /**
    * Update team member personalization (name, relationship, notes)
+   * Also updates the user's display_name in users table if custom_name is provided
    */
   async updateMemberPersonalization(
     teamMemberId: string,
@@ -493,6 +494,18 @@ export class TeamService {
       const user = await authService.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      // 🎯 NEW: Get member_id from team_members to update their display_name
+      const { data: teamMember, error: fetchError } = await supabase
+        .from('team_members')
+        .select('member_id')
+        .eq('id', teamMemberId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (!teamMember) throw new Error('Team member not found');
+
+      // Update team_members table (custom_name, relationship, notes)
       const { error } = await supabase
         .from('team_members')
         .update(updates)
@@ -500,6 +513,21 @@ export class TeamService {
         .eq('user_id', user.id);
 
       if (error) throw error;
+
+      // 🎯 NEW: If custom_name is provided, also update users.display_name
+      if (updates.custom_name && updates.custom_name.trim()) {
+        const { error: userUpdateError } = await supabase
+          .from('users')
+          .update({ display_name: updates.custom_name.trim() })
+          .eq('id', teamMember.member_id);
+
+        if (userUpdateError) {
+          console.error('⚠️ [Team] Failed to update user display_name:', userUpdateError);
+          // Don't throw - team_members update succeeded, this is just a nice-to-have
+        } else {
+          console.log('✅ [Team] Updated user display_name:', updates.custom_name);
+        }
+      }
 
       console.log('✅ [Team] Member personalization updated');
       return { error: null };

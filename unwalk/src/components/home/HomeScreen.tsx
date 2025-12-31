@@ -12,8 +12,6 @@ import { useHomeData } from './hooks/useHomeData';
 import { useGamification } from './hooks/useGamification';
 import { useHealthKitSync } from './hooks/useHealthKitSync';
 import { useHealthKit } from '../../hooks/useHealthKit';
-import { DailyStepsRewardModal } from './DailyStepsRewardModal';
-import { claimDailyStepsReward } from '../../lib/api';
 
 export function HomeScreen() {
   const [selectedCompletedChallenge, setSelectedCompletedChallenge] = useState<UserChallenge | null>(null);
@@ -26,10 +24,6 @@ export function HomeScreen() {
     challengeTitle: string;
     alreadyInvitedUserIds: string[];
   } | null>(null);
-  
-  // 🎁 Daily steps reward modal
-  const [showDailyRewardModal, setShowDailyRewardModal] = useState(false);
-  const dailyRewardXP = 0;
 
   // Store state
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
@@ -79,35 +73,6 @@ export function HomeScreen() {
       console.log('✅ [HomeScreen] Refresh complete');
     } catch (error) {
       console.error('❌ [HomeScreen] Refresh failed:', error);
-    }
-  };
-
-  // 🎁 NEW: Manual check for daily steps reward (triggered by button click)
-  const handleCheckDailyReward = async () => {
-    // Open Journey modal to show daily quest
-    setShowJourneyModal(true);
-  };
-
-  // 🎁 NEW: Handle claiming daily steps reward
-  const handleClaimDailyReward = async () => {
-    try {
-      const success = await claimDailyStepsReward(todaySteps, dailyRewardXP);
-      
-      if (success) {
-        console.log(`✅ Daily steps reward claimed: +${dailyRewardXP} XP`);
-        
-        // Reload gamification stats to update XP
-        await reloadStats();
-        
-        // Close modal
-        setShowDailyRewardModal(false);
-      } else {
-        console.error('❌ Failed to claim daily reward');
-        alert('Failed to claim reward. Please try again.');
-      }
-    } catch (error) {
-      console.error('❌ Error claiming daily reward:', error);
-      alert('An error occurred. Please try again.');
     }
   };
 
@@ -259,7 +224,6 @@ export function HomeScreen() {
           dailyStepGoal={dailyStepGoal || 10000}
           onSoloClick={handleSoloClick}
           onTeamClick={() => setShowTeamSelectModal(true)}
-          onCheckDailyReward={handleCheckDailyReward}
           onInviteMoreClick={handleInviteMoreClick}
           onChallengeStarted={handleChallengeStarted}
           onChallengeCancelled={handleChallengeCancelled}
@@ -277,15 +241,6 @@ export function HomeScreen() {
       </main>
 
       <BottomNavigation currentScreen="home" />
-
-      {/* 🎁 NEW: Daily Steps Reward Modal */}
-      {showDailyRewardModal && (
-        <DailyStepsRewardModal
-          steps={todaySteps}
-          xpReward={dailyRewardXP}
-          onClaim={handleClaimDailyReward}
-        />
-      )}
     </div>
   );
 }

@@ -23,7 +23,6 @@ interface ChallengeCarouselProps {
   dailyStepGoal: number;
   onSoloClick: () => void;
   onTeamClick: () => void;
-  onCheckDailyReward?: () => void; // 🎁 Handler for checking daily reward
   onInviteMoreClick?: (challengeId: string, challengeTitle: string, alreadyInvitedUserIds: string[]) => void;
   onChallengeStarted?: () => void;
   onChallengeCancelled?: () => void;
@@ -39,7 +38,6 @@ export function ChallengeCarousel({
   dailyStepGoal,
   onSoloClick,
   onTeamClick,
-  onCheckDailyReward,
   onInviteMoreClick,
   onChallengeStarted,
   onChallengeCancelled,
@@ -50,10 +48,11 @@ export function ChallengeCarousel({
   const [currentSlide, setCurrentSlide] = useState(0);
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
+  
+  // @ts-ignore - Used for tracking slide visits
+  const [visitedSlides, setVisitedSlides] = useState<Set<number>>(new Set([0]));
 
   // 🎯 REMOVED: Auto-switch logic - it was causing unwanted slide changes
-  // Users should manually swipe or click dots to navigate between slides
-  // Auto-switching should only happen when user explicitly starts a challenge
 
   const handleTouchStart = (e: React.TouchEvent) => {
     setTouchStart(e.targetTouches[0].clientX);
@@ -71,25 +70,37 @@ export function ChallengeCarousel({
     const isLeftSwipe = distance > 50;
     const isRightSwipe = distance < -50;
     
-    // 🎯 NEW: 3 slides - swipe between 0, 1, 2
+    let newSlide = currentSlide;
+    
+    // 🎯 3 slides - swipe between 0, 1, 2
     if (isLeftSwipe && currentSlide < 2) {
-      setCurrentSlide(currentSlide + 1);
+      newSlide = currentSlide + 1;
+      setCurrentSlide(newSlide);
     }
     if (isRightSwipe && currentSlide > 0) {
-      setCurrentSlide(currentSlide - 1);
+      newSlide = currentSlide - 1;
+      setCurrentSlide(newSlide);
     }
+    
+    // Mark slide as visited
+    setVisitedSlides(prev => new Set([...prev, newSlide]));
 
     // Reset
     setTouchStart(0);
     setTouchEnd(0);
   };
+  
+  const handleDotClick = (slideIndex: number) => {
+    setCurrentSlide(slideIndex);
+    setVisitedSlides(prev => new Set([...prev, slideIndex]));
+  };
 
   return (
     <div className="relative">
-      {/* Slide Indicators - 3 dots now! */}
+      {/* Slide Indicators - 3 dots */}
       <div className="flex items-center justify-center gap-2 mb-3">
         <button
-          onClick={() => setCurrentSlide(0)}
+          onClick={() => handleDotClick(0)}
           className={`h-2 rounded-full transition-all duration-300 ${
             currentSlide === 0 
               ? 'w-8 bg-blue-600 dark:bg-blue-400' 
@@ -98,7 +109,7 @@ export function ChallengeCarousel({
           aria-label="Today's Activity"
         />
         <button
-          onClick={() => setCurrentSlide(1)}
+          onClick={() => handleDotClick(1)}
           className={`h-2 rounded-full transition-all duration-300 ${
             currentSlide === 1 
               ? 'w-8 bg-purple-600 dark:bg-purple-400' 
@@ -107,7 +118,7 @@ export function ChallengeCarousel({
           aria-label="Solo Challenge"
         />
         <button
-          onClick={() => setCurrentSlide(2)}
+          onClick={() => handleDotClick(2)}
           className={`h-2 rounded-full transition-all duration-300 ${
             currentSlide === 2 
               ? 'w-8 bg-orange-600 dark:bg-orange-400' 
@@ -117,39 +128,36 @@ export function ChallengeCarousel({
         />
       </div>
 
-      {/* Carousel Container */}
+      {/* 🎯 NEW: Conditional Rendering - Only active slide is mounted */}
       <div
-        className="relative overflow-hidden"
+        className="relative overflow-hidden min-h-[400px]"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        <div
-          className="flex transition-transform duration-500 ease-out"
-          style={{ transform: `translateX(-${currentSlide * 100}%)` }}
-        >
-          {/* 🎯 Slide 1: Today's Activity (NEW!) */}
-          <div className="w-full flex-shrink-0">
+        {currentSlide === 0 && (
+          <div className="w-full animate-fade-in">
             <DailyActivityHUD
               todaySteps={todaySteps}
               dailyStepGoal={dailyStepGoal}
               onRefresh={onRefresh}
-              onCheckDailyReward={onCheckDailyReward}
             />
           </div>
+        )}
 
-          {/* Slide 2: Solo Challenge */}
-          <div className="w-full flex-shrink-0">
+        {currentSlide === 1 && (
+          <div className="w-full animate-fade-in">
             <RunnerHUD
               activeChallenge={soloChallenge}
               onClick={onSoloClick}
               xpReward={xpReward}
-              onRefresh={onRefresh} // 🎯 NEW: Pass refresh callback
+              onRefresh={onRefresh}
             />
           </div>
+        )}
 
-          {/* Slide 3: Team Challenge - ZAWSZE renderujemy! */}
-          <div className="w-full flex-shrink-0">
+        {currentSlide === 2 && (
+          <div className="w-full animate-fade-in">
             <TeamHUD
               teamChallenge={teamChallenge}
               teamMembers={teamMembers}
@@ -158,10 +166,10 @@ export function ChallengeCarousel({
               onChallengeStarted={onChallengeStarted}
               onChallengeCancelled={onChallengeCancelled}
               onChallengeEnded={onChallengeEnded}
-              onRefresh={onRefresh} // 🎯 NEW: Pass refresh callback
+              onRefresh={onRefresh}
             />
           </div>
-        </div>
+        )}
       </div>
 
       {/* Swipe Hint */}

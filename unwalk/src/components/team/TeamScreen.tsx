@@ -5,7 +5,9 @@ import { teamService, type TeamMember, type TeamInvitation, type ChallengeAssign
 import { useChallengeStore } from '../../stores/useChallengeStore';
 import { TeamMembers } from './TeamMembers';
 import { SentChallenges } from './SentChallenges';
+import { SentTeamChallengeInvitations } from './SentTeamChallengeInvitations';
 import { ReceivedChallenges } from './ReceivedChallenges';
+import { TeamChallengeInvitations } from './TeamChallengeInvitations';
 import { InviteModal } from './InviteModal';
 import { MemberDetail } from './MemberDetail';
 
@@ -23,6 +25,10 @@ export function TeamScreen() {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [activeTab, setActiveTab] = useState<'team' | 'sent' | 'received'>('team');
+  
+  // 🎯 NEW: Track Team Challenge invitations counts
+  const [sentTeamChallengeCount, setSentTeamChallengeCount] = useState(0);
+  const [receivedTeamChallengeCount, setReceivedTeamChallengeCount] = useState(0);
 
   // ✅ Reload data when userProfile changes (e.g. after auth init)
   useEffect(() => {
@@ -123,6 +129,38 @@ export function TeamScreen() {
         setReceivedChallengeHistory(receivedHistory);
       } catch (e) {
         console.error('❌ [TeamScreen] Failed to load challenges:', e);
+      }
+
+      // 🎯 NEW: 4. Team Challenge invitations counts from team_members
+      try {
+        const { supabase } = await import('../../lib/supabase');
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (user) {
+          // Count sent Team Challenge invitations (where I'm the host)
+          const { count: sentCount } = await supabase
+            .from('team_members')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', user.id)
+            .eq('challenge_status', 'invited')
+            .not('active_challenge_id', 'is', null);
+          
+          setSentTeamChallengeCount(sentCount || 0);
+
+          // Count received Team Challenge invitations (where I'm the member)
+          const { count: receivedCount } = await supabase
+            .from('team_members')
+            .select('*', { count: 'exact', head: true })
+            .eq('member_id', user.id)
+            .eq('challenge_status', 'invited')
+            .not('active_challenge_id', 'is', null);
+          
+          setReceivedTeamChallengeCount(receivedCount || 0);
+          
+          console.log('✅ [TeamScreen] Team Challenge counts:', { sent: sentCount, received: receivedCount });
+        }
+      } catch (e) {
+        console.error('❌ [TeamScreen] Failed to load Team Challenge counts:', e);
       }
       
       console.log('✅ [TeamScreen] All team data loaded successfully');
@@ -263,9 +301,10 @@ export function TeamScreen() {
                 }`}
               >
                 Sent
-                {sentChallengeHistory.filter(c => c.status === 'pending').length > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 rounded-full text-xs flex items-center justify-center">
-                    {sentChallengeHistory.filter(c => c.status === 'pending').length}
+                {/* 🎯 UPDATED: Include Team Challenge invitations + regular challenge assignments */}
+                {(sentChallengeHistory.filter(c => c.status === 'pending').length + sentTeamChallengeCount) > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 rounded-full text-xs flex items-center justify-center font-bold">
+                    {sentChallengeHistory.filter(c => c.status === 'pending').length + sentTeamChallengeCount}
                   </span>
                 )}
               </button>
@@ -278,9 +317,10 @@ export function TeamScreen() {
                 }`}
               >
                 Received
-                {receivedChallengeHistory.filter(c => c.status === 'pending').length > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-xs flex items-center justify-center">
-                    {receivedChallengeHistory.filter(c => c.status === 'pending').length}
+                {/* 🎯 UPDATED: Include Team Challenge invitations + regular challenge assignments */}
+                {(receivedChallengeHistory.filter(c => c.status === 'pending').length + receivedTeamChallengeCount) > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-xs flex items-center justify-center font-bold">
+                    {receivedChallengeHistory.filter(c => c.status === 'pending').length + receivedTeamChallengeCount}
                   </span>
                 )}
               </button>
@@ -300,17 +340,29 @@ export function TeamScreen() {
             )}
 
             {activeTab === 'sent' && (
-              <SentChallenges
-                challenges={sentChallengeHistory}
-                onRefresh={loadTeamData}
-              />
+              <>
+                {/* 🎯 NEW: Sent Team Challenge Invitations */}
+                <SentTeamChallengeInvitations onRefresh={loadTeamData} />
+                
+                {/* Regular challenge assignments */}
+                <SentChallenges
+                  challenges={sentChallengeHistory}
+                  onRefresh={loadTeamData}
+                />
+              </>
             )}
 
             {activeTab === 'received' && (
-              <ReceivedChallenges
-                challenges={receivedChallengeHistory}
-                onRefresh={loadTeamData}
-              />
+              <>
+                {/* 🎯 NEW: Team Challenge Invitations */}
+                <TeamChallengeInvitations onRefresh={loadTeamData} />
+                
+                {/* Regular challenge assignments */}
+                <ReceivedChallenges
+                  challenges={receivedChallengeHistory}
+                  onRefresh={loadTeamData}
+                />
+              </>
             )}
           </>
         )}

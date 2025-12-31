@@ -141,12 +141,13 @@ export function SelectChallengeModal({ isOpen, onClose, onSuccess, mode }: Selec
 
       setActiveChallenge(userChallenge as any);
 
-      alert(`✅ ${level} Challenge started!`);
+      // ✅ Success - close modal and let user see the challenge on screen
       onSuccess();
       handleClose();
     } catch (error: any) {
       console.error('Failed to start challenge:', error);
-      alert(`❌ Failed to start challenge: ${error.message || 'Please try again.'}`);
+      // Keep alert only for errors
+      alert(`Failed to start challenge: ${error.message || 'Please try again.'}`);
     } finally {
       setLoading(false);
     }
@@ -179,7 +180,6 @@ export function SelectChallengeModal({ isOpen, onClose, onSuccess, mode }: Selec
       if (!challengeId) {
         const preset = presets.find(p => p.level === selectedChallenge.level);
         
-        // Map level to difficulty
         const difficultyMap: { [key: string]: 'easy' | 'medium' | 'hard' } = {
           'Easy': 'easy',
           'Advanced': 'medium',
@@ -199,7 +199,7 @@ export function SelectChallengeModal({ isOpen, onClose, onSuccess, mode }: Selec
             is_active: true,
             is_team_challenge: true,
             created_by_user_id: user.id,
-            image_url: 'https://via.placeholder.com/400', // Placeholder image
+            image_url: 'https://via.placeholder.com/400',
           })
           .select()
           .single();
@@ -208,19 +208,17 @@ export function SelectChallengeModal({ isOpen, onClose, onSuccess, mode }: Selec
         challengeId = customChallenge.id;
       }
 
-      // Create user_challenge
-      // 🎯 FIX: Generate team_id for team challenges
-      const teamId = mode === 'team' ? crypto.randomUUID() : null;
+      // 🎯 NEW APPROACH: Create user_challenge for HOST first
+      const teamId = crypto.randomUUID();
       
-      console.log(`🎯 [SelectChallengeModal] Creating ${mode} challenge with team_id:`, teamId);
-      
-      const { data: userChallengeData, error: challengeError } = await supabase
+      // @ts-ignore - Used for tracking challenge creation
+      const { data: hostChallenge, error: challengeError } = await supabase
         .from('user_challenges')
         .insert({
           user_id: user.id,
           device_id: deviceId,
           admin_challenge_id: challengeId,
-          team_id: teamId, // 🎯 FIX: Set team_id for team challenges
+          team_id: teamId,
           status: 'active',
           current_steps: 0,
           started_at: new Date().toISOString(),
@@ -230,44 +228,49 @@ export function SelectChallengeModal({ isOpen, onClose, onSuccess, mode }: Selec
         .single();
 
       if (challengeError) throw challengeError;
-      
-      // 🎯 CRITICAL: Verify team_id was set for team challenges
-      if (mode === 'team' && !userChallengeData?.team_id) {
-        console.error('❌ [SelectChallengeModal] team_id is NULL after creation!', userChallengeData);
-        alert('⚠️ Warning: Team challenge created but team_id is missing. This may cause display issues.');
-      } else if (mode === 'team') {
-        console.log('✅ [SelectChallengeModal] Team challenge created with team_id:', userChallengeData?.team_id);
-      }
 
-      // Send invitations if friends selected
+      // 🎯 NEW: Update team_members to mark them as invited to this challenge
       if (selectedFriends.size > 0) {
-        const invitations = Array.from(selectedFriends).map(memberId => ({
-          invited_by: user.id,
-          invited_user: memberId,
-          challenge_id: challengeId,
-          status: 'pending'
-        }));
+        // Update team_members with challenge invitation info
+        const { error: updateError } = await supabase
+          .from('team_members')
+          .update({
+            active_challenge_id: challengeId,
+            challenge_role: 'member',
+            challenge_status: 'invited',
+            invited_to_challenge_at: new Date().toISOString()
+          })
+          .eq('user_id', user.id)
+          .in('member_id', Array.from(selectedFriends));
 
-        const { error: inviteError } = await supabase
-          .from('team_challenge_invitations')
-          .upsert(invitations, {
-            onConflict: 'invited_user,challenge_id,invited_by',
-            ignoreDuplicates: false
-          });
+        if (updateError) {
+          console.error('Failed to update team_members:', updateError);
+          throw updateError;
+        }
 
-        if (inviteError) throw inviteError;
+        // Also set yourself as host
+        const { error: hostError } = await supabase
+          .from('team_members')
+          .update({
+            active_challenge_id: challengeId,
+            challenge_role: 'host',
+            challenge_status: 'accepted'
+          })
+          .eq('user_id', user.id)
+          .eq('member_id', user.id);
 
-        const friendCount = selectedFriends.size;
-        alert(`✅ Sent ${friendCount} invitation${friendCount > 1 ? 's' : ''}!`);
-      } else {
-        alert('✅ Team Challenge started! You can invite friends later.');
+        if (hostError) {
+          console.error('Failed to set host role:', hostError);
+        }
+
+        console.log(`✅ Updated ${selectedFriends.size} team members with challenge invitation`);
       }
 
       onSuccess();
       handleClose();
     } catch (error: any) {
       console.error('Failed to start challenge:', error);
-      alert(`❌ Failed to start challenge: ${error.message || 'Please try again.'}`);
+      alert(`Failed to start challenge: ${error.message || 'Please try again.'}`);
     } finally {
       setLoading(false);
     }
@@ -330,24 +333,19 @@ export function SelectChallengeModal({ isOpen, onClose, onSuccess, mode }: Selec
                     key={preset.level}
                     onClick={() => handlePresetSelect(preset)}
                     disabled={loading}
-                    className="w-full text-left p-4 rounded-2xl bg-gradient-to-r border-2 border-transparent hover:border-white/20 transition-all disabled:opacity-50"
+                    className="w-full text-left p-4 rounded-2xl bg-gradient-to-r border-2 border-transparent hover:border-white/20 transition-all disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98]"
                     style={{
                       backgroundImage: `linear-gradient(135deg, ${preset.color.split(' ')[1]} 0%, ${preset.color.split(' ')[2]} 100%)`
                     }}
                   >
-                    <div className="flex items-start gap-3">
-                      <div className="text-4xl">{preset.icon}</div>
-                      <div className="flex-1">
-                        <h3 className="font-black text-white text-lg mb-0.5">
+                    <div className="flex items-center gap-3">
+                      <div className="text-3xl flex-shrink-0">{preset.icon}</div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-black text-white text-lg mb-1">
                           {preset.level}
                         </h3>
-                        <p className="text-white/90 text-sm mb-2">
-                          {preset.steps.toLocaleString()} steps • {preset.time}h deadline
-                        </p>
-                        <div className="flex items-center gap-2.5 text-xs text-white/80 font-semibold">
-                          <span>📏 {(preset.steps / 1250).toFixed(1)} km</span>
-                          <span>•</span>
-                          <span>⭐ +{preset.xp} XP</span>
+                        <div className="text-white/90 text-sm font-bold">
+                          {preset.steps.toLocaleString()} steps • {preset.time}h • +{preset.xp} XP
                         </div>
                       </div>
                     </div>
@@ -359,26 +357,19 @@ export function SelectChallengeModal({ isOpen, onClose, onSuccess, mode }: Selec
               <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-800">
                 <button
                   onClick={handleCustomChallengeClick}
-                  className="w-full text-left p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-2 border-amber-500/30 hover:border-amber-500/50 transition-all group"
+                  className="w-full text-left p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-2 border-amber-500/30 hover:border-amber-500/50 transition-all group hover:scale-[1.02] active:scale-[0.98]"
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="text-4xl">✨</div>
-                    <div className="flex-1">
-                      <h3 className="font-black text-gray-900 dark:text-white text-lg mb-0.5 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="text-3xl flex-shrink-0">✨</div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-black text-gray-900 dark:text-white text-lg mb-1 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
                         Custom Challenge
                       </h3>
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
-                        Create or select your own custom challenges
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Create your own challenge
                       </p>
-                      <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 font-semibold">
-                        <span>🎨 Design</span>
-                        <span>•</span>
-                        <span>📸 Photos</span>
-                        <span>•</span>
-                        <span>⚡ Control</span>
-                      </div>
                     </div>
-                    <svg className="w-5 h-5 text-amber-500 dark:text-amber-400 group-hover:translate-x-1 transition-transform flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-amber-500 dark:text-amber-400 group-hover:translate-x-1 transition-transform flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </div>

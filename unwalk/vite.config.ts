@@ -8,8 +8,8 @@ export default defineConfig({
     port: 3000,
     open: '/app/app.html', // Open React app directly in dev
   },
-  // In dev: serve from root. In production: /app/ for Vercel deployment
-  base: process.env.NODE_ENV === 'production' ? '/app/' : '/',
+  // Use relative paths for Capacitor, absolute for web deployment
+  base: './',
   build: {
     rollupOptions: {
       // Multi-page build: root LP + app SPA entry

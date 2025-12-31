@@ -186,7 +186,7 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
 
             <div className="text-center mb-4">
               <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-1">
-                Team Challenges
+                Team
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Walk together with friends
@@ -197,7 +197,7 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
               onClick={onClick}
               className="w-full bg-gradient-to-r from-orange-500 to-pink-500 text-white py-4 rounded-2xl font-bold text-base shadow-lg hover:shadow-xl active:scale-98 transition-all duration-200"
             >
-              🏆 Choose Challenge
+              Start here
             </button>
           </div>
         </div>
@@ -363,6 +363,7 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
       return 'Ending soon';
     };
 
+    // @ts-ignore - Used for deadline display
     const deadline_text = formatDeadline();
     const xpReward = teamChallenge.admin_challenge?.points || 0;
 
@@ -450,27 +451,12 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
             <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-1">
               {teamChallenge.admin_challenge?.title}
             </h3>
-            <p className="text-xs text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Goal: {goalSteps.toLocaleString()} steps • Reward: {xpReward} XP
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               👥 {teamMembers.length} member{teamMembers.length !== 1 ? 's' : ''} walking together
             </p>
-          </div>
-
-          <div className="flex items-center justify-center gap-6 mb-6 text-sm">
-            <div className="flex items-center gap-2">
-              <div>
-                <div className="font-black text-gray-900 dark:text-white">{xpReward} XP</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">Reward</div>
-              </div>
-            </div>
-
-            <div className="w-px h-8 bg-gray-300 dark:bg-gray-700"></div>
-
-            <div className="flex items-center gap-2">
-              <div>
-                <div className="font-black text-gray-900 dark:text-white">{deadline_text}</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">Left</div>
-              </div>
-            </div>
           </div>
 
           <button 
@@ -514,12 +500,30 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
                 })}
                 challengeId={teamChallenge.admin_challenge_id}
                 maxMembers={5}
-                onInviteClick={onInviteMoreClick && teamMembers.length < 6 ? () => {
-                  onInviteMoreClick(
-                    teamChallenge.admin_challenge_id,
-                    teamChallenge.admin_challenge?.title || 'Team Challenge',
-                    teamMembers.filter(m => m.name !== 'You').map(m => m.id)
-                  );
+                onInviteClick={onInviteMoreClick && teamMembers.length < 6 ? async () => {
+                  // 🎯 FIX: Get already invited user IDs from team_members (not from teamMembers array)
+                  const { supabase } = await import('../../../lib/supabase');
+                  const { data: { user } } = await supabase.auth.getUser();
+                  
+                  if (user) {
+                    // Get all members who are invited or accepted to this challenge
+                    const { data: invitedMembers } = await supabase
+                      .from('team_members')
+                      .select('member_id')
+                      .eq('user_id', user.id)
+                      .eq('active_challenge_id', teamChallenge.admin_challenge_id)
+                      .in('challenge_status', ['invited', 'accepted']);
+                    
+                    const alreadyInvitedUserIds = (invitedMembers || []).map(m => m.member_id);
+                    
+                    console.log('[TeamHUD] Already invited user IDs:', alreadyInvitedUserIds);
+                    
+                    onInviteMoreClick(
+                      teamChallenge.admin_challenge_id,
+                      teamChallenge.admin_challenge?.title || 'Team Challenge',
+                      alreadyInvitedUserIds
+                    );
+                  }
                 } : undefined}
                 onRemoveMember={handleRemoveMember}
                 onCancelInvitation={async (invitationId: string) => {
@@ -527,21 +531,24 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
                     console.log('[TeamHUD] Cancelling invitation:', invitationId);
                     const { supabase } = await import('../../../lib/supabase');
                     
-                    // 🎯 FIX: Use 'rejected' status (CHECK constraint doesn't allow 'cancelled')
+                    // 🎯 NEW: Update team_members instead of team_challenge_invitations
                     const { error } = await supabase
-                      .from('team_challenge_invitations')
-                      .update({ status: 'rejected' })
+                      .from('team_members')
+                      .update({ 
+                        challenge_status: 'rejected',
+                        active_challenge_id: null 
+                      })
                       .eq('id', invitationId);
                     
                     if (error) throw error;
                     
-                    console.log('✅ [TeamHUD] Invitation cancelled (status = rejected)');
+                    console.log('✅ [TeamHUD] Invitation cancelled');
                     
                     // Force refresh to reload pending invitations
                     if (onRefresh) {
                       console.log('[TeamHUD] Calling onRefresh to reload data...');
                       await onRefresh();
-                      setRefreshCounter(prev => prev + 1); // 🎯 Increment counter to force re-render
+                      setRefreshCounter(prev => prev + 1);
                       console.log('✅ [TeamHUD] Data refreshed - counter incremented');
                     }
                   } catch (error) {
@@ -551,101 +558,65 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
                 }}
               />
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-gray-50 dark:bg-[#0B101B] border border-gray-200 dark:border-gray-800 rounded-xl p-3">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase mb-1">Team Distance</div>
-                  <div className="text-xl font-black text-gray-900 dark:text-white">
-                    {(totalSteps * 0.000762).toFixed(2)} km
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                    / {(goalSteps * 0.000762).toFixed(2)} km
+              {/* Step Simulator (Web/Test Only) */}
+              {progressPercent < 100 && !isNative && (
+                <div className="bg-blue-900/80 backdrop-blur-sm rounded-xl p-3 border border-blue-700/50">
+                  <p className="text-xs font-semibold text-blue-200 mb-2">Step Simulator (Web/Test Only)</p>
+                  <div className="grid grid-cols-4 gap-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddSteps(100);
+                      }}
+                      disabled={isUpdating}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50 transition-colors"
+                    >
+                      +100
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddSteps(500);
+                      }}
+                      disabled={isUpdating}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50 transition-colors"
+                    >
+                      +500
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddSteps(1000);
+                      }}
+                      disabled={isUpdating}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50 transition-colors"
+                    >
+                      +1K
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddSteps(5000);
+                      }}
+                      disabled={isUpdating}
+                      className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50 transition-colors"
+                    >
+                      +5K
+                    </button>
                   </div>
                 </div>
+              )}
 
-                <div className="bg-gradient-to-br from-red-500/10 to-orange-500/10 border border-red-500/20 rounded-xl p-3">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase mb-1">Time Left</div>
-                  <div className="text-xl font-black text-gray-900 dark:text-white">
-                    {deadline_text}
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                    to complete
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2 pt-2">
-                {progressPercent < 100 && !isNative && (
-                  <div className="bg-blue-900/80 backdrop-blur-sm rounded-xl p-3 border border-blue-700/50">
-                    <p className="text-xs font-semibold text-blue-200 mb-2">Step Simulator (Web/Test Only)</p>
-                    <div className="grid grid-cols-4 gap-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAddSteps(100);
-                        }}
-                        disabled={isUpdating}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50 transition-colors"
-                      >
-                        +100
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAddSteps(500);
-                        }}
-                        disabled={isUpdating}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50 transition-colors"
-                      >
-                        +500
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAddSteps(1000);
-                        }}
-                        disabled={isUpdating}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50 transition-colors"
-                      >
-                        +1K
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAddSteps(5000);
-                        }}
-                        disabled={isUpdating}
-                        className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50 transition-colors"
-                      >
-                        +5K
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {teamMembers.length < 6 && onInviteMoreClick && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onInviteMoreClick(
-                        teamChallenge.admin_challenge_id,
-                        teamChallenge.admin_challenge?.title || 'Team Challenge',
-                        teamMembers.filter(m => m.name !== 'You').map(m => m.id)
-                      );
-                    }}
-                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-xl font-semibold text-sm shadow-md hover:shadow-lg active:scale-98 transition-all duration-200"
-                  >
-                    Invite Friends ({5 - (teamMembers.length - 1)} spots left)
-                  </button>
-                )}
-
+              {/* End Challenge link - tylko w rozwiniętych details */}
+              <div className="text-center pt-2">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     handleEndChallenge();
                   }}
-                  className="w-full bg-gradient-to-r from-red-500/10 to-orange-500/10 hover:from-red-500/20 hover:to-orange-500/20 border border-red-500/30 text-red-600 dark:text-red-400 py-3 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2"
+                  className="text-xs text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors underline"
                 >
-                  🏁 End Challenge
+                  End Challenge
                 </button>
               </div>
             </div>

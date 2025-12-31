@@ -38,53 +38,66 @@ export function TeamChallengeSlots({ members, challengeId, maxMembers = 5, onInv
 
     console.log('[TeamChallengeSlots] Loading pending invitations for challenge:', challengeId);
 
-    const { data, error } = await supabase
-      .from('team_challenge_invitations')
-      .select(`
-        id,
-        invited_user,
-        users!team_challenge_invitations_invited_user_fkey(display_name, avatar_url)
-      `)
-      .eq('challenge_id', challengeId)
-      .eq('status', 'pending');
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    if (error) {
-      console.error('[TeamChallengeSlots] Failed to load pending invitations:', error);
+      // 🎯 NEW: Read from team_members instead of team_challenge_invitations
+      const { data, error } = await supabase
+        .from('team_members')
+        .select(`
+          id,
+          member_id,
+          challenge_status,
+          invited_user:users!member_id(display_name, avatar_url)
+        `)
+        .eq('user_id', user.id) // You are the host
+        .eq('active_challenge_id', challengeId) // For this specific challenge
+        .eq('challenge_status', 'invited'); // Only pending invitations
+
+      if (error) {
+        console.error('[TeamChallengeSlots] Failed to load pending invitations:', error);
+        setPendingInvitations([]);
+        return;
+      }
+
+      const invitations = (data || []).map((inv: any) => ({
+        id: inv.id,
+        invited_user: inv.member_id,
+        display_name: inv.invited_user?.display_name || 'Unknown',
+        avatar_url: inv.invited_user?.avatar_url
+      }));
+
+      console.log('[TeamChallengeSlots] Loaded pending invitations:', invitations.length, invitations);
+      setPendingInvitations(invitations);
+    } catch (error) {
+      console.error('[TeamChallengeSlots] Error loading invitations:', error);
       setPendingInvitations([]);
-      return;
     }
-
-    const invitations = (data || []).map((inv: any) => ({
-      id: inv.id,
-      invited_user: inv.invited_user,
-      display_name: inv.users?.display_name || 'Unknown',
-      avatar_url: inv.users?.avatar_url
-    }));
-
-    console.log('[TeamChallengeSlots] Loaded pending invitations:', invitations.length, invitations);
-    setPendingInvitations(invitations);
   };
 
   // 🎯 FIX: Reload whenever challengeId OR members change
   useEffect(() => {
-    console.log('[TeamChallengeSlots] useEffect triggered - challengeId:', challengeId, 'members:', members.length);
+    console.log('[TeamChallengeSlots] useEffect triggered - reloading invitations');
     loadPendingInvitations();
   }, [challengeId, members.length]); // Reload when members count changes (after sending invitation)
 
-  const emptySlots = Math.max(0, (maxMembers + 1) - members.length - pendingInvitations.length);
-
-  console.log('[TeamChallengeSlots] Rendering - members:', members.length, 'pending:', pendingInvitations.length, 'empty:', emptySlots);
+  // 🎯 Combine members + pending invitations into one array for grid
+  const totalSlots = members.length + pendingInvitations.length;
+  const emptySlots = Math.max(0, (maxMembers + 1) - totalSlots);
 
   return (
     <div className="bg-gray-50 dark:bg-[#0B101B] border border-gray-200 dark:border-gray-800 rounded-xl p-4">
       <div className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase mb-4 tracking-wide">
-        Team Members ({members.length + pendingInvitations.length}/{maxMembers + 1})
+        Team Members ({totalSlots}/{maxMembers + 1})
       </div>
       
+      {/* Grid 3x2 - wszyscy członkowie + zaproszenia */}
       <div className="grid grid-cols-3 gap-3">
         {/* Active members */}
         {members.map((member) => (
           <div key={member.id} className="flex flex-col items-center group">
+            {/* Krzesło z awatarem */}
             <div className="relative mb-2">
               <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg border-2 border-white dark:border-gray-800 ${
                 member.isCurrentUser 
@@ -104,6 +117,7 @@ export function TeamChallengeSlots({ members, challengeId, maxMembers = 5, onInv
                 )}
               </div>
               
+              {/* Przycisk usuwania - tylko dla innych userów, nie dla Ciebie */}
               {!member.isCurrentUser && onRemoveMember && (
                 <button
                   onClick={(e) => {
@@ -121,14 +135,16 @@ export function TeamChallengeSlots({ members, challengeId, maxMembers = 5, onInv
               )}
             </div>
             
+            {/* Nazwa */}
             <div className={`text-xs font-semibold text-center truncate w-full mb-0.5 ${
               member.isCurrentUser 
                 ? 'text-blue-600 dark:text-blue-400' 
                 : 'text-gray-900 dark:text-white'
             }`}>
-              {member.name}
+              {member.name}{member.isCurrentUser ? ' (You)' : ''}
             </div>
             
+            {/* Procent wkładu */}
             <div className={`text-xs font-bold ${
               member.isCurrentUser 
                 ? 'text-blue-600 dark:text-blue-400' 
@@ -139,61 +155,60 @@ export function TeamChallengeSlots({ members, challengeId, maxMembers = 5, onInv
           </div>
         ))}
 
-        {/* Pending invitations - yellow with ⏳ */}
+        {/* Pending invitations - pokazujemy jako krzesła */}
         {pendingInvitations.map((invitation) => (
-          <div key={invitation.id} className="flex flex-col items-center group">
+          <div key={`pending-${invitation.id}`} className="flex flex-col items-center group">
             <div className="relative mb-2">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center shadow-lg border-2 border-white dark:border-gray-800 opacity-60">
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg border-2 border-dashed border-yellow-400 dark:border-yellow-600 bg-yellow-100 dark:bg-yellow-900/20">
                 {invitation.avatar_url ? (
                   <img 
                     src={invitation.avatar_url} 
                     alt={invitation.display_name} 
-                    className="w-full h-full rounded-2xl object-cover"
+                    className="w-full h-full rounded-2xl object-cover opacity-60"
                   />
                 ) : (
-                  <span className="text-white font-black text-lg">
+                  <span className="text-yellow-600 dark:text-yellow-400 font-black text-lg">
                     {invitation.display_name.charAt(0).toUpperCase()}
                   </span>
                 )}
+                {/* Pending icon */}
+                <div className="absolute -top-1 -right-1 w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center text-white text-xs">
+                  ⏳
+                </div>
               </div>
               
-              <div className="absolute -top-1 -right-1 text-base animate-pulse">
-                ⏳
-              </div>
-              
+              {/* Przycisk anulowania zaproszenia */}
               {onCancelInvitation && (
                 <button
-                  onClick={async (e) => {
+                  onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log('[TeamChallengeSlots] Cancel button clicked for:', invitation.display_name, invitation.id);
+                    console.log('[TeamChallengeSlots] Cancel invitation clicked for:', invitation.display_name, invitation.id);
                     if (confirm(`Cancel invitation for ${invitation.display_name}?`)) {
-                      console.log('[TeamChallengeSlots] User confirmed - calling onCancelInvitation');
-                      await onCancelInvitation(invitation.id);
-                      console.log('[TeamChallengeSlots] onCancelInvitation completed - reloading invitations');
-                      await loadPendingInvitations();
-                    } else {
-                      console.log('[TeamChallengeSlots] User cancelled dialog');
+                      console.log('[TeamChallengeSlots] Confirmed - calling onCancelInvitation');
+                      onCancelInvitation(invitation.id);
                     }
                   }}
-                  className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-red-500 hover:bg-red-600 text-white text-[10px] px-2 py-0.5 rounded-full font-semibold shadow-md opacity-0 group-hover:opacity-100 transition-all active:scale-95 z-10"
+                  className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-lg z-10"
+                  title={`Cancel invitation for ${invitation.display_name}`}
                 >
-                  ✕
+                  <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
               )}
             </div>
             
-            <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 text-center truncate w-full mb-0.5">
+            <div className="text-xs font-semibold text-center truncate w-full mb-0.5 text-yellow-600 dark:text-yellow-400">
               {invitation.display_name}
             </div>
-            
-            <div className="text-[10px] font-bold text-yellow-600 dark:text-yellow-400">
+            <div className="text-xs font-bold text-yellow-600 dark:text-yellow-400">
               Pending
             </div>
           </div>
         ))}
 
-        {/* Empty slots */}
+        {/* Wolne krzesła */}
         {Array.from({ length: emptySlots }).map((_, index) => (
           <div key={`empty-${index}`} className="flex flex-col items-center">
             <button

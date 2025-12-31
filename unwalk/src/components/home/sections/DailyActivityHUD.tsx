@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useHealthKit } from '../../../hooks/useHealthKit';
+import { StepsHistoryChart } from './StepsHistoryChart';
 
 interface DailyActivityHUDProps {
   todaySteps: number;
   dailyStepGoal: number;
   onRefresh?: () => Promise<void>;
-  onCheckDailyReward?: () => void; // 🎁 Handler for checking daily reward
 }
 
-export function DailyActivityHUD({ todaySteps, dailyStepGoal = 10000, onRefresh, onCheckDailyReward }: DailyActivityHUDProps) {
+export function DailyActivityHUD({ todaySteps, dailyStepGoal = 10000, onRefresh }: DailyActivityHUDProps) {
   const { syncSteps, isNative, isAuthorized } = useHealthKit();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   // 🎯 OPTIMISTIC UI: Always refresh in background, never show spinner
   const handleRefresh = async () => {
@@ -40,6 +41,7 @@ export function DailyActivityHUD({ todaySteps, dailyStepGoal = 10000, onRefresh,
   }, []); // Only on mount
 
   const progressPercent = Math.min(100, Math.round((todaySteps / dailyStepGoal) * 100));
+  const isGoalCompleted = progressPercent >= 100;
 
   // Circle progress properties
   const size = 280;
@@ -76,7 +78,7 @@ export function DailyActivityHUD({ todaySteps, dailyStepGoal = 10000, onRefresh,
                 cx={size / 2}
                 cy={size / 2}
                 r={radius}
-                stroke="url(#gradient-daily)"
+                stroke={isGoalCompleted ? "url(#gradient-daily-completed)" : "url(#gradient-daily)"}
                 strokeWidth={strokeWidth}
                 fill="transparent"
                 strokeDasharray={circumference}
@@ -84,13 +86,19 @@ export function DailyActivityHUD({ todaySteps, dailyStepGoal = 10000, onRefresh,
                 strokeLinecap="round"
                 className="transition-all duration-1000 ease-out"
                 style={{
-                  filter: 'drop-shadow(0 0 8px rgba(59, 130, 246, 0.5))'
+                  filter: isGoalCompleted 
+                    ? 'drop-shadow(0 0 8px rgba(34, 197, 94, 0.5))' 
+                    : 'drop-shadow(0 0 8px rgba(59, 130, 246, 0.5))'
                 }}
               />
               <defs>
                 <linearGradient id="gradient-daily" x1="0%" y1="0%" x2="100%" y2="100%">
                   <stop offset="0%" stopColor="#3b82f6" />
                   <stop offset="100%" stopColor="#06b6d4" />
+                </linearGradient>
+                <linearGradient id="gradient-daily-completed" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#22c55e" />
+                  <stop offset="100%" stopColor="#10b981" />
                 </linearGradient>
               </defs>
             </svg>
@@ -118,7 +126,7 @@ export function DailyActivityHUD({ todaySteps, dailyStepGoal = 10000, onRefresh,
         </div>
 
         {/* Title */}
-        <div className="text-center mb-6">
+        <div className="text-center mb-4">
           <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-1">
             Today's Activity
           </h3>
@@ -127,22 +135,17 @@ export function DailyActivityHUD({ todaySteps, dailyStepGoal = 10000, onRefresh,
           </p>
         </div>
 
-        {/* Check Daily Reward Button */}
-        <button 
-          onClick={onCheckDailyReward}
-          className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-4 rounded-2xl font-bold text-base shadow-lg hover:shadow-xl active:scale-98 transition-all duration-200 flex items-center justify-center gap-2"
+        {/* View History Button */}
+        <button
+          onClick={() => setShowHistory(true)}
+          className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-3 rounded-2xl font-bold text-sm shadow-lg hover:shadow-xl active:scale-98 transition-all duration-200"
         >
-          Check Daily Reward
-          <svg 
-            className="w-5 h-5" 
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
+          View History
         </button>
       </div>
+
+      {/* History Chart Modal */}
+      <StepsHistoryChart isOpen={showHistory} onClose={() => setShowHistory(false)} />
     </div>
   );
 }

@@ -39,6 +39,9 @@ export function InviteMoreToTeamChallengeModal({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      console.log('[InviteMoreModal] Loading team members for user:', user.id);
+      console.log('[InviteMoreModal] Already invited:', alreadyInvitedUserIds);
+
       // Get all team members (excluding current user and already invited)
       const { data, error } = await supabase
         .from('team_members')
@@ -48,8 +51,13 @@ export function InviteMoreToTeamChallengeModal({
 
       if (error) throw error;
 
+      console.log('[InviteMoreModal] Raw data from team_members:', data);
+
       const members = (data || [])
-        .filter((m: any) => m.member)
+        .filter((m: any) => {
+          console.log('[InviteMoreModal] Processing member:', m);
+          return m.member;
+        })
         .filter((m: any) => !alreadyInvitedUserIds.includes(m.member.id)) // Filter out already invited
         .map((m: any) => ({
           id: m.member.id,
@@ -57,6 +65,7 @@ export function InviteMoreToTeamChallengeModal({
           avatar_url: m.member.avatar_url
         }));
 
+      console.log('[InviteMoreModal] Processed members:', members);
       setTeamMembers(members);
     } catch (error) {
       console.error('Failed to load team members:', error);
@@ -68,8 +77,8 @@ export function InviteMoreToTeamChallengeModal({
     if (newSelected.has(friendId)) {
       newSelected.delete(friendId);
     } else {
-      // Check if we can add more (max 4 additional invites - total 5 including you)
-      const maxAdditional = 4 - alreadyInvitedUserIds.length;
+      // 🎯 FIX: max 5 additional invites (6 total including host)
+      const maxAdditional = 5 - alreadyInvitedUserIds.length;
       if (newSelected.size < maxAdditional) {
         newSelected.add(friendId);
       }
@@ -85,91 +94,39 @@ export function InviteMoreToTeamChallengeModal({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Get sender profile for email
-      const { data: senderProfile } = await supabase
-        .from('users')
-        .select('display_name, email')
-        .eq('id', user.id)
-        .single();
-
-      // Get challenge details
-      const { data: challenge } = await supabase
-        .from('admin_challenges')
-        .select('title, goal_steps, time_limit_hours')
-        .eq('id', challengeId)
-        .single();
-
-      // Send invitations to selected members
-      const invitations = Array.from(selectedFriends).map(memberId => ({
-        invited_by: user.id,
-        invited_user: memberId,
-        challenge_id: challengeId,
-        status: 'pending'
+      // 🎯 NEW: UPSERT instead of UPDATE - create team_members if they don't exist
+      const updates = Array.from(selectedFriends).map(memberId => ({
+        user_id: user.id,
+        member_id: memberId,
+        active_challenge_id: challengeId,
+        challenge_role: 'member',
+        challenge_status: 'invited',
+        invited_to_challenge_at: new Date().toISOString()
       }));
 
-      const { error: inviteError } = await supabase
-        .from('team_challenge_invitations')
-        .upsert(invitations, {
-          onConflict: 'invited_user,challenge_id,invited_by',
+      // UPSERT team_members records (insert if not exists, update if exists)
+      const { error: upsertError } = await supabase
+        .from('team_members')
+        .upsert(updates, {
+          onConflict: 'user_id,member_id',
           ignoreDuplicates: false
         });
 
-      if (inviteError) throw inviteError;
-
-      // 🎯 Send email + push notification for each invitation via Edge Function
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-      for (const memberId of Array.from(selectedFriends)) {
-        try {
-          // Get recipient email
-          const { data: recipient } = await supabase
-            .from('users')
-            .select('email, display_name')
-            .eq('id', memberId)
-            .single();
-
-          if (!recipient?.email) {
-            console.warn(`No email found for user ${memberId}`);
-            continue;
-          }
-
-          const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-team-challenge-invitation`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${supabaseKey}`,
-            },
-            body: JSON.stringify({
-              recipientEmail: recipient.email,
-              recipientName: recipient.display_name || recipient.email.split('@')[0],
-              senderName: senderProfile?.display_name || senderProfile?.email?.split('@')[0] || 'Someone',
-              senderEmail: senderProfile?.email,
-              challengeTitle: challenge?.title || challengeTitle,
-              challengeGoalSteps: challenge?.goal_steps || 0,
-              challengeTimeLimit: challenge?.time_limit_hours || 0,
-              invitedUserId: memberId,
-            }),
-          });
-
-          if (!emailResponse.ok) {
-            console.error('❌ Failed to send invitation email:', await emailResponse.text());
-          } else {
-            console.log('📧 Invitation email sent to:', recipient.email);
-          }
-        } catch (emailError) {
-          console.error('❌ Email sending error:', emailError);
-        }
+      if (upsertError) {
+        console.error('Failed to upsert team_members:', upsertError);
+        throw upsertError;
       }
 
-      const friendCount = selectedFriends.size;
-      alert(`✅ Sent ${friendCount} invitation${friendCount > 1 ? 's' : ''}`);
+      console.log('✅ Updated team_members with challenge invitations');
 
+      // @ts-ignore - Used for future feature
+      const friendCount = selectedFriends.size;
+      
       onSuccess();
       handleClose();
     } catch (error: any) {
       console.error('Failed to send invitations:', error);
-      alert('❌ Failed to send invitations. Please try again.');
+      alert('Failed to send invitations. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -182,7 +139,7 @@ export function InviteMoreToTeamChallengeModal({
 
   if (!isOpen) return null;
 
-  const maxAdditional = 4 - alreadyInvitedUserIds.length;
+  const maxAdditional = 5 - alreadyInvitedUserIds.length;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -228,14 +185,14 @@ export function InviteMoreToTeamChallengeModal({
             {teamMembers.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-gray-600 dark:text-gray-400 mb-2 font-semibold">
-                  {alreadyInvitedUserIds.length >= 4 
+                  {alreadyInvitedUserIds.length >= 5 
                     ? 'Team is full'
                     : 'No more friends available'
                   }
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {alreadyInvitedUserIds.length >= 4 
-                    ? 'Maximum 5 members (including you)'
+                  {alreadyInvitedUserIds.length >= 5 
+                    ? 'Maximum 6 members (including you)'
                     : 'Add friends in Team tab to invite them'
                   }
                 </p>

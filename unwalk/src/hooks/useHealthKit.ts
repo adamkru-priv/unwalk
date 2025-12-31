@@ -101,14 +101,50 @@ export function useHealthKit() {
     [isAuthorized, isAvailable, requestPermission],
   );
 
+  const getStepsHistory = useCallback(
+    async (days: number): Promise<Array<{ date: string; steps: number }>> => {
+      if (!isAuthorized && isAvailable) {
+        const granted = await requestPermission();
+        if (!granted) return [];
+      }
+
+      try {
+        const history = [];
+        const today = new Date();
+        
+        for (let i = days - 1; i >= 0; i--) {
+          const date = new Date(today);
+          date.setDate(date.getDate() - i);
+          date.setHours(0, 0, 0, 0);
+          
+          const endDate = new Date(date);
+          endDate.setHours(23, 59, 59, 999);
+          
+          const steps = await healthKitService.getSteps(date, endDate);
+          history.push({
+            date: date.toISOString().split('T')[0],
+            steps
+          });
+        }
+        
+        return history;
+      } catch (error) {
+        console.error('Failed to get steps history:', error);
+        return [];
+      }
+    },
+    [isAuthorized, isAvailable, requestPermission],
+  );
+
   return {
     isAvailable,
     isAuthorized,
-    todaySteps, // 🎯 Return from global store
+    todaySteps,
     isLoading,
     isNative: Capacitor.isNativePlatform(),
     requestPermission,
     syncSteps,
     getSteps,
+    getStepsHistory, // 🎯 NEW: Export steps history function
   };
 }

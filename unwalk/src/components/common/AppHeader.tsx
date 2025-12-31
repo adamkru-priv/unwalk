@@ -35,8 +35,22 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
       const pendingChallenges = await teamService.getPendingChallengesCount();
       setPendingChallengesCount(pendingChallenges);
 
-      // Total notification count
-      const total = pending.length + unclaimed.length + pendingChallenges;
+      // 🎯 NEW: Load pending Team Challenge invitations from team_members
+      const { data: { user } } = await (await import('../../lib/supabase')).supabase.auth.getUser();
+      let teamChallengeInvitesCount = 0;
+      if (user) {
+        const { count } = await (await import('../../lib/supabase')).supabase
+          .from('team_members')
+          .select('*', { count: 'exact', head: true })
+          .eq('member_id', user.id)
+          .eq('challenge_status', 'invited')
+          .not('active_challenge_id', 'is', null);
+        
+        teamChallengeInvitesCount = count || 0;
+      }
+
+      // Total notification count (including team challenge invites)
+      const total = pending.length + unclaimed.length + pendingChallenges + teamChallengeInvitesCount;
       setNotificationCount(total);
     } catch (err) {
       console.error('Failed to load notifications:', err);

@@ -96,7 +96,7 @@ export function RunnerHUD({
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <div className="text-6xl mb-2">🏃</div>
+                <div className="text-6xl mb-2 scale-x-[-1]">🚶</div>
                 <div className="text-sm text-gray-500 dark:text-gray-400 font-semibold text-center px-4">
                   No Active Challenge
                 </div>
@@ -106,7 +106,7 @@ export function RunnerHUD({
 
           <div className="text-center mb-4">
             <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-1">
-              Solo Challenges
+              Solo
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Start your personal journey
@@ -117,7 +117,7 @@ export function RunnerHUD({
             onClick={onClick}
             className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 rounded-2xl font-bold text-base shadow-lg hover:shadow-xl active:scale-98 transition-all duration-200"
           >
-            🏆 Browse Challenges
+            Start here
           </button>
         </div>
       </div>
@@ -165,9 +165,15 @@ export function RunnerHUD({
 
   const deadline = calculateDeadline();
 
+  // Calculate distance metrics
   const distanceKm = (currentSteps * 0.000762).toFixed(2);
+  // @ts-ignore - Reserved for future display
+  const currentDistanceKm = (currentSteps * 0.000762).toFixed(2);
+  // @ts-ignore - Used for display
   const goalDistanceKm = (goalSteps * 0.000762).toFixed(2);
-
+  // @ts-ignore - Reserved for future progress bar
+  const progressPercentage = Math.min((currentSteps / goalSteps) * 100, 100);
+  // @ts-ignore - timeElapsed reserved for future feature
   const timeElapsed = activeChallenge.active_time_seconds || 0;
 
   const handleEndChallenge = async () => {
@@ -329,27 +335,34 @@ export function RunnerHUD({
             <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-1">
               {activeChallenge.admin_challenge?.title}
             </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Goal: {goalSteps.toLocaleString()} steps • Reward: {xpReward} XP
+            </p>
           </div>
 
           <div className="flex items-center justify-center gap-6 mb-6 text-sm">
             <div className="flex items-center gap-2">
-              <span className="text-lg">💎</span>
+              <span className="text-lg">📍</span>
               <div>
-                <div className="font-black text-gray-900 dark:text-white">{xpReward} XP</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">Reward</div>
+                <div className="font-black text-gray-900 dark:text-white">
+                  {distanceKm} km
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">Walked</div>
               </div>
             </div>
 
-            <div className="w-px h-8 bg-gray-300 dark:bg-gray-700"></div>
-
             {deadline && (
-              <div className="flex items-center gap-2">
-                <span className="text-lg">⏱️</span>
-                <div>
-                  <div className="font-black text-gray-900 dark:text-white">{deadline}</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">Deadline</div>
+              <>
+                <div className="w-px h-8 bg-gray-300 dark:bg-gray-700"></div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">⏱️</span>
+                  <div>
+                    <div className="font-black text-gray-900 dark:text-white">{deadline}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Deadline</div>
+                  </div>
                 </div>
-              </div>
+              </>
             )}
           </div>
 
@@ -358,7 +371,7 @@ export function RunnerHUD({
               e.stopPropagation();
               setIsExpanded(!isExpanded);
             }}
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 rounded-2xl font-bold text-base shadow-lg hover:shadow-xl active:scale-98 transition-all duration-200 flex items-center justify-center gap-2"
+            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 rounded-2xl font-bold text-base shadow-lg hover:shadow-xl active:scale-98 transition-all duration-200 flex items-center justify-center gap-2 mb-4"
           >
             {isExpanded ? 'Hide Details' : 'View Details'}
             <svg 
@@ -407,97 +420,64 @@ export function RunnerHUD({
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-gray-50 dark:bg-[#0B101B] border border-gray-200 dark:border-gray-800 rounded-xl p-3">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase mb-1">Distance</div>
-                  <div className="text-xl font-black text-gray-900 dark:text-white">{distanceKm} km</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">/ {goalDistanceKm} km</div>
+              {progressPercent < 100 && !isNative && (
+                <div className="bg-blue-900/80 backdrop-blur-sm rounded-xl p-3 border border-blue-700/50">
+                  <p className="text-xs font-semibold text-blue-200 mb-2">Step Simulator (Web/Test Only)</p>
+                  <div className="grid grid-cols-4 gap-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddSteps(100);
+                      }}
+                      disabled={isUpdating}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50 transition-colors"
+                    >
+                      +100
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddSteps(500);
+                      }}
+                      disabled={isUpdating}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50 transition-colors"
+                    >
+                      +500
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddSteps(1000);
+                      }}
+                      disabled={isUpdating}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50 transition-colors"
+                    >
+                      +1K
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddSteps(5000);
+                      }}
+                      disabled={isUpdating}
+                      className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50 transition-colors"
+                    >
+                      +5K
+                    </button>
+                  </div>
                 </div>
+              )}
 
-                <div className="bg-gray-50 dark:bg-[#0B101B] border border-gray-200 dark:border-gray-800 rounded-xl p-3">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase mb-1">Time</div>
-                  <div className="text-xl font-black text-gray-900 dark:text-white">
-                    {Math.floor(timeElapsed / 3600)}h {Math.floor((timeElapsed % 3600) / 60)}m
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">active</div>
-                </div>
-
-                <div className="bg-gradient-to-br from-amber-500/10 to-yellow-500/10 border border-amber-500/20 rounded-xl p-3">
-                  <div className="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase mb-1">Reward</div>
-                  <div className="text-xl font-black text-gray-900 dark:text-white flex items-center gap-1">
-                    💎 {xpReward}
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">on completion</div>
-                </div>
-
-                {deadline && (
-                  <div className="bg-gradient-to-br from-red-500/10 to-orange-500/10 border border-red-500/20 rounded-xl p-3">
-                    <div className="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase mb-1">Deadline</div>
-                    <div className="text-xl font-black text-gray-900 dark:text-white flex items-center gap-1">
-                      ⏱️ {deadline}
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">remaining</div>
-                  </div>
-                )}
-              </div>
-
-              <div className="pt-2 space-y-2">
-                {progressPercent < 100 && !isNative && (
-                  <div className="bg-blue-900/80 backdrop-blur-sm rounded-xl p-3 border border-blue-700/50">
-                    <p className="text-xs font-semibold text-blue-200 mb-2">Step Simulator (Web/Test Only)</p>
-                    <div className="grid grid-cols-4 gap-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAddSteps(100);
-                        }}
-                        disabled={isUpdating}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50 transition-colors"
-                      >
-                        +100
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAddSteps(500);
-                        }}
-                        disabled={isUpdating}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50 transition-colors"
-                      >
-                        +500
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAddSteps(1000);
-                        }}
-                        disabled={isUpdating}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50 transition-colors"
-                      >
-                        +1K
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAddSteps(5000);
-                        }}
-                        disabled={isUpdating}
-                        className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-sm font-medium disabled:opacity-50 transition-colors"
-                      >
-                        +5K
-                      </button>
-                    </div>
-                  </div>
-                )}
-
+              {/* End Challenge link - tylko w rozwiniętych details */}
+              <div className="text-center pt-2">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     handleEndChallenge();
                   }}
-                  className="w-full bg-gradient-to-r from-red-500/10 to-orange-500/10 hover:from-red-500/20 hover:to-orange-500/20 border border-red-500/30 text-red-600 dark:text-red-400 py-3 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2"
+                  className="text-xs text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors underline"
                 >
-                  🏁 End Challenge
+                  End Challenge
                 </button>
               </div>
             </div>

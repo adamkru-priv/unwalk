@@ -51,7 +51,7 @@ export function useTeamChallengeActions({
       }
 
       console.log('✅ [CancelChallenge] Deleted invitations and user challenges for challenge:', pendingChallenge.challenge_id);
-      alert('✅ Challenge cancelled');
+      // ✅ Removed alert - modal just closes
       onChallengeCancelled?.();
       return true;
     } catch (error) {

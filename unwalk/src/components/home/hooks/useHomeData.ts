@@ -19,18 +19,24 @@ export function useHomeData() {
 
   const loadActiveChallenge = async () => {
     try {
+      console.log('🔄 [useHomeData] Loading active challenge...');
       // 🎯 FIX: This now returns ONLY solo challenges (team_id IS NULL)
       const activeChallenge = await getActiveUserChallenge();
       
       if (activeChallenge) {
+        console.log('✅ [useHomeData] Loaded active SOLO challenge:', {
+          title: activeChallenge.admin_challenge?.title,
+          id: activeChallenge.id,
+          current_steps: activeChallenge.current_steps,
+          goal_steps: activeChallenge.admin_challenge?.goal_steps
+        });
         setActiveChallenge(activeChallenge);
-        console.log('✅ [useHomeData] Loaded active SOLO challenge:', activeChallenge.admin_challenge?.title);
       } else {
         setActiveChallenge(null);
         console.log('ℹ️ [useHomeData] No active SOLO challenge');
       }
     } catch (err) {
-      console.error('Failed to load active challenge:', err);
+      console.error('❌ [useHomeData] Failed to load active challenge:', err);
     }
   };
 
