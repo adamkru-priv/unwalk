@@ -15,7 +15,7 @@ let lastSavedToken: string | null = null;
 let lastReceivedApnsToken: string | null = null;
 let inFlightSave: Promise<void> | null = null;
 
-const TOKEN_STORAGE_KEY = 'apns_device_token';
+const TOKEN_STORAGE_KEY = 'push_device_token'; // ✅ Changed from 'apns_device_token' to support both platforms
 
 // ✅ Helper function to add timeout to any promise
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMsg: string): Promise<T> {
@@ -90,6 +90,15 @@ async function registerTokenViaEdgeFunction(token: string, opts?: { forceAuth?: 
   // ✅ Detect platform dynamically
   const platform = Capacitor.getPlatform() as 'ios' | 'android';
 
+  // ✅ Log what we're sending
+  console.log('🌐 [Push] Edge function params:', JSON.stringify({
+    platform,
+    tokenLength: token.length,
+    tokenPreview: token.substring(0, 20) + '...',
+    deviceId: deviceId.substring(0, 10) + '...',
+    forceAuth: opts?.forceAuth,
+  }));
+
   // If caller wants to ensure the request is authenticated, attach the current access token.
   // This avoids the function falling back to guest resolution by device_id.
   const headers: Record<string, string> = {};
@@ -99,7 +108,7 @@ async function registerTokenViaEdgeFunction(token: string, opts?: { forceAuth?: 
     if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
   }
 
-  const { data, error } = await withTimeout(
+  const response = await withTimeout(
     supabase.functions.invoke('register_push_token', {
       headers,
       body: {
@@ -112,8 +121,30 @@ async function registerTokenViaEdgeFunction(token: string, opts?: { forceAuth?: 
     'Edge function register_push_token took too long'
   );
 
-  if (error) throw error;
-  return data;
+  // ✅ Log full response for debugging
+  console.log('🌐 [Push] Edge function response:', JSON.stringify({
+    hasData: !!response.data,
+    hasError: !!response.error,
+    data: response.data,
+    error: response.error ? {
+      name: response.error.name,
+      message: response.error.message,
+      context: (response.error as any).context,
+      status: (response.error as any).status,
+    } : null,
+  }));
+
+  if (response.error) {
+    console.error('❌ [Push] Edge function error details:', JSON.stringify({
+      name: response.error.name,
+      message: response.error.message,
+      context: (response.error as any).context,
+      status: (response.error as any).status,
+    }));
+    throw response.error;
+  }
+  
+  return response.data;
 }
 
 async function saveToken(token: string) {
@@ -250,16 +281,16 @@ async function fetchNativeTokenFallback(): Promise<string | null> {
   }
 }
 
-// Removed pollNativeFallbackToken - no longer needed as we rely on 'registration' event
-
 /**
  * Re-register push token from localStorage or native storage.
  * Call this on app resume or when you suspect the token may have been invalidated.
  */
 export async function reregisterPushToken(): Promise<void> {
-  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'ios') return;
-
-  console.log('🔔 [Push] reregisterPushToken called');
+  // ✅ FIX: Support both iOS and Android (was only iOS before)
+  if (!Capacitor.isNativePlatform()) return;
+  
+  const platform = Capacitor.getPlatform();
+  console.log(`🔔 [Push] reregisterPushToken called for ${platform}`);
 
   try {
     // Try to get token from localStorage first
@@ -270,12 +301,14 @@ export async function reregisterPushToken(): Promise<void> {
       return;
     }
 
-    // Fallback: try to fetch from native storage
-    const nativeToken = await fetchNativeTokenFallback();
-    if (nativeToken) {
-      console.log('🔔 [Push] Found token in native storage, re-registering...');
-      await saveToken(nativeToken);
-      return;
+    // ✅ iOS-only: Fallback to native storage (Android uses different mechanism)
+    if (platform === 'ios') {
+      const nativeToken = await fetchNativeTokenFallback();
+      if (nativeToken) {
+        console.log('🔔 [Push] Found token in native storage, re-registering...');
+        await saveToken(nativeToken);
+        return;
+      }
     }
 
     console.warn('⚠️ [Push] No token found to re-register');

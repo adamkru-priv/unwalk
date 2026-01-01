@@ -59,80 +59,40 @@ Deno.serve(async (req) => {
   const deviceId = String(body?.device_id ?? '').trim();
 
   if (!token) return json(400, { error: 'token is required' });
-  if (platform !== 'ios') return json(400, { error: 'platform must be ios' });
+  if (platform !== 'ios' && platform !== 'android') return json(400, { error: 'platform must be ios or android' });
   if (!deviceId) return json(400, { error: 'device_id is required' });
 
-  // ✅ FIX: APNs requires lowercase hex tokens
-  const normalizedToken = token.toLowerCase();
+  // ✅ FIX: Only lowercase iOS APNs hex tokens, keep Android FCM tokens as-is
+  const normalizedToken = platform === 'ios' ? token.toLowerCase() : token;
 
-  // Resolve user_id:
-  // 1) If caller has Authorization header, try to parse it and get auth user.
-  // 2) Fallback: resolve guest user from public.users by device_id.
+  // Resolve user_id from JWT token (required - no guest users)
   let userId: string | null = null;
-  let isAuthenticated = false;
 
-  // Try auth user from JWT (if present)
+  // Get user from JWT (required)
   const authHeader = req.headers.get('Authorization');
-  if (authHeader?.startsWith('Bearer ')) {
-    const jwt = authHeader.slice('Bearer '.length).trim();
-    if (jwt) {
-      const { data, error } = await admin.auth.getUser(jwt);
-      if (!error && data?.user?.id) {
-        userId = data.user.id;
-        isAuthenticated = true;
-      }
-    }
+  if (!authHeader?.startsWith('Bearer ')) {
+    return json(401, { error: 'Authorization header required' });
   }
 
-  // Fallback to guest user by device_id
-  if (!userId) {
-    const { data: guest, error } = await admin
-      .from('users')
-      .select('id')
-      .eq('device_id', deviceId)
-      .eq('is_guest', true)
-      .maybeSingle();
-
-    if (error) return json(500, { error: 'Failed to resolve guest user', details: error.message });
-    if (!guest?.id) return json(404, { error: 'Guest user not found for device_id' });
-    userId = guest.id;
+  const jwt = authHeader.slice('Bearer '.length).trim();
+  if (!jwt) {
+    return json(401, { error: 'Authorization token required' });
   }
 
-  // ✅ FIX: If user is authenticated, delete ALL old tokens from other users with same device_id
-  // This handles the case where user reinstalled app (new guest created) then logged in
-  if (isAuthenticated) {
-    // First, get all guest user IDs with this device_id
-    const { data: guestUsers, error: guestError } = await admin
-      .from('users')
-      .select('id')
-      .eq('device_id', deviceId)
-      .eq('is_guest', true);
-    
-    if (!guestError && guestUsers && guestUsers.length > 0) {
-      const guestIds = guestUsers.map(u => u.id);
-      
-      // Delete old tokens from those guest users
-      const { error: deleteError } = await admin
-        .from('device_push_tokens')
-        .delete()
-        .neq('user_id', userId)
-        .in('user_id', guestIds);
-      
-      if (deleteError) {
-        console.error('Failed to delete old guest tokens:', deleteError);
-        // Don't fail the request - continue to upsert
-      } else {
-        console.log(`Deleted ${guestIds.length} old guest token(s)`);
-      }
-    }
+  const { data, error: authError } = await admin.auth.getUser(jwt);
+  if (authError || !data?.user?.id) {
+    return json(401, { error: 'Invalid or expired authorization token', details: authError?.message });
   }
+
+  userId = data.user.id;
+  console.log(`[Push] Registering token for user: ${userId}, platform: ${platform}`);
 
   const { error: upsertError } = await admin
     .from('device_push_tokens')
     .upsert(
       {
         user_id: userId,
-        platform: 'ios',
+        platform: platform,
         token: normalizedToken,
         updated_at: new Date().toISOString(),
       },
@@ -141,7 +101,7 @@ Deno.serve(async (req) => {
 
   if (upsertError) return json(500, { error: 'Failed to save token', details: upsertError.message });
 
-  return json(200, { ok: true, user_id: userId, is_authenticated: isAuthenticated });
+  return json(200, { ok: true, user_id: userId, platform });
 });
 
 /* To invoke locally:

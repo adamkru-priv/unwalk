@@ -320,7 +320,7 @@ class AuthService {
       // 2. Clear guest cache
       this.clearGuestUser();
 
-      // 3. Clear app storage (works on both web and iOS)
+      // 3. Clear app storage (works on both web and native)
       try {
         // Check if running on native platform
         const { Capacitor } = await import('@capacitor/core');
@@ -331,20 +331,54 @@ class AuthService {
           
           console.log('📱 [Auth] Clearing Capacitor storage...');
           
-          // Clear all auth-related keys
-          await Preferences.remove({ key: 'unwalk-auth' });
-          await Preferences.remove({ key: 'sb-' + import.meta.env.VITE_SUPABASE_URL?.split('//')[1]?.split('.')[0] + '-auth-token' });
-          await Preferences.remove({ key: 'unclaimedChallenges' });
+          // ✅ FIX: Get project reference from Supabase URL
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+          const projectRef = supabaseUrl.split('//')[1]?.split('.')[0] || '';
+          
+          console.log('🔍 [Auth] Project ref:', projectRef);
+          
+          // ✅ FIX: Clear ALL possible auth keys (wait for all operations)
+          const keysToRemove = [
+            'unwalk-auth',
+            `sb-${projectRef}-auth-token`,
+            'unclaimedChallenges',
+            'push_device_token', // Push token from iosPush.ts
+            'apns_device_token', // Legacy push token
+          ];
+          
+          // ✅ FIX: Wait for ALL remove operations to complete
+          await Promise.all(
+            keysToRemove.map(async (key) => {
+              try {
+                console.log('🗑️ [Auth] Removing Capacitor key:', key);
+                await Preferences.remove({ key });
+              } catch (e) {
+                console.warn('⚠️ [Auth] Failed to remove key:', key, e);
+              }
+            })
+          );
+          
+          // ✅ FIX: Also try to clear ALL keys (nuclear option for Android)
+          // This ensures we don't leave any orphaned auth data
+          try {
+            console.log('🧹 [Auth] Clearing all Capacitor Preferences...');
+            await Preferences.clear();
+            console.log('✅ [Auth] All Capacitor Preferences cleared');
+          } catch (e) {
+            console.warn('⚠️ [Auth] Failed to clear all preferences:', e);
+          }
           
           console.log('✅ [Auth] Capacitor storage cleared');
         } else {
           // ✅ Web: Clear localStorage
           console.log('🌐 [Auth] Clearing localStorage...');
           localStorage.removeItem('unclaimedChallenges');
+          localStorage.removeItem('push_device_token');
+          localStorage.removeItem('apns_device_token');
           
           // Clear all Supabase auth keys
           const authKeys = Object.keys(localStorage).filter(key => 
-            key.includes('supabase') || key.includes('auth-token') || key.includes('unwalk')
+            key.includes('supabase') || key.includes('auth-token') || key.includes('unwalk') || key.includes('sb-')
           );
           
           authKeys.forEach(key => {
