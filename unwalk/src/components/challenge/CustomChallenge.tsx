@@ -16,7 +16,6 @@ export function CustomChallenge() {
   const [myCustomChallenges, setMyCustomChallenges] = useState<AdminChallenge[]>([]);
   const [editingChallenge, setEditingChallenge] = useState<AdminChallenge | null>(null);
   const { setCurrentScreen, setActiveChallenge } = useChallengeStore();
-  const userProfile = useChallengeStore((s) => s.userProfile);
 
   // Form state
   const [title, setTitle] = useState('');
