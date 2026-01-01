@@ -2,6 +2,18 @@
 -- 🔍 Znajdź WSZYSTKIE możliwe źródła XP
 -- ========================================
 
+-- 0. Sprawdź XP z xp_transactions
+SELECT 
+  u.email,
+  xh.source_type,
+  COUNT(*) as count,
+  SUM(xh.xp_amount) as total_xp
+FROM xp_transactions xh
+JOIN users u ON xh.user_id = u.id
+WHERE u.email IN ('adam.krusz@gmail.com', 'adam@c4e.io')
+GROUP BY u.email, xh.source_type
+ORDER BY u.email, xh.source_type;
+
 -- 1. Sprawdź czy są tabele związane z achievements/badges/streaks
 SELECT 
   table_name

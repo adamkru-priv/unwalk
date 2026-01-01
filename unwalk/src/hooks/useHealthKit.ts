@@ -3,7 +3,7 @@ import { Capacitor } from '@capacitor/core';
 import { healthKitService } from '../services/healthKit.native';
 import { useChallengeStore } from '../stores/useChallengeStore';
 import { syncDailySteps, getTodayQuest, updateQuestProgress } from '../lib/gamification';
-import { updateChallengeProgress } from '../lib/api'; // 🎯 NEW: Import challenge update function
+import { updateChallengeProgress, getActiveTeamChallenge } from '../lib/api'; // 🎯 FIX: Import getActiveTeamChallenge
 
 export function useHealthKit() {
   const setHealthConnected = useChallengeStore((s) => s.setHealthConnected);
@@ -83,7 +83,7 @@ export function useHealthKit() {
           console.error('Failed to update quest progress:', questError);
         }
 
-        // 🎯 NEW: Update active challenge progress - count steps SINCE challenge started
+        // 🎯 Update SOLO challenge progress - count steps SINCE challenge started
         if (activeUserChallenge?.id && activeUserChallenge?.started_at) {
           try {
             const challengeStartDate = new Date(activeUserChallenge.started_at);
@@ -93,10 +93,27 @@ export function useHealthKit() {
             const challengeSteps = await healthKitService.getSteps(challengeStartDate, now);
             
             await updateChallengeProgress(activeUserChallenge.id, challengeSteps);
-            console.log(`✅ Updated challenge progress: ${challengeSteps} steps (since ${challengeStartDate.toLocaleString()})`);
+            console.log(`✅ Updated SOLO challenge progress: ${challengeSteps} steps (since ${challengeStartDate.toLocaleString()})`);
           } catch (challengeError) {
-            console.error('Failed to update challenge progress:', challengeError);
+            console.error('Failed to update solo challenge progress:', challengeError);
           }
+        }
+
+        // 🎯 FIX: Update TEAM challenge progress - fetch and sync separately
+        try {
+          const teamChallenge = await getActiveTeamChallenge();
+          if (teamChallenge?.id && teamChallenge?.started_at) {
+            const challengeStartDate = new Date(teamChallenge.started_at);
+            const now = new Date();
+            
+            // Get steps SINCE team challenge started
+            const teamChallengeSteps = await healthKitService.getSteps(challengeStartDate, now);
+            
+            await updateChallengeProgress(teamChallenge.id, teamChallengeSteps);
+            console.log(`✅ Updated TEAM challenge progress: ${teamChallengeSteps} steps (since ${challengeStartDate.toLocaleString()})`);
+          }
+        } catch (teamError) {
+          console.error('Failed to update team challenge progress:', teamError);
         }
       } catch (error) {
         console.error('Failed to sync daily steps to backend:', error);

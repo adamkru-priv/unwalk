@@ -42,9 +42,12 @@ async function upsertTokenDirect(token: string) {
   const profile = await authService.getUserProfile();
   if (!profile?.id) return;
 
+  // ✅ Detect platform dynamically
+  const platform = Capacitor.getPlatform() as 'ios' | 'android';
+
   const payload = {
     user_id: profile.id,
-    platform: 'ios' as const,
+    platform,
     token,
     updated_at: new Date().toISOString(),
   };
@@ -58,6 +61,9 @@ async function upsertTokenDirect(token: string) {
 
 async function registerTokenViaEdgeFunction(token: string, opts?: { forceAuth?: boolean }) {
   const deviceId = getDeviceId();
+  
+  // ✅ Detect platform dynamically
+  const platform = Capacitor.getPlatform() as 'ios' | 'android';
 
   // If caller wants to ensure the request is authenticated, attach the current access token.
   // This avoids the function falling back to guest resolution by device_id.
@@ -72,7 +78,7 @@ async function registerTokenViaEdgeFunction(token: string, opts?: { forceAuth?: 
     headers,
     body: {
       token,
-      platform: 'ios',
+      platform,
       device_id: deviceId,
     },
   });
@@ -82,28 +88,63 @@ async function registerTokenViaEdgeFunction(token: string, opts?: { forceAuth?: 
 }
 
 async function saveToken(token: string) {
-  if (!token) return;
+  console.log('🔔 [Push] saveToken called with token:', {
+    hasToken: !!token,
+    tokenLength: token?.length,
+    tokenPreview: token?.substring(0, 20) + '...',
+  });
+
+  if (!token) {
+    console.error('❌ [Push] saveToken called with empty token!');
+    return;
+  }
+  
   lastReceivedApnsToken = token;
 
   // Coalesce concurrent calls.
   if (inFlightSave) {
+    console.log('⏳ [Push] Another save in progress, waiting...');
     await inFlightSave;
-    if (token === lastSavedToken) return;
+    if (token === lastSavedToken) {
+      console.log('✅ [Push] Token already saved, skipping');
+      return;
+    }
   }
 
-  if (token === lastSavedToken) return;
+  if (token === lastSavedToken) {
+    console.log('✅ [Push] Token already saved previously, skipping');
+    return;
+  }
+
+  console.log('🚀 [Push] Starting token save process...');
 
   inFlightSave = (async () => {
     await persistTokenLocally(token);
+    console.log('💾 [Push] Token persisted to localStorage');
 
     // Try direct upsert first (works if there is an auth session). Fallback to Edge Function.
     try {
+      console.log('🔄 [Push] Attempting direct upsert to device_push_tokens...');
+      const profile = await authService.getUserProfile();
+      console.log('👤 [Push] Got user profile:', {
+        hasProfile: !!profile,
+        userId: profile?.id,
+        email: profile?.email,
+        isGuest: profile?.is_guest,
+      });
+
       await upsertTokenDirect(token);
       lastSavedToken = token;
-      console.log('✅ [Push] Device token saved (direct)');
+      console.log('✅ [Push] Device token saved (direct) - SUCCESS!');
       return;
     } catch (e) {
-      console.warn('⚠️ [Push] Direct token save failed, falling back to edge function:', e);
+      console.error('⚠️ [Push] Direct token save failed:', e);
+      console.error('⚠️ [Push] Error details:', {
+        message: (e as any)?.message,
+        code: (e as any)?.code,
+        details: (e as any)?.details,
+      });
+      console.log('🔄 [Push] Falling back to edge function...');
     }
 
     // If we have an authenticated session, force the edge function call to be authenticated
@@ -111,11 +152,23 @@ async function saveToken(token: string) {
     try {
       const { data } = await supabase.auth.getSession();
       const hasSession = !!data?.session;
+      console.log('🔐 [Push] Session status:', {
+        hasSession,
+        userId: data?.session?.user?.id,
+      });
+
+      console.log('🌐 [Push] Calling edge function register_push_token...');
       await registerTokenViaEdgeFunction(token, { forceAuth: hasSession });
       lastSavedToken = token;
-      console.log('✅ [Push] Device token saved (edge function)');
+      console.log('✅ [Push] Device token saved (edge function) - SUCCESS!');
     } catch (e) {
       console.error('❌ [Push] Failed to save token (edge function):', e);
+      console.error('❌ [Push] Error details:', {
+        message: (e as any)?.message,
+        code: (e as any)?.code,
+        details: (e as any)?.details,
+        stack: (e as any)?.stack,
+      });
     }
   })();
 
@@ -168,22 +221,7 @@ async function fetchNativeTokenFallback(): Promise<string | null> {
   }
 }
 
-async function pollNativeFallbackToken(opts?: { attempts?: number; intervalMs?: number }) {
-  const attempts = opts?.attempts ?? 10;
-  const intervalMs = opts?.intervalMs ?? 1000;
-
-  for (let i = 0; i < attempts; i++) {
-    const token = await fetchNativeTokenFallback();
-    if (token) {
-      console.log(`✅ [Push] Native fallback token received (attempt ${i + 1}/${attempts})`);
-      await saveToken(token);
-      return true;
-    }
-    await new Promise((r) => setTimeout(r, intervalMs));
-  }
-
-  return false;
-}
+// Removed pollNativeFallbackToken - no longer needed as we rely on 'registration' event
 
 /**
  * Re-register push token from localStorage or native storage.
@@ -228,43 +266,35 @@ export async function initIosPushNotifications(): Promise<void> {
   
   initialized = true;
 
-  // Only for native iOS build
-  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'ios') return;
+  // ✅ FIXED: Support both iOS and Android
+  const platform = Capacitor.getPlatform();
+  
+  // Only for native platforms (iOS or Android)
+  if (!Capacitor.isNativePlatform()) {
+    console.log('ℹ️ [Push] Not a native platform, skipping push notifications');
+    return;
+  }
 
   try {
-    console.log('🔔 [Push] initIosPushNotifications starting');
+    console.log(`🔔 [Push] Initializing push notifications for ${platform}`);
 
-    const permStatus = await PushNotifications.checkPermissions();
-    console.log('🔔 [Push] permission status:', permStatus);
-
-    if (permStatus.receive !== 'granted') {
-      const req = await PushNotifications.requestPermissions();
-      console.log('🔔 [Push] permission request result:', req);
-      if (req.receive !== 'granted') {
-        console.log('ℹ️ [Push] Permission not granted');
-        return;
-      }
-    }
-
-    // Register with APNs.
-    await PushNotifications.register();
-    console.log('🔔 [Push] register() called');
-
-    // If Capacitor fails to deliver the 'registration' event to JS (as seen in logs),
-    // fall back to reading the native-saved token from UserDefaults via a custom plugin.
-    void pollNativeFallbackToken({ attempts: 15, intervalMs: 1000 });
-
-    // After a few seconds, warn only if we still can't obtain a token.
-    setTimeout(() => {
-      if (lastReceivedApnsToken) return;
-      console.warn(
-        '⚠️ [Push] No APNs token received yet via JS registration event. If you see an APNs token in native logs, the plugin event is not reaching JS.',
-      );
-    }, 5000);
-
+    // ✅ CRITICAL: Add registration listener BEFORE calling register()
+    // This ensures we catch the token when it arrives (especially important for Android!)
     PushNotifications.addListener('registration', async (token: Token) => {
-      console.log(`✅ [Push] registration token received (len=${token.value?.length ?? 0})`);
-      await saveToken(token.value); // ← Fix: Use token.value (string) instead of token (object)
+      console.log('✅ [Push] ⭐️ REGISTRATION EVENT RECEIVED ⭐️');
+      console.log('✅ [Push] Token received:', {
+        platform,
+        hasToken: !!token,
+        hasValue: !!token.value,
+        length: token.value?.length,
+        preview: token.value?.substring(0, 30) + '...'
+      });
+      
+      if (token.value) {
+        await saveToken(token.value);
+      } else {
+        console.error('❌ [Push] Token object received but token.value is empty!', token);
+      }
     });
 
     PushNotifications.addListener('registrationError', (err) => {
@@ -276,7 +306,7 @@ export async function initIosPushNotifications(): Promise<void> {
       
       // ✅ Show toast notification when app is in foreground
       // iOS by default doesn't show push notifications when app is active
-      if (Capacitor.getPlatform() === 'ios' && notification.title && notification.body) {
+      if (notification.title && notification.body) {
         console.log('🔔 [Push] Foreground notification received:', {
           title: notification.title,
           body: notification.body,
@@ -299,6 +329,53 @@ export async function initIosPushNotifications(): Promise<void> {
     PushNotifications.addListener('pushNotificationActionPerformed', (action: ActionPerformed) => {
       console.log('➡️ [Push] pushNotificationActionPerformed:', action);
     });
+
+    const permStatus = await PushNotifications.checkPermissions();
+    console.log('🔔 [Push] permission status:', permStatus);
+
+    if (permStatus.receive !== 'granted') {
+      const req = await PushNotifications.requestPermissions();
+      console.log('🔔 [Push] permission request result:', req);
+      if (req.receive !== 'granted') {
+        console.log('ℹ️ [Push] Permission not granted');
+        return;
+      }
+    }
+
+    // Register with APNs/FCM.
+    console.log('🔔 [Push] Calling PushNotifications.register()...');
+    await PushNotifications.register();
+    console.log('🔔 [Push] PushNotifications.register() completed');
+
+    // ✅ ANDROID FIX: Manually trigger re-check for token (race condition fix)
+    // Android FCM generates token very fast, often before JS listener is ready
+    // We call register() again after a small delay to ensure listener catches it
+    if (platform === 'android') {
+      console.log('🔔 [Push] Android detected - will re-register in 1 second to catch token...');
+      
+      setTimeout(async () => {
+        try {
+          console.log('🔔 [Push] Android: Calling register() again to trigger event...');
+          await PushNotifications.register();
+          console.log('🔔 [Push] Android: Second register() call completed');
+        } catch (e) {
+          console.warn('⚠️ [Push] Android: Second register() call failed:', e);
+        }
+      }, 1000);
+    }
+
+    console.log('🔔 [Push] Waiting for registration event from native...');
+
+    // After 5 seconds, warn if we still don't have a token
+    setTimeout(() => {
+      if (lastReceivedApnsToken) {
+        console.log('✅ [Push] Token successfully received and saved!');
+      } else {
+        console.error('❌ [Push] NO TOKEN RECEIVED after 5 seconds!');
+        console.error('❌ [Push] This means the registration event is not reaching JavaScript.');
+        console.error('❌ [Push] Check Xcode logs for APNs token - if it exists there, the bridge is broken.');
+      }
+    }, 5000);
 
     // Re-link token on auth changes (guest -> auth, etc.)
     supabase.auth.onAuthStateChange(async (event) => {

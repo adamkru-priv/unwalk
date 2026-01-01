@@ -1,143 +1,100 @@
 -- ========================================
--- 🔍 DIAGNOZA: Niezgodność punktów XP
+-- 🔍 DIAGNOZA: Dlaczego adam.krusz ma 0 XP?
 -- ========================================
 
--- 1. Sprawdź aktualny XP obu userów (z xp_history)
+-- 1. Sprawdź aktualny XP obu userów (z xp_transactions)
 SELECT 
   u.id,
   u.email,
   u.display_name,
-  COALESCE(SUM(xh.amount), 0) as total_xp_from_history,
-  u.created_at
+  u.xp as current_xp,
+  u.level,
+  COALESCE(SUM(xh.xp_amount), 0) as total_from_transactions,
+  COUNT(xh.id) as transaction_count
 FROM users u
-LEFT JOIN xp_history xh ON xh.user_id = u.id
+LEFT JOIN xp_transactions xh ON xh.user_id = u.id
 WHERE u.email IN ('adam.krusz@gmail.com', 'adam@c4e.io')
-GROUP BY u.id, u.email, u.display_name, u.created_at
-ORDER BY u.email;
+GROUP BY u.id, u.email, u.display_name, u.xp, u.level;
 
--- 2. Sprawdź historię XP dla adam.krusz@gmail.com
+-- 2. Pokaż WSZYSTKIE wpisy XP dla obu userów
 SELECT 
-  xh.id,
-  xh.user_id,
-  xh.amount,
+  u.email,
+  xh.id as transaction_id,
+  xh.xp_amount,
   xh.source_type,
   xh.source_id,
   xh.description,
-  xh.created_at,
-  -- Jeśli source to challenge:
-  uc.status as challenge_status,
-  ac.title as challenge_title,
-  ac.points as challenge_points
-FROM xp_history xh
-LEFT JOIN user_challenges uc ON xh.source_type = 'challenge' AND xh.source_id = uc.id::text
-LEFT JOIN admin_challenges ac ON uc.admin_challenge_id = ac.id
-WHERE xh.user_id = (SELECT id FROM users WHERE email = 'adam.krusz@gmail.com')
-ORDER BY xh.created_at DESC;
-
--- 3. Policz sumę XP z historii dla adam.krusz@gmail.com
-SELECT 
-  u.email,
-  u.display_name,
-  COALESCE(SUM(xh.amount), 0) as total_xp_from_history,
-  COUNT(xh.id) as xp_entries_count
-FROM users u
-LEFT JOIN xp_history xh ON xh.user_id = u.id
-WHERE u.email = 'adam.krusz@gmail.com'
-GROUP BY u.email, u.display_name;
-
--- 4. Sprawdź historię XP dla adam@c4e.io
-SELECT 
-  xh.id,
-  xh.user_id,
-  xh.amount,
-  xh.source_type,
-  xh.source_id,
-  xh.description,
-  xh.created_at,
-  -- Jeśli source to challenge:
-  uc.status as challenge_status,
-  ac.title as challenge_title,
-  ac.points as challenge_points
-FROM xp_history xh
-LEFT JOIN user_challenges uc ON xh.source_type = 'challenge' AND xh.source_id = uc.id::text
-LEFT JOIN admin_challenges ac ON uc.admin_challenge_id = ac.id
-WHERE xh.user_id = (SELECT id FROM users WHERE email = 'adam@c4e.io')
-ORDER BY xh.created_at DESC;
-
--- 5. Policz sumę XP z historii dla adam@c4e.io
-SELECT 
-  u.email,
-  u.display_name,
-  COALESCE(SUM(xh.amount), 0) as total_xp_from_history,
-  COUNT(xh.id) as xp_entries_count
-FROM users u
-LEFT JOIN xp_history xh ON xh.user_id = u.id
-WHERE u.email = 'adam@c4e.io'
-GROUP BY u.email, u.display_name;
-
--- 6. Sprawdź czy są challenges które dały XP ale nie ma ich w historii
-SELECT 
-  uc.id,
-  uc.user_id,
-  u.email,
-  uc.status,
-  ac.title,
-  ac.points,
-  uc.claimed_at,
-  uc.completed_at,
-  -- Czy jest w xp_history?
-  CASE WHEN xh.id IS NULL THEN '❌ BRAK w xp_history' ELSE '✅ Jest w xp_history' END as in_history
-FROM user_challenges uc
-JOIN users u ON uc.user_id = u.id
-JOIN admin_challenges ac ON uc.admin_challenge_id = ac.id
-LEFT JOIN xp_history xh ON xh.source_type = 'challenge' AND xh.source_id = uc.id::text
-WHERE u.email IN ('adam.krusz@gmail.com', 'adam@c4e.io')
-  AND uc.status = 'claimed'
-ORDER BY uc.claimed_at DESC;
-
--- 7. Sprawdź czy są duplikaty w xp_history
-SELECT 
-  source_type,
-  source_id,
-  user_id,
-  u.email,
-  COUNT(*) as count,
-  SUM(amount) as total_xp_from_duplicates
-FROM xp_history xh
+  xh.created_at
+FROM xp_transactions xh
 JOIN users u ON xh.user_id = u.id
-WHERE xh.user_id IN (
-  SELECT id FROM users WHERE email IN ('adam.krusz@gmail.com', 'adam@c4e.io')
-)
-GROUP BY source_type, source_id, user_id, u.email
-HAVING COUNT(*) > 1;
+WHERE u.email IN ('adam.krusz@gmail.com', 'adam@c4e.io')
+ORDER BY u.email, xh.created_at DESC;
 
--- 8. Sprawdź czy user_challenges bez claimed_at mają XP w historii (BUG!)
+-- 3. Sprawdź challenges obu userów
 SELECT 
-  uc.id,
   u.email,
-  uc.status,
+  uc.id as challenge_id,
   ac.title,
   ac.points,
+  uc.status,
+  uc.completed_at,
   uc.claimed_at,
-  xh.id as xp_history_id,
-  xh.amount as xp_amount
+  COALESCE(SUM(xh.xp_amount), 0) as xp_from_history
 FROM user_challenges uc
 JOIN users u ON uc.user_id = u.id
 JOIN admin_challenges ac ON uc.admin_challenge_id = ac.id
-LEFT JOIN xp_history xh ON xh.source_type = 'challenge' AND xh.source_id = uc.id::text
+LEFT JOIN xp_transactions xh ON xh.user_id = u.id
 WHERE u.email IN ('adam.krusz@gmail.com', 'adam@c4e.io')
-  AND uc.status = 'claimed'
-  AND uc.claimed_at IS NULL  -- ❌ BUG: claimed ale bez claimed_at
-ORDER BY uc.created_at DESC;
+GROUP BY u.email, uc.id, ac.title, ac.points, uc.status, uc.completed_at, uc.claimed_at
+ORDER BY u.email, uc.claimed_at DESC NULLS LAST;
 
--- 9. Porównaj XP z xp_history vs co pokazuje aplikacja (z gamification view)
+-- 4. Breakdown XP według typu dla obu userów
 SELECT 
   u.email,
-  u.display_name,
-  COALESCE(SUM(xh.amount), 0) as xp_from_history,
-  -- Jeśli masz view/funkcję do gamification:
-  (SELECT total_xp FROM user_gamification_stats WHERE user_id = u.id) as xp_from_view
-FROM users u
-LEFT JOIN xp_history xh ON xh.user_id = u.id
+  xh.source_type,
+  COUNT(*) as count,
+  SUM(xh.xp_amount) as total_xp
+FROM xp_transactions xh
+JOIN users u ON xh.user_id = u.id
 WHERE u.email IN ('adam.krusz@gmail.com', 'adam@c4e.io')
-GROUP BY u.id, u.email, u.display_name;
+GROUP BY u.email, xh.source_type
+ORDER BY u.email, xh.source_type;
+
+-- 5. Sprawdź gamification stats (może tam jest problem?)
+SELECT 
+  u.email,
+  u.xp,
+  u.level,
+  u.total_points,
+  u.current_streak,
+  u.longest_streak
+FROM users u
+WHERE u.email IN ('adam.krusz@gmail.com', 'adam@c4e.io');
+
+-- 6. Szczegółowe info o KAŻDYM claimed challenge
+SELECT 
+  u.email,
+  ac.title,
+  ac.points,
+  uc.status,
+  uc.claimed_at,
+  -- Czy jest w xp_transactions?
+  CASE WHEN xh.id IS NULL THEN '❌ BRAK w xp_transactions' ELSE '✅ Jest w xp_transactions' END as in_history,
+  xh.xp_amount as xp_recorded,
+  xh.created_at as xp_recorded_at
+FROM user_challenges uc
+JOIN users u ON uc.user_id = u.id
+JOIN admin_challenges ac ON uc.admin_challenge_id = ac.id
+LEFT JOIN xp_transactions xh ON xh.source_type = 'challenge' AND xh.source_id = uc.id::text
+WHERE u.email IN ('adam.krusz@gmail.com', 'adam@c4e.io')
+  AND uc.status = 'claimed'
+ORDER BY u.email, uc.claimed_at DESC;
+
+-- 7. Sprawdź czy są duplikaty w xp_transactions
+SELECT 
+  source_id,
+  COUNT(*) as duplicate_count
+FROM xp_transactions
+WHERE source_type = 'challenge'
+GROUP BY source_id
+HAVING COUNT(*) > 1;

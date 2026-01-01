@@ -280,14 +280,29 @@ export function Dashboard() {
     <div className="min-h-screen bg-gray-900 text-white relative overflow-hidden">
       {/* BLURRED IMAGE AS BACKGROUND */}
       <div className="absolute inset-0 z-0 pointer-events-none">
-        <img
-          src={activeUserChallenge.admin_challenge?.image_url}
-          alt="Challenge"
-          className="w-full h-full object-cover"
-          style={{ filter: `blur(${blurAmount}px)` }}
-        />
-        {/* LIGHTER gradient - image should be visible when revealed */}
-        <div className="absolute inset-0 bg-gradient-to-b from-gray-900/60 via-transparent to-gray-900/80" />
+        {activeUserChallenge.admin_challenge?.image_url ? (
+          <>
+            <img
+              src={activeUserChallenge.admin_challenge.image_url}
+              alt="Challenge"
+              className="w-full h-full object-cover"
+              style={{ filter: `blur(${blurAmount}px)` }}
+              onError={(e) => {
+                console.error('❌ [Dashboard] Failed to load challenge image:', activeUserChallenge.admin_challenge?.image_url);
+                // Hide image on error
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
+              onLoad={() => {
+                console.log('✅ [Dashboard] Challenge image loaded:', activeUserChallenge.admin_challenge?.image_url);
+              }}
+            />
+            {/* LIGHTER gradient - image should be visible when revealed */}
+            <div className="absolute inset-0 bg-gradient-to-b from-gray-900/60 via-transparent to-gray-900/80" />
+          </>
+        ) : (
+          // Fallback gradient when no image
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-900/50 via-gray-900 to-blue-900/50" />
+        )}
       </div>
 
       {/* CONTENT */}

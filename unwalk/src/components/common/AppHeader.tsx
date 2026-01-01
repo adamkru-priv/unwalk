@@ -128,19 +128,8 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
 
   // Determine account type display
   const getAccountTypeBadge = () => {
-    if (isGuest) {
-      return (
-        <span className="text-gray-400 dark:text-gray-500 text-sm font-light tracking-wide" style={{ fontFamily: 'Georgia, serif' }}>
-          Guest
-        </span>
-      );
-    }
-
-    return (
-      <span className="text-amber-500 dark:text-amber-400 text-sm font-light tracking-wide" style={{ fontFamily: 'Georgia, serif' }}>
-        Pro
-      </span>
-    );
+    // Don't show any badge - removed completely
+    return null;
   };
 
   return (

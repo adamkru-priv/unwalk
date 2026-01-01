@@ -101,16 +101,8 @@ function App() {
         previousUserId = currentUserId;
         await initializeAuthenticatedData();
       } else {
-        console.log('👤 [App] No authenticated session - loading guest profile...');
-        // ✅ FIX: Load guest profile so UI knows user is a guest
-        const guestProfile = await authService.getUserProfile();
-        if (guestProfile) {
-          console.log('✅ [App] Guest profile loaded:', { is_guest: guestProfile.is_guest });
-          setUserProfile(guestProfile);
-          setUserTier(guestProfile.tier);
-          setDailyStepGoal(guestProfile.daily_step_goal);
-        }
-        setIsAppReady(true); // Unlock for guest/login
+        console.log('👤 [App] No authenticated session - user needs to sign in');
+        setIsAppReady(true); // Unlock for login screen
       }
     };
 
@@ -142,14 +134,13 @@ function App() {
 
         console.log('🔍 [App] Step 2: Authenticated profile loaded:', { 
           email: profile.email, 
-          is_guest: profile.is_guest, 
           tier: profile.tier,
           daily_step_goal: profile.daily_step_goal
         });
 
         console.log('🔍 [App] Step 3: Saving profile to store...');
         setUserProfile(profile);
-        setUserTier(profile.tier);
+        setUserTier(profile.tier as 'pro');
         setDailyStepGoal(profile.daily_step_goal);
         console.log('✅ [App] Profile saved to store');
 
@@ -197,9 +188,9 @@ function App() {
         if (session?.user?.id && hasEmail) {
           const profile = await authService.getUserProfile();
           if (profile) {
-            console.log('🔄 [App] Profile refreshed:', { is_guest: profile.is_guest, tier: profile.tier });
+            console.log('🔄 [App] Profile refreshed:', { tier: profile.tier });
             setUserProfile(profile);
-            setUserTier(profile.tier);
+            setUserTier(profile.tier as 'pro');
             setDailyStepGoal(profile.daily_step_goal);
           }
         }
@@ -253,7 +244,7 @@ function App() {
           console.log('✅ [App] No cached data - loading from API');
           await initializeAuthenticatedData();
         } else if (!currentUserId) {
-          console.log('👤 [App] No session - user needs to sign in or use as guest');
+          console.log('👤 [App] No session - user needs to sign in');
         }
         return;
       }
@@ -470,10 +461,9 @@ function App() {
               console.log('✅ [Auth] Profile refreshed after web OAuth:', {
                 id: profile.id,
                 email: profile.email,
-                is_guest: profile.is_guest,
               });
               setUserProfile(profile);
-              setUserTier(profile.tier);
+              setUserTier(profile.tier as 'pro');
               setDailyStepGoal(profile.daily_step_goal);
               
               // Navigate to appropriate screen
@@ -552,7 +542,7 @@ function App() {
 
     // Check after user profile is loaded
     const profile = useChallengeStore.getState().userProfile;
-    if (profile && !profile.is_guest) {
+    if (profile) {
       checkPendingInvitation();
     }
   }, [addToast]);
@@ -621,11 +611,10 @@ function App() {
             console.log('✅ [Auth] Profile refreshed after OAuth:', {
               id: profile.id,
               email: profile.email,
-              is_guest: profile.is_guest,
               tier: profile.tier,
             });
             setUserProfile(profile);
-            setUserTier(profile.tier);
+            setUserTier(profile.tier as 'pro');
             setDailyStepGoal(profile.daily_step_goal);
             
             // 🎯 FIX: Show welcome toast BEFORE navigating

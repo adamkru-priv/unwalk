@@ -23,8 +23,6 @@ export function ProfileScreen() {
   const setUserProfile = useChallengeStore((s) => s.setUserProfile); // For updates
   const isHealthConnected = useChallengeStore((s) => s.isHealthConnected);
 
-  const isGuest = userProfile?.is_guest || false;
-
   // 🎯 Determine health service name based on platform
   const platform = Capacitor.getPlatform();
   const healthServiceName = platform === 'ios' ? 'Apple Health' : platform === 'android' ? 'Health Connect' : 'Health Data';
@@ -73,10 +71,10 @@ export function ProfileScreen() {
   }, [userProfile, setUserTier]);
 
   useEffect(() => {
-    if (userProfile && !isGuest) {
+    if (userProfile) {
       setPushEnabled(userProfile.push_enabled ?? true);
     }
-  }, [userProfile, isGuest]);
+  }, [userProfile]);
 
   const handleSignOut = async () => {
     if (!confirm('Sign out from your account?')) return;
@@ -234,7 +232,7 @@ export function ProfileScreen() {
   };
 
   const handleTogglePushEnabled = async (next: boolean) => {
-    if (!userProfile || isGuest) return;
+    if (!userProfile) return;
 
     setPushEnabled(next);
     setPushSaving(true);
@@ -253,7 +251,7 @@ export function ProfileScreen() {
   };
 
   const handleDailyStepGoalChange = async (newGoal: number) => {
-    if (!userProfile || isGuest) return;
+    if (!userProfile) return;
 
     const oldGoal = dailyStepGoal;
     setDailyStepGoal(newGoal);
@@ -304,7 +302,7 @@ export function ProfileScreen() {
         <div className="bg-white dark:bg-[#151A25] rounded-3xl shadow-sm border border-gray-100 dark:border-white/5 overflow-hidden mb-6">
           <AccountSection
             userProfile={userProfile}
-            isGuest={isGuest}
+            isGuest={false}
             onSignOut={handleSignOut}
             onEmailSignIn={() => setShowAuthModal(true)}
             onAppleSignIn={handleSignInWithApple}
@@ -317,20 +315,15 @@ export function ProfileScreen() {
           {/* 🎯 REMOVED: Challenge History - moved to BadgesScreen */}
 
           {/* My Custom Challenges */}
-          {!isGuest && (
-            <button
-              onClick={() => setCurrentScreen('customChallenge')}
-              className="w-full bg-white dark:bg-[#151A25] rounded-2xl px-4 py-3.5 shadow-sm border border-gray-100 dark:border-white/5 hover:bg-gray-50 dark:hover:bg-white/5 active:bg-gray-100 dark:active:bg-white/10 transition-colors text-left flex items-center justify-between group"
-            >
-              <div>
-                <div className="text-[15px] font-medium text-gray-900 dark:text-white">My Custom Challenges</div>
-                <div className="text-[13px] text-gray-500 dark:text-gray-400">Create & manage</div>
-              </div>
-              <svg className="w-5 h-5 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7-7" />
-              </svg>
-            </button>
-          )}
+          <button
+            onClick={() => setCurrentScreen('customChallenge')}
+            className="w-full bg-white dark:bg-[#151A25] rounded-2xl px-4 py-3.5 shadow-sm border border-gray-100 dark:border-white/5 hover:bg-gray-50 dark:hover:bg-white/5 active:bg-gray-100 dark:active:bg-white/10 transition-colors text-left flex items-center justify-between group"
+          >
+            <div>
+              <div className="text-[15px] font-medium text-gray-900 dark:text-white">My Custom Challenges</div>
+              <div className="text-[13px] text-gray-500 dark:text-gray-400">Create & manage</div>
+            </div>
+          </button>
 
           {/* Health Data Integration (HealthKit on iOS, Health Connect on Android) */}
           <div className="bg-white dark:bg-[#151A25] rounded-2xl px-4 py-3.5 shadow-sm border border-gray-100 dark:border-white/5">
@@ -369,62 +362,58 @@ export function ProfileScreen() {
           </div>
 
           {/* Daily Step Goal */}
-          {!isGuest && (
-            <div className="bg-white dark:bg-[#151A25] rounded-2xl px-4 py-3.5 shadow-sm border border-gray-100 dark:border-white/5">
-              <div className="mb-3">
-                <div className="text-[15px] font-medium text-gray-900 dark:text-white">Daily Step Goal</div>
-                <div className="text-[13px] text-gray-500 dark:text-gray-400">
-                  {dailyStepGoal.toLocaleString()} steps
-                </div>
-              </div>
-
-              <div className="grid grid-cols-5 gap-2">
-                {[5000, 8000, 10000, 12000, 15000].map((goal) => (
-                  <button
-                    key={goal}
-                    disabled={dailyGoalSaving}
-                    onClick={() => handleDailyStepGoalChange(goal)}
-                    className={`py-2 rounded-lg text-[13px] font-medium transition-all ${
-                      dailyStepGoal === goal
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/15'
-                    } ${dailyGoalSaving ? 'opacity-60' : ''}`}
-                  >
-                    {goal >= 1000 ? `${goal / 1000}k` : goal}
-                  </button>
-                ))}
+          <div className="bg-white dark:bg-[#151A25] rounded-2xl px-4 py-3.5 shadow-sm border border-gray-100 dark:border-white/5">
+            <div className="mb-3">
+              <div className="text-[15px] font-medium text-gray-900 dark:text-white">Daily Step Goal</div>
+              <div className="text-[13px] text-gray-500 dark:text-gray-400">
+                {dailyStepGoal.toLocaleString()} steps
               </div>
             </div>
-          )}
+
+            <div className="grid grid-cols-5 gap-2">
+              {[5000, 8000, 10000, 12000, 15000].map((goal) => (
+                <button
+                  key={goal}
+                  disabled={dailyGoalSaving}
+                  onClick={() => handleDailyStepGoalChange(goal)}
+                  className={`py-2 rounded-lg text-[13px] font-medium transition-all ${
+                    dailyStepGoal === goal
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/15'
+                  } ${dailyGoalSaving ? 'opacity-60' : ''}`}
+                >
+                  {goal >= 1000 ? `${goal / 1000}k` : goal}
+                </button>
+              ))}
+            </div>
+          </div>
 
           {/* Notifications */}
-          {!isGuest && (
-            <div className="bg-white dark:bg-[#151A25] rounded-2xl px-4 py-3.5 shadow-sm border border-gray-100 dark:border-white/5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-[15px] font-medium text-gray-900 dark:text-white">Notifications</div>
-                  <div className="text-[13px] text-gray-500 dark:text-gray-400">
-                    {pushEnabled ? 'Enabled' : 'Disabled'}
-                  </div>
+          <div className="bg-white dark:bg-[#151A25] rounded-2xl px-4 py-3.5 shadow-sm border border-gray-100 dark:border-white/5">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-[15px] font-medium text-gray-900 dark:text-white">Notifications</div>
+                <div className="text-[13px] text-gray-500 dark:text-gray-400">
+                  {pushEnabled ? 'Enabled' : 'Disabled'}
                 </div>
-
-                <button
-                  type="button"
-                  disabled={pushSaving}
-                  onClick={() => handleTogglePushEnabled(!pushEnabled)}
-                  className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${
-                    pushEnabled ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-700'
-                  } ${pushSaving ? 'opacity-60' : ''}`}
-                >
-                  <span
-                    className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform shadow-sm ${
-                      pushEnabled ? 'translate-x-7' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
               </div>
+
+              <button
+                type="button"
+                disabled={pushSaving}
+                onClick={() => handleTogglePushEnabled(!pushEnabled)}
+                className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${
+                  pushEnabled ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-700'
+                } ${pushSaving ? 'opacity-60' : ''}`}
+              >
+                <span
+                  className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform shadow-sm ${
+                    pushEnabled ? 'translate-x-7' : 'translate-x-1'
+                  }`}
+                />
+              </button>
             </div>
-          )}
+          </div>
 
           {/* Theme Selector - Simple Icon Only */}
           <div className="bg-white dark:bg-[#151A25] rounded-2xl px-4 py-3.5 shadow-sm border border-gray-100 dark:border-white/5">
@@ -458,14 +447,12 @@ export function ProfileScreen() {
             </button>
           </div>
 
-          {!isGuest && (
-            <button
-              onClick={handleDeleteAccount}
-              className="text-[13px] text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors"
-            >
-              Delete Account
-            </button>
-          )}
+          <button
+            onClick={handleDeleteAccount}
+            className="text-[13px] text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors"
+          >
+            Delete Account
+          </button>
 
           <div className="text-[12px] text-gray-400 dark:text-gray-500">
             Movee v{APP_VERSION}

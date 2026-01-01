@@ -39,7 +39,7 @@ export function TeamSlots({ teamMembers, userProfile, onInviteClick, onMemberCli
 
   return (
     <div className="bg-gradient-to-br from-[#151A25] to-[#1A1F2E] border border-white/10 rounded-3xl p-5">
-      {/* Header with tier badge */}
+      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-lg font-black text-white mb-1">Your Team</h2>
@@ -47,13 +47,7 @@ export function TeamSlots({ teamMembers, userProfile, onInviteClick, onMemberCli
             {usedSlots + pendingSlots}/{maxSlots} slots used
           </p>
         </div>
-        <div className={`px-3 py-1.5 rounded-full font-bold text-xs ${
-          !isGuest
-            ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white'
-            : 'bg-white/10 text-white/70'
-        }`}>
-          {!isGuest ? '⭐ PRO' : 'GUEST'}
-        </div>
+        {/* Removed PRO/GUEST badge */}
       </div>
 
       {/* Progress bar */}
@@ -108,11 +102,7 @@ export function TeamSlots({ teamMembers, userProfile, onInviteClick, onMemberCli
                       {slot.member.relationship}
                     </div>
                   )}
-                  {slot.member.tier === 'pro' && (
-                    <div className="text-xs text-amber-400 font-bold mt-1">
-                      ⭐ PRO
-                    </div>
-                  )}
+                  {/* Removed PRO badge from team member cards */}
                 </div>
               </button>
             ) : slot.type === 'pending' ? (

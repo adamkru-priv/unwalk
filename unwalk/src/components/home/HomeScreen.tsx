@@ -171,7 +171,7 @@ export function HomeScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-[#0B101B] text-gray-900 dark:text-white pb-24 font-sans selection:bg-blue-500/30">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0B101B] text-gray-900 dark:text-white pb-20 font-sans selection:bg-blue-500/30">
       <AppHeader />
 
       {/* Centralized Modal Management */}
@@ -200,7 +200,7 @@ export function HomeScreen() {
         isGuest={isGuest}
       />
 
-      <main className="pt-6 pb-6 space-y-5">
+      <main className="px-4 py-4 space-y-4">
         <HeroHeader 
           xp={gamificationStats?.xp} 
           level={gamificationStats?.level}

@@ -94,7 +94,17 @@ export function StepsHistoryChart({ isOpen, onClose }: StepsHistoryChartProps) {
   const bestDay = Math.max(...data.map(d => d.steps), 0);
   const maxSteps = Math.max(bestDay, DAILY_GOAL * 1.2);
   
-  console.log('📊 Chart render - bestDay:', bestDay, 'maxSteps:', maxSteps, 'data length:', data.length);
+  // 🎯 Calculate current goal streak (consecutive days meeting goal from today backwards)
+  let currentGoalStreak = 0;
+  for (let i = data.length - 1; i >= 0; i--) {
+    if (data[i].steps >= DAILY_GOAL) {
+      currentGoalStreak++;
+    } else {
+      break; // Stop when we hit a day that didn't meet the goal
+    }
+  }
+  
+  console.log('📊 Chart render - bestDay:', bestDay, 'maxSteps:', maxSteps, 'data length:', data.length, 'goal streak:', currentGoalStreak);
 
   return (
     <div 
@@ -153,6 +163,17 @@ export function StepsHistoryChart({ isOpen, onClose }: StepsHistoryChartProps) {
                 </div>
               </div>
 
+              {/* 🎯 Goal Streak Badge */}
+              {currentGoalStreak > 0 && (
+                <div className="mb-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-2xl px-4 py-3 flex items-center justify-center gap-2">
+                  <span className="text-2xl">🔥</span>
+                  <div className="text-center">
+                    <div className="text-2xl font-black text-green-600 dark:text-green-400">{currentGoalStreak} {currentGoalStreak === 1 ? 'day' : 'days'}</div>
+                    <div className="text-xs text-green-700 dark:text-green-300 font-medium">Goal streak</div>
+                  </div>
+                </div>
+              )}
+
               {/* Scrollable circles */}
               <div 
                 ref={scrollRef}
@@ -178,7 +199,7 @@ export function StepsHistoryChart({ isOpen, onClose }: StepsHistoryChartProps) {
                         className="flex flex-col items-center gap-2 flex-shrink-0"
                         style={{ width: '56px' }}
                       >
-                        {/* Circle - mniejsze (48px) i grubsze (stroke 6) */}
+                        {/* Circle */}
                         <div className="relative flex items-center justify-center">
                           {hasSteps ? (
                             <svg width="48" height="48" className="transform -rotate-90">
@@ -209,17 +230,7 @@ export function StepsHistoryChart({ isOpen, onClose }: StepsHistoryChartProps) {
                                     : 'text-blue-500'
                                 }`}
                               />
-                              {isToday && (
-                                <circle
-                                  cx="24"
-                                  cy="24"
-                                  r="22"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  className="text-yellow-400"
-                                />
-                              )}
+                              {/* Removed yellow ring for today */}
                             </svg>
                           ) : (
                             <div className="w-[48px] h-[48px] rounded-full border-[6px] border-gray-700 dark:border-gray-700" />
@@ -231,7 +242,7 @@ export function StepsHistoryChart({ isOpen, onClose }: StepsHistoryChartProps) {
                           {hasSteps ? (item.steps / 1000).toFixed(1) + 'k' : '0'}
                         </div>
                         
-                        {/* Date */}
+                        {/* Date - yellow and bold if today */}
                         <div className={`text-[10px] font-bold text-center ${
                           isToday 
                             ? 'text-yellow-400' 
@@ -255,10 +266,7 @@ export function StepsHistoryChart({ isOpen, onClose }: StepsHistoryChartProps) {
                   <div className="w-4 h-4 rounded-full bg-green-500"></div>
                   <span className="text-gray-600 dark:text-gray-400">Goal met</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded-full border-4 border-yellow-400 bg-blue-500"></div>
-                  <span className="text-gray-600 dark:text-gray-400">Today</span>
-                </div>
+                {/* Removed "Today" legend item with yellow ring */}
               </div>
             </div>
           )}

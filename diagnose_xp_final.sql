@@ -6,6 +6,9 @@
 SELECT 
   u.email,
   u.total_points as current_xp,
+  -- Z xp_transactions
+  COALESCE(SUM(xh.xp_amount), 0) as total_from_transactions,
+  COUNT(xh.id) as transaction_count,
   -- Challenges
   COUNT(DISTINCT uc.id) FILTER (WHERE uc.status = 'completed') as completed_challenges,
   COUNT(DISTINCT uc.id) FILTER (WHERE uc.status = 'claimed') as claimed_challenges,
@@ -17,6 +20,7 @@ SELECT
   -- Porównanie
   (u.total_points - COALESCE(SUM(ac.points) FILTER (WHERE uc.status = 'claimed'), 0) - COALESCE(SUM(dq.xp_reward) FILTER (WHERE dq.claimed = true), 0)) as unexplained_xp
 FROM users u
+LEFT JOIN xp_transactions xh ON xh.user_id = u.id
 LEFT JOIN user_challenges uc ON uc.user_id = u.id
 LEFT JOIN admin_challenges ac ON uc.admin_challenge_id = ac.id
 LEFT JOIN daily_quests dq ON dq.user_id = u.id
@@ -24,7 +28,19 @@ WHERE u.email IN ('adam.krusz@gmail.com', 'adam@c4e.io')
 GROUP BY u.id, u.email, u.total_points
 ORDER BY u.email;
 
--- 2. 📜 SZCZEGÓŁY: Wszystkie claimed quests
+-- 2. 📜 HISTORIA XP z xp_transactions
+SELECT 
+  u.email,
+  xh.xp_amount,
+  xh.source_type,
+  xh.description,
+  xh.created_at
+FROM xp_transactions xh
+JOIN users u ON xh.user_id = u.id
+WHERE u.email IN ('adam.krusz@gmail.com', 'adam@c4e.io')
+ORDER BY u.email, xh.created_at DESC;
+
+-- 3. 📜 SZCZEGÓŁY: Wszystkie claimed quests
 SELECT 
   u.email,
   dq.quest_type,
@@ -42,7 +58,7 @@ WHERE u.email IN ('adam.krusz@gmail.com', 'adam@c4e.io')
   AND dq.claimed = true
 ORDER BY u.email, dq.claimed_at DESC;
 
--- 3. 🎯 SZCZEGÓŁY: Wszystkie user_challenges (any status)
+-- 4. 🎯 SZCZEGÓŁY: Wszystkie user_challenges (any status)
 SELECT 
   u.email,
   ac.title as challenge_name,
@@ -57,7 +73,7 @@ JOIN admin_challenges ac ON uc.admin_challenge_id = ac.id
 WHERE u.email IN ('adam.krusz@gmail.com', 'adam@c4e.io')
 ORDER BY u.email, uc.created_at DESC;
 
--- 4. 📊 BREAKDOWN: XP z każdego źródła osobno
+-- 5. 📊 BREAKDOWN: XP z każdego źródła osobno
 WITH quest_xp AS (
   SELECT 
     u.email,
@@ -89,7 +105,7 @@ LEFT JOIN challenge_xp c ON c.email = u.email
 WHERE u.email IN ('adam.krusz@gmail.com', 'adam@c4e.io')
 ORDER BY u.email;
 
--- 5. ⚠️ COMPLETED ale nie CLAIMED (mogą być braki!)
+-- 6. ⚠️ COMPLETED ale nie CLAIMED (mogą być braki!)
 SELECT 
   u.email,
   'Daily Quests' as source,

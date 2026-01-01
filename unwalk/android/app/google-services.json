@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "1053797667944",
+    "project_id": "moveeone",
+    "storage_bucket": "moveeone.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1053797667944:android:d2b459bcc3d96cbe7017dd",
+        "android_client_info": {
+          "package_name": "com.adamkruszewski.movee"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1053797667944-lobtei49kb3smm4dfli08jh7otljfr9b.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA4VrFYnEE5n_OiirFf3iepaRkWFZ44qHg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1053797667944-lobtei49kb3smm4dfli08jh7otljfr9b.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -56,16 +56,7 @@ export function AccountSection({
 
       <div className="relative">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Account</h2>
-          {signedIn ? (
-            <span className="text-[10px] font-black tracking-[0.22em] uppercase text-amber-700/80 dark:text-amber-300/80 bg-amber-500/10 border border-amber-400/20 rounded-full px-2 py-1">
-              Pro
-            </span>
-          ) : (
-            <span className="text-[10px] font-black tracking-[0.22em] uppercase text-gray-700/70 dark:text-white/55 bg-gray-100/80 dark:bg-white/5 border border-gray-200/70 dark:border-white/10 rounded-full px-2 py-1">
-              Guest
-            </span>
-          )}
+          {/* Removed "Account" heading */}
         </div>
 
         {signedIn ? (
@@ -77,7 +68,7 @@ export function AccountSection({
             
             <div className="flex-1 min-w-0">
               <div className="text-sm font-semibold text-gray-900 dark:text-white truncate">{userProfile!.email}</div>
-              <div className="text-xs text-gray-600 dark:text-white/50">Signed in • syncing enabled</div>
+              <div className="text-xs text-gray-600 dark:text-white/50">Signed in</div>
             </div>
 
             <button

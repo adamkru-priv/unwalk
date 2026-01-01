@@ -86,7 +86,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         let token = tokenParts.joined()
         print("[APNs] ✅ didRegisterForRemoteNotificationsWithDeviceToken: \(token)")
 
+        // Save to UserDefaults as fallback
         UserDefaults.standard.set(token, forKey: "apns_device_token")
+        
+        // ✅ FIX: Forward to Capacitor PushNotifications plugin
+        // This ensures the 'registration' event reaches JavaScript
+        NotificationCenter.default.post(
+            name: Notification.Name.capacitorDidRegisterForRemoteNotifications,
+            object: deviceToken
+        )
+        print("[APNs] ✅ Forwarded token to Capacitor PushNotifications plugin")
     }
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {

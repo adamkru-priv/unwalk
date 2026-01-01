@@ -5,23 +5,15 @@ export type { User, Session };
 export interface UserProfile {
   id: string;
   email: string | null;
-  display_name: string | null;
+  display_name: string;
   avatar_url: string | null;
+  tier: 'free' | 'pro';
+  device_id?: string | null;
   daily_step_goal: number;
-  tier: 'pro';
   onboarding_completed: boolean;
-  onboarding_target?: 'self' | 'spouse' | 'child' | 'friend' | null;
-  is_guest: boolean;
-  device_id: string | null;
-  push_enabled?: boolean;
-  total_points?: number;
-  xp?: number;
-  level?: number;
-  current_streak?: number;
-  longest_streak?: number;
-  achievements?: number;
   created_at: string;
   updated_at: string;
+  push_enabled?: boolean;
 }
 
 export interface TeamMember {

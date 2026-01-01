@@ -38,7 +38,7 @@ async function retryWithBackoff<T>(
 }
 
 export function TeamScreen() {
-  const setCurrentScreen = useChallengeStore((state) => state.setCurrentScreen);
+  const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
   const userProfile = useChallengeStore((s) => s.userProfile);
   const assignTarget = useChallengeStore((s) => s.assignTarget);
   const setAssignTarget = useChallengeStore((s) => s.setAssignTarget);
@@ -65,17 +65,14 @@ export function TeamScreen() {
 
   // When coming from Home quick-assign, open member details automatically
   useEffect(() => {
-    if (!assignTarget?.id) return;
-    if (loading) return;
-    if (userProfile?.is_guest) return;
+    if (!assignTarget?.id || loading) return;
 
-    const m = teamMembers.find((tm) => tm.member_id === assignTarget.id);
-    if (m) {
-      setSelectedMember(m);
-      // Clear to avoid reopening on back
-      setAssignTarget(null);
+    const isMember = teamMembers.some((m) => m.member_id === assignTarget.id);
+    if (!isMember) {
+      console.log('⚠️ [TeamScreen] Assign target is not a team member, resetting');
+      useChallengeStore.setState({ assignTarget: null });
     }
-  }, [assignTarget?.id, loading, userProfile?.is_guest, teamMembers]);
+  }, [assignTarget?.id, loading, teamMembers]);
 
   const loadTeamData = async () => {
     setLoading(true);
@@ -90,18 +87,6 @@ export function TeamScreen() {
       if (!userProfile) {
         console.log('⏳ [TeamScreen] No user profile yet - waiting...');
         setLoading(false); // Ensure loading is turned off
-        return;
-      }
-      
-      // ✅ If guest, skip loading team data
-      if (userProfile?.is_guest) {
-        console.log('👤 [TeamScreen] Guest user detected - skipping team data load');
-        setTeamMembers([]);
-        setReceivedInvitations([]);
-        setSentInvitations([]);
-        setSentChallengeHistory([]);
-        setReceivedChallengeHistory([]);
-        setLoading(false);
         return;
       }
       
@@ -231,11 +216,11 @@ export function TeamScreen() {
   }
 
   // Loading state
-  if (loading) {
+  if (loading || !userProfile) {
     return (
-      <div className="min-h-screen bg-[#0B101B] text-white pb-24 font-sans">
+      <div className="min-h-screen bg-[#0B101B] text-white pb-20 font-sans">
         <AppHeader />
-        <main className="px-5 pt-6 pb-6">
+        <main className="px-4 py-4">
           <div className="text-center py-12">
             <div className="inline-block w-8 h-8 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
             <p className="text-white/50 text-sm mt-3">Loading team...</p>
@@ -248,7 +233,7 @@ export function TeamScreen() {
 
   // Main team list view
   return (
-    <div className="min-h-screen bg-[#0B101B] text-white pb-24 font-sans">
+    <div className="min-h-screen bg-[#0B101B] text-white pb-20 font-sans">
       <AppHeader />
 
       {/* Invite Modal */}
@@ -259,151 +244,90 @@ export function TeamScreen() {
         onInviteSent={loadTeamData}
       />
 
-      <main className="px-5 pt-6 pb-6 space-y-6"> {/* 🎯 REMOVED: max-w-md mx-auto for full width */}
+      <main className="px-4 py-4 space-y-4">
         
-        {/* Guest users see locked screen */}
-        {userProfile?.is_guest ? (
-          <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6">
-            <div className="relative mb-8">
-              <div className="w-32 h-32 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-full flex items-center justify-center">
-                <div className="text-6xl">👥</div>
-              </div>
-              <div className="absolute -top-2 -right-2 w-16 h-16 bg-gray-900/90 backdrop-blur-md border-2 border-blue-500/50 rounded-full flex items-center justify-center shadow-2xl">
-                <div className="text-2xl">🔒</div>
-              </div>
-            </div>
+        {/* TABS NAVIGATION */}
+        <div className="bg-[#151A25] border border-white/10 rounded-2xl p-1 grid grid-cols-3 gap-1">
+          <button
+            onClick={() => setActiveTab('team')}
+            className={`py-2.5 px-3 rounded-xl text-sm font-bold transition-all ${
+              activeTab === 'team'
+                ? 'bg-blue-600 text-white'
+                : 'text-white/50 hover:text-white/80'
+            }`}
+          >
+            Team
+          </button>
+          <button
+            onClick={() => setActiveTab('sent')}
+            className={`py-2.5 px-3 rounded-xl text-sm font-bold transition-all relative ${
+              activeTab === 'sent'
+                ? 'bg-blue-600 text-white'
+                : 'text-white/50 hover:text-white/80'
+            }`}
+          >
+            Sent
+            {/* 🎯 UPDATED: Include Team Challenge invitations + regular challenge assignments */}
+            {(sentChallengeHistory.filter(c => c.status === 'pending').length + sentTeamChallengeCount) > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 rounded-full text-xs flex items-center justify-center font-bold">
+                {sentChallengeHistory.filter(c => c.status === 'pending').length + sentTeamChallengeCount}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('received')}
+            className={`py-2.5 px-3 rounded-xl text-sm font-bold transition-all relative ${
+              activeTab === 'received'
+                ? 'bg-blue-600 text-white'
+                : 'text-white/50 hover:text-white/80'
+            }`}
+          >
+            Received
+            {/* 🎯 UPDATED: Include Team Challenge invitations + regular challenge assignments */}
+            {(receivedChallengeHistory.filter(c => c.status === 'pending').length + receivedTeamChallengeCount) > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-xs flex items-center justify-center font-bold">
+                {receivedChallengeHistory.filter(c => c.status === 'pending').length + receivedTeamChallengeCount}
+              </span>
+            )}
+          </button>
+        </div>
 
-            <h2 className="text-2xl font-black text-white mb-3">
-              Build Your Team
-            </h2>
-            
-            <p className="text-white/60 text-sm leading-relaxed mb-6 max-w-sm">
-              Create a free account to invite friends and family. Walk together, share challenges, and stay motivated!
-            </p>
+        {/* TAB CONTENT */}
+        {activeTab === 'team' && (
+          <TeamMembers
+            teamMembers={teamMembers}
+            receivedInvitations={receivedInvitations}
+            sentInvitations={sentInvitations}
+            userProfile={userProfile}
+            onMemberSelect={setSelectedMember}
+            onInviteClick={handleInviteClick}
+            onRefresh={loadTeamData}
+          />
+        )}
 
-            <div className="bg-[#151A25] border border-white/10 rounded-2xl p-5 mb-6 max-w-sm">
-              <div className="space-y-3 text-left">
-                <div className="flex items-start gap-3">
-                  <div className="text-2xl mt-0.5">📨</div>
-                  <div>
-                    <div className="text-white font-semibold text-sm mb-1">Invite Friends & Family</div>
-                    <div className="text-white/50 text-xs">Send challenges and walk together</div>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="text-2xl mt-0.5">📊</div>
-                  <div>
-                    <div className="text-white font-semibold text-sm mb-1">Compare Progress</div>
-                    <div className="text-white/50 text-xs">See who's winning and stay motivated</div>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="text-2xl mt-0.5">🎯</div>
-                  <div>
-                    <div className="text-white font-semibold text-sm mb-1">Team Challenges</div>
-                    <div className="text-white/50 text-xs">Create group goals and achieve together</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setCurrentScreen('profile')}
-              className="w-full max-w-sm bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-4 rounded-2xl font-bold text-base transition-all shadow-lg shadow-blue-500/20"
-            >
-              Sign Up Free
-            </button>
-
-            <p className="text-white/40 text-xs mt-4">
-              Free forever • No credit card • Keep your progress
-            </p>
-          </div>
-        ) : (
+        {activeTab === 'sent' && (
           <>
-            {/* TABS NAVIGATION */}
-            <div className="bg-[#151A25] border border-white/10 rounded-2xl p-1 grid grid-cols-3 gap-1">
-              <button
-                onClick={() => setActiveTab('team')}
-                className={`py-2.5 px-3 rounded-xl text-sm font-bold transition-all ${
-                  activeTab === 'team'
-                    ? 'bg-blue-600 text-white'
-                    : 'text-white/50 hover:text-white/80'
-                }`}
-              >
-                Team
-              </button>
-              <button
-                onClick={() => setActiveTab('sent')}
-                className={`py-2.5 px-3 rounded-xl text-sm font-bold transition-all relative ${
-                  activeTab === 'sent'
-                    ? 'bg-blue-600 text-white'
-                    : 'text-white/50 hover:text-white/80'
-                }`}
-              >
-                Sent
-                {/* 🎯 UPDATED: Include Team Challenge invitations + regular challenge assignments */}
-                {(sentChallengeHistory.filter(c => c.status === 'pending').length + sentTeamChallengeCount) > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 rounded-full text-xs flex items-center justify-center font-bold">
-                    {sentChallengeHistory.filter(c => c.status === 'pending').length + sentTeamChallengeCount}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => setActiveTab('received')}
-                className={`py-2.5 px-3 rounded-xl text-sm font-bold transition-all relative ${
-                  activeTab === 'received'
-                    ? 'bg-blue-600 text-white'
-                    : 'text-white/50 hover:text-white/80'
-                }`}
-              >
-                Received
-                {/* 🎯 UPDATED: Include Team Challenge invitations + regular challenge assignments */}
-                {(receivedChallengeHistory.filter(c => c.status === 'pending').length + receivedTeamChallengeCount) > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-xs flex items-center justify-center font-bold">
-                    {receivedChallengeHistory.filter(c => c.status === 'pending').length + receivedTeamChallengeCount}
-                  </span>
-                )}
-              </button>
-            </div>
+            {/* 🎯 NEW: Sent Team Challenge Invitations */}
+            <SentTeamChallengeInvitations onRefresh={loadTeamData} />
+            
+            {/* Regular challenge assignments */}
+            <SentChallenges
+              challenges={sentChallengeHistory}
+              onRefresh={loadTeamData}
+            />
+          </>
+        )}
 
-            {/* TAB CONTENT */}
-            {activeTab === 'team' && (
-              <TeamMembers
-                teamMembers={teamMembers}
-                receivedInvitations={receivedInvitations}
-                sentInvitations={sentInvitations}
-                userProfile={userProfile}
-                onMemberSelect={setSelectedMember}
-                onInviteClick={handleInviteClick}
-                onRefresh={loadTeamData}
-              />
-            )}
-
-            {activeTab === 'sent' && (
-              <>
-                {/* 🎯 NEW: Sent Team Challenge Invitations */}
-                <SentTeamChallengeInvitations onRefresh={loadTeamData} />
-                
-                {/* Regular challenge assignments */}
-                <SentChallenges
-                  challenges={sentChallengeHistory}
-                  onRefresh={loadTeamData}
-                />
-              </>
-            )}
-
-            {activeTab === 'received' && (
-              <>
-                {/* 🎯 NEW: Team Challenge Invitations */}
-                <TeamChallengeInvitations onRefresh={loadTeamData} />
-                
-                {/* Regular challenge assignments */}
-                <ReceivedChallenges
-                  challenges={receivedChallengeHistory}
-                  onRefresh={loadTeamData}
-                />
-              </>
-            )}
+        {activeTab === 'received' && (
+          <>
+            {/* 🎯 NEW: Team Challenge Invitations */}
+            <TeamChallengeInvitations onRefresh={loadTeamData} />
+            
+            {/* Regular challenge assignments */}
+            <ReceivedChallenges
+              challenges={receivedChallengeHistory}
+              onRefresh={loadTeamData}
+            />
           </>
         )}
       </main>
