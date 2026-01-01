@@ -29,7 +29,7 @@ function corsPreflight(req: Request) {
 type OutboxRow = {
   id: string;
   user_id: string;
-  platform: 'ios';
+  platform: 'ios' | 'android'; // ✅ FIX: Support both platforms
   type:
     | 'challenge_started'
     | 'challenge_completed'
@@ -38,9 +38,7 @@ type OutboxRow = {
     | 'challenge_assignment_rejected'
     | 'challenge_assignment_started'
     | 'challenge_assignment_completed'
-    | 'challenge_ready_to_claim'
-    | 'milestone_reached'
-    | 'team_member_completed';
+    | 'team_invitation_received'; // ✅ FIX: Clean types (removed spam)
   title: string;
   body: string;
   data: Record<string, unknown>;
@@ -134,6 +132,114 @@ async function createApnsJwt(env: ApnsEnv): Promise<string> {
   if (raw.length !== 64) throw new Error(`Unexpected ECDSA signature length: ${raw.length}`);
 
   return `${signingInput}.${base64Url(raw)}`;
+}
+
+// ✅ NEW: FCM HTTP v1 API support for Android (replaces legacy API)
+// Uses Service Account credentials and OAuth 2.0 tokens
+async function getFcmAccessToken(serviceAccountJson: any): Promise<string> {
+  const SCOPES = ['https://www.googleapis.com/auth/firebase.messaging'];
+  
+  const header = {
+    alg: 'RS256',
+    typ: 'JWT',
+    kid: serviceAccountJson.private_key_id,
+  };
+
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    iss: serviceAccountJson.client_email,
+    sub: serviceAccountJson.client_email,
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: now,
+    exp: now + 3600,
+    scope: SCOPES.join(' '),
+  };
+
+  const encodedHeader = base64Url(textEncoder.encode(JSON.stringify(header)));
+  const encodedPayload = base64Url(textEncoder.encode(JSON.stringify(payload)));
+  const signingInput = `${encodedHeader}.${encodedPayload}`;
+
+  // Import private key
+  const privateKeyPem = serviceAccountJson.private_key;
+  const privateKey = await crypto.subtle.importKey(
+    'pkcs8',
+    Uint8Array.from(atob(privateKeyPem.replace(/-----BEGIN PRIVATE KEY-----/g, '').replace(/-----END PRIVATE KEY-----/g, '').replace(/\s+/g, '')), c => c.charCodeAt(0)),
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+
+  const signature = await crypto.subtle.sign(
+    'RSASSA-PKCS1-v1_5',
+    privateKey,
+    textEncoder.encode(signingInput)
+  );
+
+  const jwt = `${signingInput}.${base64Url(new Uint8Array(signature))}`;
+
+  // Exchange JWT for access token
+  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
+  });
+
+  const tokenData = await tokenResponse.json();
+  return tokenData.access_token;
+}
+
+async function sendFcmSingleV1(deviceToken: string, payload: any, projectId: string, accessToken: string) {
+  const url = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
+  
+  console.log(`[PUSH] Sending FCM v1 to Android | token: ${deviceToken.slice(0, 20)}...`);
+  
+  const fcmPayload = {
+    message: {
+      token: deviceToken,
+      notification: {
+        title: payload.aps.alert.title,
+        body: payload.aps.alert.body,
+      },
+      data: payload.data,
+      android: {
+        priority: 'high',
+        notification: {
+          sound: 'default',
+          notification_count: payload.aps.badge,
+        },
+      },
+    },
+  };
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(fcmPayload),
+  });
+
+  const responseText = await res.text();
+  let responseData;
+  try {
+    responseData = JSON.parse(responseText);
+  } catch {
+    responseData = { raw: responseText };
+  }
+  
+  if (!res.ok) {
+    console.error(`[PUSH] ❌ FCM v1 FAILED | status: ${res.status} | response: ${responseText}`);
+  } else {
+    console.log(`[PUSH] ✅ FCM v1 SUCCESS | token: ${deviceToken.slice(0, 20)}...`);
+  }
+
+  return { 
+    ok: res.ok, 
+    status: res.status, 
+    body: responseText,
+    error: responseData?.error?.message,
+  };
 }
 
 async function sendApnsSingle(env: ApnsEnv, deviceToken: string, jwt: string, payload: any) {
@@ -244,14 +350,34 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Load tokens for recipients (ios only)
+  // ✅ FIX: Load tokens for BOTH iOS and Android (not just iOS!)
+  // Group by platform for proper handling
   const { data: tokenRows, error: tokenErr } = await admin
     .from('device_push_tokens')
-    .select('token, user_id')
-    .in('user_id', pending.map((r) => r.user_id))
-    .eq('platform', 'ios');
+    .select('token, user_id, platform')
+    .in('user_id', pending.map((r) => r.user_id));
 
   if (tokenErr) return json(500, { error: 'Failed to load tokens', details: tokenErr.message });
+
+  // ✅ FIX: Load FCM Server Key for Android
+  const fcmServerKey = Deno.env.get('FCM_SERVER_KEY') ?? '';
+
+  // ✅ FIX: Group tokens by platform for proper handling
+  const tokensByUserAndPlatform = new Map<string, { ios: string[], android: string[] }>();
+  for (const r of (tokenRows ?? []) as any[]) {
+    const uid = String(r.user_id);
+    const tok = String(r.token ?? '').trim();
+    const platform = String(r.platform ?? 'ios');
+    if (!uid || !tok) continue;
+    
+    const existing = tokensByUserAndPlatform.get(uid) ?? { ios: [], android: [] };
+    if (platform === 'android') {
+      existing.android.push(tok);
+    } else {
+      existing.ios.push(tok);
+    }
+    tokensByUserAndPlatform.set(uid, existing);
+  }
 
   // Load push preferences for all users in this batch
   const { data: prefRows, error: prefErr } = await admin
@@ -264,16 +390,6 @@ Deno.serve(async (req) => {
   const pushEnabledByUser = new Map<string, boolean>();
   for (const r of (prefRows ?? []) as any[]) {
     pushEnabledByUser.set(String(r.id), Boolean(r.push_enabled));
-  }
-
-  const tokensByUser = new Map<string, string[]>();
-  for (const r of (tokenRows ?? []) as any[]) {
-    const uid = String(r.user_id);
-    const tok = String(r.token ?? '').trim();
-    if (!uid || !tok) continue;
-    const list = tokensByUser.get(uid) ?? [];
-    list.push(tok);
-    tokensByUser.set(uid, list);
   }
 
   const env: ApnsEnv = { teamId: apnsTeamId, keyId: apnsKeyId, p8: apnsP8, bundleId: apnsBundleId };
@@ -330,8 +446,8 @@ Deno.serve(async (req) => {
       return (typeof v === 'object') ? v : {};
     })();
 
-    const deviceTokens = tokensByUser.get(row.user_id) ?? [];
-    if (deviceTokens.length === 0) {
+    const deviceTokens = tokensByUserAndPlatform.get(row.user_id) ?? { ios: [], android: [] };
+    if (deviceTokens.ios.length === 0 && deviceTokens.android.length === 0) {
       await admin
         .from('push_outbox')
         .update({
@@ -364,7 +480,7 @@ Deno.serve(async (req) => {
 
     try {
       const sendResults = [] as any[];
-      for (const token of deviceTokens) {
+      for (const token of deviceTokens.ios) {
         const r = await sendApnsSingle(env, token, apnsJwt, payload);
         sendResults.push({ token, ...r });
 
@@ -383,6 +499,26 @@ Deno.serve(async (req) => {
         }
       }
 
+      for (const token of deviceTokens.android) {
+        const serviceAccountJson = JSON.parse(Deno.env.get('FCM_SERVICE_ACCOUNT_JSON') ?? '{}');
+        const projectId = serviceAccountJson.project_id;
+        const accessToken = await getFcmAccessToken(serviceAccountJson);
+        const r = await sendFcmSingleV1(token, payload, projectId, accessToken);
+        sendResults.push({ token, ...r });
+
+        if (!r.ok) {
+          try {
+            const reason = r.error;
+            // Only delete tokens that FCM explicitly marks as unregistered.
+            if (reason === 'NotRegistered') {
+              await admin.from('device_push_tokens').delete().eq('token', token);
+            }
+          } catch {
+            // ignore
+          }
+        }
+      }
+
       const sentCount = sendResults.filter((x) => x.ok).length;
       if (sentCount > 0) {
         await admin
@@ -392,7 +528,7 @@ Deno.serve(async (req) => {
         results.push({ id: row.id, ok: true, sent: sentCount });
       } else {
         const host = (Deno.env.get('APPLE_APNS_HOST') ?? 'api.push.apple.com').trim();
-        const msg = `APNs send failed (host=${host}, topic=${env.bundleId}): ${JSON.stringify(sendResults.map((x) => ({ status: x.status, body: x.body })).slice(0, 3))}`;
+        const msg = `Push send failed (host=${host}, topic=${env.bundleId}): ${JSON.stringify(sendResults.map((x) => ({ status: x.status, body: x.body })).slice(0, 3))}`;
         const nextAttempts = (row.attempts ?? 0) + 1;
         const nextStatus = nextAttempts >= maxAttempts ? 'failed' : 'pending';
         await admin
