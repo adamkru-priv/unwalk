@@ -10,6 +10,7 @@ import { PausedChallengesWarning } from './PausedChallengesWarning';
 import { APP_VERSION } from '../../version';
 import { useHealthKit } from '../../hooks/useHealthKit';
 import { Capacitor } from '@capacitor/core';
+import { checkPushNotificationStatus, initIosPushNotifications } from '../../lib/push/iosPush';
 
 export function ProfileScreen() {
   const setUserTier = useChallengeStore((s) => s.setUserTier);
@@ -64,6 +65,22 @@ export function ProfileScreen() {
   const dailyStepGoal = useChallengeStore((s) => s.dailyStepGoal); // 🎯 NEW
   const setDailyStepGoal = useChallengeStore((s) => s.setDailyStepGoal); // 🎯 NEW
 
+  // ✅ NEW: Push notification status
+  const [pushNotifStatus, setPushNotifStatus] = useState({
+    isAvailable: false,
+    isGranted: false,
+    isDenied: false,
+    isPrompt: false,
+  });
+  const [pushNotifLoading, setPushNotifLoading] = useState(false);
+
+  // Check push notification status on mount (for native only)
+  useEffect(() => {
+    if (isNative) {
+      checkPushNotificationStatus().then(setPushNotifStatus);
+    }
+  }, [isNative]);
+
   useEffect(() => {
     if (userProfile) {
       setUserTier('pro');
@@ -95,25 +112,34 @@ export function ProfileScreen() {
       setUserProfile(null);
       resetToInitialState();
 
-      await new Promise((resolve) => setTimeout(resolve, 200));
-
-      console.log('📍 [ProfileScreen] Navigating to landing page...');
-      // 🎯 CHANGED: Show landing page after sign out (user needs to click "Get Started" again)
-      setOnboardingComplete(false);
-      setCurrentScreen('home'); // Will show OnboardingScreen due to isOnboardingComplete = false
-
+      // ✅ FIX: Force full reload on iOS to ensure UI updates properly
+      console.log('🔄 [ProfileScreen] Forcing full app reload...');
+      
       try {
-        if (typeof window !== 'undefined' && window.location.pathname === '/') {
-          window.history.replaceState({}, '', '/app');
+        const { Capacitor } = await import('@capacitor/core');
+        if (Capacitor.isNativePlatform()) {
+          // Native: Reload the entire WebView
+          window.location.href = '/';
+        } else {
+          // Web: Navigate to landing page
+          setOnboardingComplete(false);
+          setCurrentScreen('home');
+          
+          if (typeof window !== 'undefined' && window.location.pathname === '/') {
+            window.history.replaceState({}, '', '/app');
+          }
         }
       } catch {
-        // ignore on native
+        // Fallback
+        setOnboardingComplete(false);
+        setCurrentScreen('home');
       }
 
       console.log('✅ [ProfileScreen] Sign out complete!');
     } catch (err) {
       console.error('❌ Unexpected error during sign out:', err);
 
+      // Nuclear option: clear everything and force reload
       try {
         const { Capacitor } = await import('@capacitor/core');
         if (Capacitor.isNativePlatform()) {
@@ -128,9 +154,9 @@ export function ProfileScreen() {
 
       setUserProfile(null);
       resetToInitialState();
-      // 🎯 CHANGED: Show landing page after error during sign out
-      setOnboardingComplete(false);
-      setCurrentScreen('home');
+      
+      // Force reload
+      window.location.href = '/';
     }
   };
 
@@ -270,6 +296,32 @@ export function ProfileScreen() {
     }
   };
 
+  const handleEnablePushNotifications = async () => {
+    if (pushNotifStatus.isDenied) {
+      alert('Notifications are blocked. Please enable them in your device Settings app.');
+      return;
+    }
+
+    setPushNotifLoading(true);
+    try {
+      console.log('🔔 [Profile] User clicked Enable Notifications');
+      await initIosPushNotifications();
+      
+      // Re-check status after initialization
+      const newStatus = await checkPushNotificationStatus();
+      setPushNotifStatus(newStatus);
+      
+      if (newStatus.isGranted) {
+        console.log('✅ [Profile] Push notifications enabled successfully');
+      }
+    } catch (e) {
+      console.error('❌ [Profile] Failed to enable push notifications:', e);
+      alert('Failed to enable notifications. Please try again.');
+    } finally {
+      setPushNotifLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0B101B] text-gray-900 dark:text-white pb-20 font-sans">
       <AppHeader />
@@ -360,6 +412,32 @@ export function ProfileScreen() {
               )}
             </div>
           </div>
+
+          {/* ✅ NEW: Push Notifications Permission (show only if not granted yet) */}
+          {isNative && pushNotifStatus.isAvailable && !pushNotifStatus.isGranted && (
+            <div className="bg-white dark:bg-[#151A25] rounded-2xl px-4 py-3.5 shadow-sm border border-gray-100 dark:border-white/5">
+              <div className="flex items-center justify-between">
+                <div className="flex-1 min-w-0">
+                  <div className="text-[15px] font-medium text-gray-900 dark:text-white">
+                    Push Notifications
+                  </div>
+                  <div className="text-[13px] text-gray-500 dark:text-gray-400">
+                    {pushNotifStatus.isDenied 
+                      ? 'Blocked - check Settings' 
+                      : 'Get notified about challenges'}
+                  </div>
+                </div>
+
+                <button
+                  disabled={pushNotifLoading || pushNotifStatus.isDenied}
+                  onClick={handleEnablePushNotifications}
+                  className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-[13px] font-medium transition-colors"
+                >
+                  {pushNotifLoading ? 'Enabling...' : 'Enable'}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Daily Step Goal */}
           <div className="bg-white dark:bg-[#151A25] rounded-2xl px-4 py-3.5 shadow-sm border border-gray-100 dark:border-white/5">

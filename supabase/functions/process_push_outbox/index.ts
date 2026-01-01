@@ -527,8 +527,19 @@ Deno.serve(async (req) => {
           .eq('id', row.id);
         results.push({ id: row.id, ok: true, sent: sentCount });
       } else {
-        const host = (Deno.env.get('APPLE_APNS_HOST') ?? 'api.push.apple.com').trim();
-        const msg = `Push send failed (host=${host}, topic=${env.bundleId}): ${JSON.stringify(sendResults.map((x) => ({ status: x.status, body: x.body })).slice(0, 3))}`;
+        // ✅ FIX: Better error formatting - show platform-specific info
+        const iosFailed = sendResults.filter(r => deviceTokens.ios.includes(r.token));
+        const androidFailed = sendResults.filter(r => deviceTokens.android.includes(r.token));
+        
+        let msg = 'Push send failed: ';
+        if (iosFailed.length > 0) {
+          const host = (Deno.env.get('APPLE_APNS_HOST') ?? 'api.push.apple.com').trim();
+          msg += `iOS (host=${host}, topic=${env.bundleId}): ${JSON.stringify(iosFailed.map(x => ({ status: x.status, body: x.body })).slice(0, 2))} `;
+        }
+        if (androidFailed.length > 0) {
+          msg += `Android (FCM v1): ${JSON.stringify(androidFailed.map(x => ({ status: x.status, error: x.error, body: x.body })).slice(0, 2))}`;
+        }
+        
         const nextAttempts = (row.attempts ?? 0) + 1;
         const nextStatus = nextAttempts >= maxAttempts ? 'failed' : 'pending';
         await admin

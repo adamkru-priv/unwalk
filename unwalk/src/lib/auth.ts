@@ -313,14 +313,10 @@ class AuthService {
     try {
       console.log('🚪 [Auth] Starting sign out...');
       
-      // 1. Sign out from Supabase (clears server session)
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-
-      // 2. Clear guest cache
+      // 1. Clear guest cache FIRST
       this.clearGuestUser();
 
-      // 3. Clear app storage (works on both web and native)
+      // 2. Clear app storage (works on both web and native)
       try {
         // Check if running on native platform
         const { Capacitor } = await import('@capacitor/core');
@@ -358,17 +354,11 @@ class AuthService {
             })
           );
           
-          // ✅ FIX: Also try to clear ALL keys (nuclear option for Android)
-          // This ensures we don't leave any orphaned auth data
-          try {
-            console.log('🧹 [Auth] Clearing all Capacitor Preferences...');
-            await Preferences.clear();
-            console.log('✅ [Auth] All Capacitor Preferences cleared');
-          } catch (e) {
-            console.warn('⚠️ [Auth] Failed to clear all preferences:', e);
-          }
+          // ✅ FIX: Clear ALL keys - don't catch errors, let them bubble up
+          console.log('🧹 [Auth] Clearing all Capacitor Preferences...');
+          await Preferences.clear();
+          console.log('✅ [Auth] All Capacitor Preferences cleared');
           
-          console.log('✅ [Auth] Capacitor storage cleared');
         } else {
           // ✅ Web: Clear localStorage
           console.log('🌐 [Auth] Clearing localStorage...');
@@ -390,8 +380,13 @@ class AuthService {
         }
       } catch (storageError) {
         console.error('⚠️ [Auth] Storage clear error:', storageError);
-        // Don't throw - sign out is more important than clearing storage
+        // ✅ FIX: Throw error instead of ignoring - we need to know if storage clear failed
+        throw new Error('Failed to clear local storage: ' + (storageError as Error).message);
       }
+
+      // 3. Sign out from Supabase (clears server session) - do this AFTER clearing storage
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
 
       console.log('👋 [Auth] Signed out successfully');
       return { error: null };

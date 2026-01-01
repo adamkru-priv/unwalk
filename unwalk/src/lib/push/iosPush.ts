@@ -60,8 +60,9 @@ async function upsertTokenDirect(token: string) {
   // ✅ Detect platform dynamically
   const platform = Capacitor.getPlatform() as 'ios' | 'android';
 
-  // ✅ FIX: APNs requires lowercase hex tokens
-  const normalizedToken = token.toLowerCase();
+  // ✅ FIX: Only normalize iOS tokens to lowercase (APNs requirement)
+  // FCM tokens (Android) are case-sensitive and must NOT be lowercased!
+  const normalizedToken = platform === 'ios' ? token.toLowerCase() : token;
 
   const payload = {
     user_id: profile.id,
@@ -75,7 +76,7 @@ async function upsertTokenDirect(token: string) {
     Promise.resolve(
       supabase
         .from('device_push_tokens')
-        .upsert(payload, { onConflict: 'token' })
+        .upsert(payload, { onConflict: 'user_id,platform' })  // ✅ FIXED: Changed from 'token' to match database constraint
     ),
     8000,
     'Supabase upsert to device_push_tokens took too long'
@@ -90,6 +91,21 @@ async function registerTokenViaEdgeFunction(token: string, opts?: { forceAuth?: 
   // ✅ Detect platform dynamically
   const platform = Capacitor.getPlatform() as 'ios' | 'android';
 
+  // ✅ FIX: If forceAuth is true, check if we actually have a valid session
+  const headers: Record<string, string> = {};
+  if (opts?.forceAuth) {
+    const { data } = await supabase.auth.getSession();
+    const accessToken = data?.session?.access_token;
+    
+    if (!accessToken) {
+      // ✅ No valid session - skip edge function call or throw error
+      console.error('❌ [Push] forceAuth requested but no valid session found - skipping token registration');
+      throw new Error('No valid session - cannot register token with forceAuth');
+    }
+    
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+
   // ✅ Log what we're sending
   console.log('🌐 [Push] Edge function params:', JSON.stringify({
     platform,
@@ -97,16 +113,8 @@ async function registerTokenViaEdgeFunction(token: string, opts?: { forceAuth?: 
     tokenPreview: token.substring(0, 20) + '...',
     deviceId: deviceId.substring(0, 10) + '...',
     forceAuth: opts?.forceAuth,
+    hasAuth: !!headers.Authorization,
   }));
-
-  // If caller wants to ensure the request is authenticated, attach the current access token.
-  // This avoids the function falling back to guest resolution by device_id.
-  const headers: Record<string, string> = {};
-  if (opts?.forceAuth) {
-    const { data } = await supabase.auth.getSession();
-    const accessToken = data?.session?.access_token;
-    if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-  }
 
   const response = await withTimeout(
     supabase.functions.invoke('register_push_token', {
@@ -147,31 +155,44 @@ async function registerTokenViaEdgeFunction(token: string, opts?: { forceAuth?: 
   return response.data;
 }
 
-async function saveToken(token: string) {
+async function saveToken(token: string | any) {
+  // ✅ FIX: Extract token.value if token is an object (from PushNotifications event)
+  let tokenString: string;
+  
+  if (typeof token === 'string') {
+    tokenString = token;
+  } else if (token && typeof token === 'object' && token.value) {
+    tokenString = token.value; // Extract from Token object
+  } else {
+    tokenString = String(token);
+  }
+  
   console.log('🔔 [Push] saveToken called with token:', {
-    hasToken: !!token,
-    tokenLength: token?.length,
-    tokenPreview: token?.substring(0, 20) + '...',
+    hasToken: !!tokenString,
+    tokenType: typeof token,
+    isObject: typeof token === 'object',
+    tokenLength: tokenString?.length,
+    tokenPreview: tokenString?.substring(0, 20) + '...',
   });
 
-  if (!token) {
-    console.error('❌ [Push] saveToken called with empty token!');
+  if (!tokenString || tokenString === '[object Object]' || tokenString === 'undefined' || tokenString.length < 10) {
+    console.error('❌ [Push] saveToken called with invalid token!', { token, tokenString });
     return;
   }
   
-  lastReceivedApnsToken = token;
+  lastReceivedApnsToken = tokenString;
 
   // Coalesce concurrent calls.
   if (inFlightSave) {
     console.log('⏳ [Push] Another save in progress, waiting...');
     await inFlightSave;
-    if (token === lastSavedToken) {
+    if (tokenString === lastSavedToken) {
       console.log('✅ [Push] Token already saved, skipping');
       return;
     }
   }
 
-  if (token === lastSavedToken) {
+  if (tokenString === lastSavedToken) {
     console.log('✅ [Push] Token already saved previously, skipping');
     return;
   }
@@ -179,7 +200,7 @@ async function saveToken(token: string) {
   console.log('🚀 [Push] Starting token save process...');
 
   inFlightSave = (async () => {
-    await persistTokenLocally(token);
+    await persistTokenLocally(tokenString);
     console.log('💾 [Push] Token persisted to localStorage');
 
     // Try direct upsert first (works if there is an auth session). Fallback to Edge Function.
@@ -193,8 +214,8 @@ async function saveToken(token: string) {
         isGuest: profile?.is_guest,
       });
 
-      await upsertTokenDirect(token);
-      lastSavedToken = token;
+      await upsertTokenDirect(tokenString);
+      lastSavedToken = tokenString;
       console.log('✅ [Push] Device token saved (direct) - SUCCESS!');
       return;
     } catch (e) {
@@ -218,8 +239,8 @@ async function saveToken(token: string) {
       });
 
       console.log('🌐 [Push] Calling edge function register_push_token...');
-      await registerTokenViaEdgeFunction(token, { forceAuth: hasSession });
-      lastSavedToken = token;
+      await registerTokenViaEdgeFunction(tokenString, { forceAuth: hasSession });
+      lastSavedToken = tokenString;
       console.log('✅ [Push] Device token saved (edge function) - SUCCESS!');
     } catch (e) {
       console.error('❌ [Push] Failed to save token (edge function):', e);
@@ -278,6 +299,33 @@ async function fetchNativeTokenFallback(): Promise<string | null> {
 
     console.warn('⚠️ [Push] Native token fallback failed:', e);
     return null;
+  }
+}
+
+/**
+ * Check if push notifications are available and check permission status
+ */
+export async function checkPushNotificationStatus(): Promise<{
+  isAvailable: boolean;
+  isGranted: boolean;
+  isDenied: boolean;
+  isPrompt: boolean;
+}> {
+  if (!Capacitor.isNativePlatform()) {
+    return { isAvailable: false, isGranted: false, isDenied: false, isPrompt: false };
+  }
+
+  try {
+    const permStatus = await PushNotifications.checkPermissions();
+    return {
+      isAvailable: true,
+      isGranted: permStatus.receive === 'granted',
+      isDenied: permStatus.receive === 'denied',
+      isPrompt: permStatus.receive === 'prompt' || permStatus.receive === 'prompt-with-rationale',
+    };
+  } catch (e) {
+    console.error('❌ [Push] Failed to check permissions:', e);
+    return { isAvailable: false, isGranted: false, isDenied: false, isPrompt: false };
   }
 }
 
@@ -470,16 +518,10 @@ export async function initIosPushNotifications(): Promise<void> {
         return;
       }
 
-      // After INITIAL_SESSION the session may not be immediately available.
-      // Retry shortly to ensure the token is linked to the authenticated user (not the guest).
-      if (event === 'INITIAL_SESSION') {
-        setTimeout(() => {
-          void saveToken(token);
-        }, 1500);
-        return;
-      }
-
-      await saveToken(token);
+      // ✅ FIX: REMOVED INITIAL_SESSION handler!
+      // Token should only re-register on SIGNED_IN or when first received from native.
+      // INITIAL_SESSION fires on every app start (even for guests) and can register token
+      // to wrong user if profile is not yet loaded or is cached from previous session.
     });
   } catch (e) {
     console.error('❌ [Push] init failed:', e);

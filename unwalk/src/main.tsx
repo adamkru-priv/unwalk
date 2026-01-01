@@ -1,10 +1,8 @@
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
-import { initIosPushNotifications } from './lib/push/iosPush';
-
-// Initialize iOS push notifications early (no-op on web/PWA)
-initIosPushNotifications();
+// ✅ REMOVED: Don't initialize push notifications on app startup
+// Push notifications will be requested when user clicks "Enable Notifications" in ProfileScreen
 
 createRoot(document.getElementById('root')!).render(
   <App />

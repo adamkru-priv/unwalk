@@ -58,6 +58,8 @@ Deno.serve(async (req) => {
   const platform = String(body?.platform ?? 'ios').trim();
   const deviceId = String(body?.device_id ?? '').trim();
 
+  console.log('[Push] Request received:', { platform, tokenLength: token.length, deviceId: deviceId.substring(0, 10) });
+
   if (!token) return json(400, { error: 'token is required' });
   if (platform !== 'ios' && platform !== 'android') return json(400, { error: 'platform must be ios or android' });
   if (!deviceId) return json(400, { error: 'device_id is required' });
@@ -70,23 +72,32 @@ Deno.serve(async (req) => {
 
   // Get user from JWT (required)
   const authHeader = req.headers.get('Authorization');
+  console.log('[Push] Auth header present:', !!authHeader);
+  
   if (!authHeader?.startsWith('Bearer ')) {
+    console.error('[Push] Missing or invalid Authorization header');
     return json(401, { error: 'Authorization header required' });
   }
 
   const jwt = authHeader.slice('Bearer '.length).trim();
   if (!jwt) {
+    console.error('[Push] Empty JWT token');
     return json(401, { error: 'Authorization token required' });
   }
 
+  console.log('[Push] JWT token length:', jwt.length);
+
   const { data, error: authError } = await admin.auth.getUser(jwt);
   if (authError || !data?.user?.id) {
+    console.error('[Push] Auth error:', authError);
     return json(401, { error: 'Invalid or expired authorization token', details: authError?.message });
   }
 
   userId = data.user.id;
   console.log(`[Push] Registering token for user: ${userId}, platform: ${platform}`);
 
+  // ✅ FIX: Use (user_id, platform) as conflict target instead of just (token)
+  // This allows updating the token for the same user+platform combination
   const { error: upsertError } = await admin
     .from('device_push_tokens')
     .upsert(
@@ -96,11 +107,15 @@ Deno.serve(async (req) => {
         token: normalizedToken,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: 'token' },
+      { onConflict: 'user_id,platform' },  // ✅ Changed from 'token'
     );
 
-  if (upsertError) return json(500, { error: 'Failed to save token', details: upsertError.message });
+  if (upsertError) {
+    console.error('[Push] Upsert error:', upsertError);
+    return json(500, { error: 'Failed to save token', details: upsertError.message });
+  }
 
+  console.log('[Push] Token saved successfully!');
   return json(200, { ok: true, user_id: userId, platform });
 });
 
