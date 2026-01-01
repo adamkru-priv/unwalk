@@ -144,7 +144,12 @@ async function sendApnsSingle(env: ApnsEnv, deviceToken: string, jwt: string, pa
   const host = 'api.push.apple.com';  // ← PRODUCTION ONLY!
   const url = `https://${host}/3/device/${deviceToken}`;
 
+  // ✅ ADD: Log full token details for debugging
   console.log(`[PUSH] Sending to ${host} | topic: ${env.bundleId} | token: ${deviceToken.slice(0, 8)}...`);
+  console.log(`[PUSH] Full token: ${deviceToken}`);
+  console.log(`[PUSH] Token length: ${deviceToken.length}`);
+  console.log(`[PUSH] Token is lowercase: ${deviceToken === deviceToken.toLowerCase()}`);
+  console.log(`[PUSH] Payload: ${JSON.stringify(payload)}`);
 
   const res = await fetch(url, {
     method: 'POST',

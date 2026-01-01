@@ -17,6 +17,16 @@ let inFlightSave: Promise<void> | null = null;
 
 const TOKEN_STORAGE_KEY = 'apns_device_token';
 
+// ✅ Helper function to add timeout to any promise
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMsg: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`Timeout: ${errorMsg}`)), timeoutMs)
+    )
+  ]);
+}
+
 // Official Capacitor JS proxy for the native plugin (jsName = "ApnsToken").
 // Prefer the already-registered native plugin instance (Capacitor.Plugins.ApnsToken)
 // which is populated when the plugin is registered via `packageClassList` on iOS.
@@ -39,24 +49,39 @@ async function persistTokenLocally(token: string) {
 
 async function upsertTokenDirect(token: string) {
   // Uses RLS (requires auth.uid()); may fail for guests if they have no auth session.
-  const profile = await authService.getUserProfile();
+  const profile = await withTimeout(
+    authService.getUserProfile(),
+    5000,
+    'getUserProfile took too long'
+  );
+  
   if (!profile?.id) return;
 
   // ✅ Detect platform dynamically
   const platform = Capacitor.getPlatform() as 'ios' | 'android';
 
+  // ✅ FIX: APNs requires lowercase hex tokens
+  const normalizedToken = token.toLowerCase();
+
   const payload = {
     user_id: profile.id,
     platform,
-    token,
+    token: normalizedToken,
     updated_at: new Date().toISOString(),
   };
 
-  const { error } = await supabase
-    .from('device_push_tokens')
-    .upsert(payload, { onConflict: 'token' });
+  // ✅ Wrap Supabase query in timeout
+  const result = await withTimeout(
+    Promise.resolve(
+      supabase
+        .from('device_push_tokens')
+        .upsert(payload, { onConflict: 'token' })
+    ),
+    8000,
+    'Supabase upsert to device_push_tokens took too long'
+  );
 
-  if (error) throw error;
+  if (result.error) throw result.error;
 }
 
 async function registerTokenViaEdgeFunction(token: string, opts?: { forceAuth?: boolean }) {
@@ -74,14 +99,18 @@ async function registerTokenViaEdgeFunction(token: string, opts?: { forceAuth?: 
     if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
   }
 
-  const { data, error } = await supabase.functions.invoke('register_push_token', {
-    headers,
-    body: {
-      token,
-      platform,
-      device_id: deviceId,
-    },
-  });
+  const { data, error } = await withTimeout(
+    supabase.functions.invoke('register_push_token', {
+      headers,
+      body: {
+        token,
+        platform,
+        device_id: deviceId,
+      },
+    }),
+    10000,
+    'Edge function register_push_token took too long'
+  );
 
   if (error) throw error;
   return data;

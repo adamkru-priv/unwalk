@@ -62,6 +62,9 @@ Deno.serve(async (req) => {
   if (platform !== 'ios') return json(400, { error: 'platform must be ios' });
   if (!deviceId) return json(400, { error: 'device_id is required' });
 
+  // ✅ FIX: APNs requires lowercase hex tokens
+  const normalizedToken = token.toLowerCase();
+
   // Resolve user_id:
   // 1) If caller has Authorization header, try to parse it and get auth user.
   // 2) Fallback: resolve guest user from public.users by device_id.
@@ -130,7 +133,7 @@ Deno.serve(async (req) => {
       {
         user_id: userId,
         platform: 'ios',
-        token,
+        token: normalizedToken,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'token' },
