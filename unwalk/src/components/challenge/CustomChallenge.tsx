@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { useChallengeStore } from '../../stores/useChallengeStore';
 import { createCustomChallenge, uploadChallengeImage, getMyCustomChallenges, deleteCustomChallenge, startChallenge, updateCustomChallenge } from '../../lib/api';
 import { teamService, type TeamMember } from '../../lib/auth';
@@ -16,7 +15,7 @@ export function CustomChallenge() {
   const [error, setError] = useState<string | null>(null);
   const [myCustomChallenges, setMyCustomChallenges] = useState<AdminChallenge[]>([]);
   const [editingChallenge, setEditingChallenge] = useState<AdminChallenge | null>(null);
-  const { setCurrentScreen, activeUserChallenge, setActiveChallenge } = useChallengeStore();
+  const { setCurrentScreen, setActiveChallenge } = useChallengeStore();
   const userProfile = useChallengeStore((s) => s.userProfile);
 
   // Form state
@@ -205,8 +204,14 @@ export function CustomChallenge() {
           closeAssignModal();
         }
       } else {
-        // Team challenge - assign to selected member
-        await teamService.assignTeamChallenge(selectedMember, assigningChallenge.id);
+        // Team challenge - use RPC function
+        const { supabase } = await import('../../lib/supabase');
+        const { error: rpcError } = await supabase.rpc('start_team_challenge', {
+          p_member_id: selectedMember,
+          p_challenge_id: assigningChallenge.id,
+        });
+        
+        if (rpcError) throw rpcError;
         closeAssignModal();
       }
     } catch (e) {

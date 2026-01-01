@@ -14,6 +14,10 @@ export interface UserProfile {
   created_at: string;
   updated_at: string;
   push_enabled?: boolean;
+  is_guest?: boolean; // 🎯 ADDED: Required for guest user detection
+  xp?: number; // 🎯 ADDED: User experience points
+  level?: number; // 🎯 ADDED: User level
+  total_points?: number; // 🎯 ADDED: Total accumulated points
 }
 
 export interface TeamMember {

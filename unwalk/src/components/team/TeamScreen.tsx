@@ -38,10 +38,8 @@ async function retryWithBackoff<T>(
 }
 
 export function TeamScreen() {
-  const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
   const userProfile = useChallengeStore((s) => s.userProfile);
   const assignTarget = useChallengeStore((s) => s.assignTarget);
-  const setAssignTarget = useChallengeStore((s) => s.setAssignTarget);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [receivedInvitations, setReceivedInvitations] = useState<TeamInvitation[]>([]);
   const [sentInvitations, setSentInvitations] = useState<TeamInvitation[]>([]);
