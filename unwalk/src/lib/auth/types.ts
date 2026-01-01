@@ -2,6 +2,7 @@ import type { User, Session } from '@supabase/supabase-js';
 
 export type { User, Session };
 
+// Updated: 2026-01-01 - Added missing UserProfile properties for guest users, XP system, and points
 export interface UserProfile {
   id: string;
   email: string | null;
