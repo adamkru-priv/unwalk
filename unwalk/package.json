@@ -3,6 +3,7 @@
   "private": true,
   "version": "3.0.1",
   "type": "module",
+  "buildTimestamp": "2026-01-01T15:12:00Z",
   "scripts": {
     "dev": "vite",
     "dev:app": "vite -c vite.dev.config.ts",
