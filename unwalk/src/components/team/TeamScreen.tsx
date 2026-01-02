@@ -216,12 +216,12 @@ export function TeamScreen() {
   // Loading state
   if (loading || !userProfile) {
     return (
-      <div className="min-h-screen bg-[#0B101B] text-white pb-20 font-sans">
+      <div className="min-h-screen bg-white dark:bg-[#0B101B] text-gray-900 dark:text-white pb-20 font-sans">
         <AppHeader />
         <main className="px-4 py-4">
           <div className="text-center py-12">
             <div className="inline-block w-8 h-8 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
-            <p className="text-white/50 text-sm mt-3">Loading team...</p>
+            <p className="text-gray-500 dark:text-white/50 text-sm mt-3">Loading team...</p>
           </div>
         </main>
         <BottomNavigation currentScreen="team" />
@@ -231,7 +231,7 @@ export function TeamScreen() {
 
   // Main team list view
   return (
-    <div className="min-h-screen bg-[#0B101B] text-white pb-20 font-sans">
+    <div className="min-h-screen bg-white dark:bg-[#0B101B] text-gray-900 dark:text-white pb-20 font-sans">
       <AppHeader />
 
       {/* Invite Modal */}
@@ -245,13 +245,13 @@ export function TeamScreen() {
       <main className="px-4 py-4 space-y-4">
         
         {/* TABS NAVIGATION */}
-        <div className="bg-[#151A25] border border-white/10 rounded-2xl p-1 grid grid-cols-3 gap-1">
+        <div className="bg-gray-100 dark:bg-[#151A25] border border-gray-200 dark:border-white/10 rounded-2xl p-1 grid grid-cols-3 gap-1">
           <button
             onClick={() => setActiveTab('team')}
             className={`py-2.5 px-3 rounded-xl text-sm font-bold transition-all ${
               activeTab === 'team'
                 ? 'bg-blue-600 text-white'
-                : 'text-white/50 hover:text-white/80'
+                : 'text-gray-500 dark:text-white/50 hover:text-gray-700 dark:hover:text-white/80'
             }`}
           >
             Team
@@ -261,7 +261,7 @@ export function TeamScreen() {
             className={`py-2.5 px-3 rounded-xl text-sm font-bold transition-all relative ${
               activeTab === 'sent'
                 ? 'bg-blue-600 text-white'
-                : 'text-white/50 hover:text-white/80'
+                : 'text-gray-500 dark:text-white/50 hover:text-gray-700 dark:hover:text-white/80'
             }`}
           >
             Sent
@@ -277,7 +277,7 @@ export function TeamScreen() {
             className={`py-2.5 px-3 rounded-xl text-sm font-bold transition-all relative ${
               activeTab === 'received'
                 ? 'bg-blue-600 text-white'
-                : 'text-white/50 hover:text-white/80'
+                : 'text-gray-500 dark:text-white/50 hover:text-gray-700 dark:hover:text-white/80'
             }`}
           >
             Received

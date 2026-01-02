@@ -1,4 +1,4 @@
--- Sprawdź jakie tabele związane z XP/gamification istnieją
+-- Sprawdź jakie tabele istnieją w bazie
 SELECT 
   table_name,
   table_type
@@ -6,48 +6,23 @@ FROM information_schema.tables
 WHERE table_schema = 'public'
   AND (
     table_name LIKE '%xp%' 
-    OR table_name LIKE '%gamification%'
-    OR table_name LIKE '%level%'
-    OR table_name LIKE '%achievement%'
-    OR table_name LIKE '%badge%'
+    OR table_name LIKE '%point%'
+    OR table_name LIKE '%campaign%'
   )
 ORDER BY table_name;
 
--- Sprawdź kolumny w tabeli users związane z XP
+-- Sprawdź strukturę tabeli users (czy ma kolumnę xp)
 SELECT 
   column_name,
-  data_type,
-  column_default
+  data_type
 FROM information_schema.columns
-WHERE table_name = 'users'
-  AND (
-    column_name LIKE '%xp%'
-    OR column_name LIKE '%level%'
-    OR column_name LIKE '%point%'
-  )
-ORDER BY ordinal_position;
-
--- Sprawdź czy są funkcje/views związane z gamification
-SELECT 
-  routine_name,
-  routine_type
-FROM information_schema.routines
-WHERE routine_schema = 'public'
-  AND (
-    routine_name LIKE '%gamification%'
-    OR routine_name LIKE '%xp%'
-    OR routine_name LIKE '%level%'
-  )
-ORDER BY routine_name;
-
--- Sprawdź views
-SELECT 
-  table_name,
-  view_definition
-FROM information_schema.views
 WHERE table_schema = 'public'
-  AND (
-    table_name LIKE '%gamification%'
-    OR table_name LIKE '%xp%'
-    OR table_name LIKE '%level%'
-  );
+  AND table_name = 'users'
+  AND column_name IN ('xp', 'level', 'total_xp', 'points', 'campaign_xp');
+
+-- Sprawdź czy jest jakaś tabela z historią XP
+SELECT 
+  table_name
+FROM information_schema.tables
+WHERE table_schema = 'public'
+  AND table_name IN ('xp_log', 'xp_history', 'user_xp', 'points_log', 'xp_transactions');

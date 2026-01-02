@@ -1,5 +1,5 @@
 import { useChallengeStore } from '../../../stores/useChallengeStore';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTeamChallenge } from './TeamHUD/useTeamChallenge';
 import { useTeamChallengeActions } from './TeamHUD/useTeamChallengeActions';
 import type { TeamHUDProps } from './TeamHUD/types';
@@ -12,6 +12,7 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
   const [isUpdating, setIsUpdating] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0); // 🎯 NEW: Counter to force re-render
+  const [isHost, setIsHost] = useState(false); // 🎯 NEW: Track if current user is host
   
   const { isNative, syncSteps, isAuthorized } = useHealthKit();
   
@@ -22,7 +23,61 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
     onChallengeEnded
   });
 
-  // 🎯 NEW: Manual refresh function
+  // 🎯 NEW: Check if current user is host of the team challenge
+  const checkIfHost = async () => {
+    if (!teamChallenge) {
+      console.log('[TeamHUD] No team challenge - not checking host status');
+      setIsHost(false);
+      return;
+    }
+
+    try {
+      const { supabase } = await import('../../../lib/supabase');
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        console.log('[TeamHUD] No authenticated user');
+        setIsHost(false);
+        return;
+      }
+
+      console.log('[TeamHUD] Checking if user is host...');
+      console.log('[TeamHUD] User ID:', user.id);
+      console.log('[TeamHUD] Team ID:', teamChallenge.team_id);
+
+      // 🎯 NEW APPROACH: Check if user created the team challenge (first user_challenge with this team_id)
+      // Host is the one who created the user_challenge with this team_id
+      const { data: teamChallenges, error } = await supabase
+        .from('user_challenges')
+        .select('user_id, started_at')
+        .eq('team_id', teamChallenge.team_id)
+        .eq('status', 'active')
+        .order('started_at', { ascending: true });
+
+      if (error) {
+        console.error('[TeamHUD] Failed to check host status:', error);
+        setIsHost(false);
+        return;
+      }
+
+      // The first user who started the challenge (earliest started_at) is the host
+      const hostUserId = teamChallenges?.[0]?.user_id;
+      const userIsHost = hostUserId === user.id;
+
+      console.log('[TeamHUD] First challenge user_id (host):', hostUserId);
+      console.log('[TeamHUD] Current user is host:', userIsHost);
+      setIsHost(userIsHost);
+    } catch (error) {
+      console.error('[TeamHUD] Error checking host status:', error);
+      setIsHost(false);
+    }
+  };
+
+  // 🎯 Check host status when teamChallenge changes
+  useEffect(() => {
+    checkIfHost();
+  }, [teamChallenge?.id, teamChallenge?.admin_challenge_id]);
+
   const handleRefresh = async () => {
     if (isRefreshing) return;
     
@@ -44,7 +99,6 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
     }
   };
 
-  // 🎯 NEW: Handle removing a member from the team
   const handleRemoveMember = async (memberId: string, memberName: string) => {
     if (!teamChallenge) return;
     
@@ -54,35 +108,64 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
     
     try {
       const { supabase } = await import('../../../lib/supabase');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
       
       console.log('[TeamHUD] Removing member:', memberName, 'ID:', memberId);
       console.log('[TeamHUD] Current challenge ID:', teamChallenge.id);
       console.log('[TeamHUD] Admin challenge ID:', teamChallenge.admin_challenge_id);
       
-      // memberId to już user_challenge.id, więc od razu usuwamy
-      const { data, error: deleteError } = await supabase
+      // 🎯 STEP 1: Delete from user_challenges
+      const { data: deletedChallenge, error: deleteError } = await supabase
         .from('user_challenges')
         .delete()
         .eq('id', memberId)
-        .select(); // Zwróć usunięte rekordy
+        .select();
       
       if (deleteError) {
-        console.error('❌ [TeamHUD] Failed to remove member:', deleteError);
+        console.error('❌ [TeamHUD] Failed to delete user_challenge:', deleteError);
         throw deleteError;
       }
       
-      console.log('✅ [TeamHUD] Delete result:', data);
-      console.log('✅ [TeamHUD] Deleted records count:', data?.length || 0);
+      console.log('✅ [TeamHUD] Deleted user_challenge:', deletedChallenge);
       
-      if (!data || data.length === 0) {
-        console.warn('⚠️ [TeamHUD] No records were deleted! Possible RLS issue or wrong ID');
+      if (!deletedChallenge || deletedChallenge.length === 0) {
+        console.warn('⚠️ [TeamHUD] No user_challenge deleted! Possible RLS issue or wrong ID');
         alert('Failed to remove member - no records deleted. Check permissions.');
         return;
       }
       
-      console.log('✅ [TeamHUD] Member removed successfully');
+      // Get the user_id from deleted challenge to find team_members record
+      const removedUserId = deletedChallenge[0].user_id;
+      console.log('[TeamHUD] Removed user_id:', removedUserId);
       
-      // Refresh the challenge data
+      // 🎯 STEP 2: Clear active_challenge_id in team_members (DON'T delete the record!)
+      // This way the user remains in your team but is no longer in this specific challenge
+      // 🔧 FIX: Remove .eq('active_challenge_id', ...) condition so it ALWAYS updates
+      const { data: updatedTeamMember, error: teamMemberError } = await supabase
+        .from('team_members')
+        .update({ 
+          active_challenge_id: null,
+          challenge_status: null,
+          challenge_role: null
+        })
+        .eq('user_id', user.id) // Host's ID
+        .eq('member_id', removedUserId) // Removed member's ID
+        .select();
+      
+      if (teamMemberError) {
+        console.error('❌ [TeamHUD] Failed to update team_member:', teamMemberError);
+        // Don't throw - user_challenge is already deleted, this is just cleanup
+      } else {
+        console.log('✅ [TeamHUD] Updated team_member (cleared challenge):', updatedTeamMember);
+        
+        if (!updatedTeamMember || updatedTeamMember.length === 0) {
+          console.warn('⚠️ [TeamHUD] No team_member record found to update! Member may have been removed from team.');
+        }
+      }
+      
+      console.log('✅ [TeamHUD] Member removed successfully from challenge');
+      
       if (onRefresh) {
         await onRefresh();
       }
@@ -268,12 +351,12 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
                   <span className="text-gray-900 dark:text-white flex items-center gap-2.5 flex-1 min-w-0">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
                       {inv.invited_user.avatar_url ? (
-                        <img src={inv.invited_user.avatar_url} alt={inv.invited_user.display_name} className="w-full h-full rounded-full object-cover" />
+                        <img src={inv.invited_user.avatar_url} alt={inv.invited_user.display_name || 'User'} className="w-full h-full rounded-full object-cover" />
                       ) : (
-                        inv.invited_user.display_name.charAt(0).toUpperCase()
+                        (inv.invited_user.display_name || '?').charAt(0).toUpperCase()
                       )}
                     </div>
-                    <span className="font-medium text-sm truncate">{inv.invited_user.display_name}</span>
+                    <span className="font-medium text-sm truncate">{inv.invited_user.display_name || 'Unknown User'}</span>
                   </span>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <div className="text-xs font-bold">
@@ -285,7 +368,7 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
                       <button
                         onClick={async (e) => {
                           e.stopPropagation();
-                          if (confirm(`Cancel invitation for ${inv.invited_user.display_name}?`)) {
+                          if (confirm(`Cancel invitation for ${inv.invited_user.display_name || 'this user'}?`)) {
                             await cancelInvitation(inv.id);
                           }
                         }}
@@ -345,26 +428,6 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
     const goalSteps = teamChallenge.admin_challenge?.goal_steps || 1;
     const progressPercent = Math.min(100, Math.round((totalSteps / goalSteps) * 100));
 
-    const startedAt = new Date(teamChallenge.started_at);
-    const timeLimitHours = teamChallenge.admin_challenge?.time_limit_hours || 0;
-    const deadline = new Date(startedAt.getTime() + timeLimitHours * 60 * 60 * 1000);
-    const now = new Date();
-    const timeRemaining = deadline.getTime() - now.getTime();
-    
-    const formatDeadline = () => {
-      const days = Math.floor(timeRemaining / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((timeRemaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
-      
-      if (timeRemaining <= 0) return 'Expired';
-      if (days > 0) return `${days}d ${hours}h`;
-      if (hours > 0) return `${hours}h ${minutes}m`;
-      if (minutes > 0) return `${minutes}m`;
-      return 'Ending soon';
-    };
-
-    // @ts-ignore - Used for deadline display
-    const deadline_text = formatDeadline();
     const xpReward = teamChallenge.admin_challenge?.points || 0;
 
     const sortedMembers = [...teamMembers].sort((a, b) => b.steps - a.steps);
@@ -424,7 +487,6 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
               </svg>
 
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                {/* 🎯 OPTIMISTIC UI: Always show steps, never show spinner */}
                 <div className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase mb-1">
                   Team Total
                 </div>
@@ -437,7 +499,6 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
                 <div className="mt-2 text-lg font-black text-orange-600 dark:text-orange-400">
                   {progressPercent}%
                 </div>
-                {/* 🎯 Show subtle refresh indicator when refreshing in background */}
                 {isRefreshing && (
                   <div className="mt-2 text-xs text-orange-400 dark:text-orange-300 animate-pulse">
                     Updating...
@@ -483,55 +544,44 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
             }`}
           >
             <div className="space-y-3">
-              {/* 🎯 Krzesełka z członkami zespołu */}
               <TeamChallengeSlots 
                 key={`slots-${teamChallenge.id}-${refreshCounter}`}
                 members={sortedMembers.map(m => {
-                  const isCurrentUser = m.name === 'You';
-                  console.log('[TeamHUD] Member:', m.name, 'isCurrentUser:', isCurrentUser, 'id:', m.id);
+                  // 🎯 Get current user ID to check
+                  const isCurrentUser = m.isCurrentUser || false;
+                  
+                  // 🎯 Check if this member is the host
+                  // Host is determined by checkIfHost() - the first user who started the challenge
+                  const memberIsHost = m.isHost || false;
+                  
+                  console.log('[TeamHUD] Member:', m.name, 'isCurrentUser:', isCurrentUser, 'isHost:', memberIsHost, 'id:', m.id);
                   return {
                     id: m.id,
                     name: m.name,
                     avatar: m.avatar,
                     steps: m.steps,
                     percentage: m.percentage,
-                    isCurrentUser
+                    isCurrentUser,
+                    isHost: memberIsHost
                   };
                 })}
                 challengeId={teamChallenge.admin_challenge_id}
                 maxMembers={5}
+                isHost={isHost}
                 onInviteClick={onInviteMoreClick && teamMembers.length < 6 ? async () => {
-                  // 🎯 FIX: Get already invited user IDs from team_members (not from teamMembers array)
-                  const { supabase } = await import('../../../lib/supabase');
-                  const { data: { user } } = await supabase.auth.getUser();
-                  
-                  if (user) {
-                    // Get all members who are invited or accepted to this challenge
-                    const { data: invitedMembers } = await supabase
-                      .from('team_members')
-                      .select('member_id')
-                      .eq('user_id', user.id)
-                      .eq('active_challenge_id', teamChallenge.admin_challenge_id)
-                      .in('challenge_status', ['invited', 'accepted']);
-                    
-                    const alreadyInvitedUserIds = (invitedMembers || []).map(m => m.member_id);
-                    
-                    console.log('[TeamHUD] Already invited user IDs:', alreadyInvitedUserIds);
-                    
-                    onInviteMoreClick(
-                      teamChallenge.admin_challenge_id,
-                      teamChallenge.admin_challenge?.title || 'Team Challenge',
-                      alreadyInvitedUserIds
-                    );
-                  }
+                  // 🎯 Don't pass alreadyInvitedUserIds - let modal fetch fresh from DB
+                  onInviteMoreClick(
+                    teamChallenge.admin_challenge_id,
+                    teamChallenge.admin_challenge?.title || 'Team Challenge',
+                    [] // 🎯 Empty array - modal will fetch current members from DB
+                  );
                 } : undefined}
-                onRemoveMember={handleRemoveMember}
-                onCancelInvitation={async (invitationId: string) => {
+                onRemoveMember={isHost ? handleRemoveMember : undefined}
+                onCancelInvitation={isHost ? async (invitationId: string) => {
                   try {
                     console.log('[TeamHUD] Cancelling invitation:', invitationId);
                     const { supabase } = await import('../../../lib/supabase');
                     
-                    // 🎯 NEW: Update team_members instead of team_challenge_invitations
                     const { error } = await supabase
                       .from('team_members')
                       .update({ 
@@ -544,7 +594,6 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
                     
                     console.log('✅ [TeamHUD] Invitation cancelled');
                     
-                    // Force refresh to reload pending invitations
                     if (onRefresh) {
                       console.log('[TeamHUD] Calling onRefresh to reload data...');
                       await onRefresh();
@@ -555,10 +604,9 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
                     console.error('❌ [TeamHUD] Failed to cancel invitation:', error);
                     alert('Failed to cancel invitation. Please try again.');
                   }
-                }}
+                } : undefined}
               />
 
-              {/* Step Simulator (Web/Test Only) */}
               {progressPercent < 100 && !isNative && (
                 <div className="bg-blue-900/80 backdrop-blur-sm rounded-xl p-3 border border-blue-700/50">
                   <p className="text-xs font-semibold text-blue-200 mb-2">Step Simulator (Web/Test Only)</p>
@@ -607,18 +655,20 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
                 </div>
               )}
 
-              {/* End Challenge link - tylko w rozwiniętych details */}
-              <div className="text-center pt-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleEndChallenge();
-                  }}
-                  className="text-xs text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors underline"
-                >
-                  End Challenge
-                </button>
-              </div>
+              {/* End Challenge link - tylko dla hosta */}
+              {isHost && (
+                <div className="text-center pt-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEndChallenge();
+                    }}
+                    className="text-xs text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors underline"
+                  >
+                    End Challenge
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

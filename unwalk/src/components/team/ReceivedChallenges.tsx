@@ -103,8 +103,8 @@ export function ReceivedChallenges({ challenges, onRefresh }: ReceivedChallenges
     return (
       <div className="text-center py-16">
         <div className="text-6xl mb-4">📥</div>
-        <h3 className="text-xl font-bold text-white mb-2">No Received Challenges</h3>
-        <p className="text-white/50 text-sm">
+        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">No Received Challenges</h3>
+        <p className="text-gray-500 dark:text-white/50 text-sm">
           You haven't received any challenges yet
         </p>
       </div>
@@ -116,8 +116,8 @@ export function ReceivedChallenges({ challenges, onRefresh }: ReceivedChallenges
       {/* PENDING CHALLENGES - Challenges for You with Accept/Decline */}
       {pendingChallenges.length > 0 && (
         <section>
-          <div className="bg-gradient-to-br from-purple-900/40 to-pink-900/40 border border-purple-500/30 rounded-3xl p-5">
-            <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+          <div className="bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/40 dark:to-pink-900/40 border border-purple-300 dark:border-purple-500/30 rounded-3xl p-5">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
               <span>🎯</span>
               <span>Challenges for You</span>
               <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
@@ -129,9 +129,9 @@ export function ReceivedChallenges({ challenges, onRefresh }: ReceivedChallenges
               {pendingChallenges.map((assignment) => (
                 <div
                   key={assignment.id}
-                  className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden"
+                  className="bg-white/90 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-2xl overflow-hidden"
                 >
-                  <div className="relative aspect-[3/2]">
+                  <div className="relative h-32">
                     <img
                       src={assignment.challenge_image_url}
                       alt={assignment.challenge_title}
@@ -157,15 +157,15 @@ export function ReceivedChallenges({ challenges, onRefresh }: ReceivedChallenges
                         {getInitials(assignment.sender_name)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-xs text-white/60">From</div>
-                        <div className="font-bold text-white text-sm truncate">
+                        <div className="text-xs text-gray-500 dark:text-white/60">From</div>
+                        <div className="font-bold text-gray-900 dark:text-white text-sm truncate">
                           {assignment.sender_name || 'Team Member'}
                         </div>
                       </div>
                     </div>
 
                     {assignment.message && (
-                      <p className="text-xs text-white/70 italic mb-3 bg-white/5 rounded-lg p-2">
+                      <p className="text-xs text-gray-600 dark:text-white/70 italic mb-3 bg-gray-100 dark:bg-white/5 rounded-lg p-2">
                         "{assignment.message}"
                       </p>
                     )}
@@ -179,7 +179,7 @@ export function ReceivedChallenges({ challenges, onRefresh }: ReceivedChallenges
                       </button>
                       <button
                         onClick={() => handleRejectChallenge(assignment.id)}
-                        className="flex-1 bg-white/10 hover:bg-white/20 text-white py-2.5 rounded-xl font-medium text-sm transition-all"
+                        className="flex-1 bg-gray-200 dark:bg-white/10 hover:bg-gray-300 dark:hover:bg-white/20 text-gray-900 dark:text-white py-2.5 rounded-xl font-medium text-sm transition-all"
                       >
                         Decline
                       </button>
@@ -195,7 +195,7 @@ export function ReceivedChallenges({ challenges, onRefresh }: ReceivedChallenges
       {/* ACCEPTED CHALLENGES - Already accepted/started */}
       {acceptedChallenges.length > 0 && (
         <section>
-          <h2 className="text-sm font-bold text-white/60 mb-3 px-1 uppercase tracking-wider">
+          <h2 className="text-sm font-bold text-gray-400 dark:text-white/60 mb-3 px-1 uppercase tracking-wider">
             Your Challenges
           </h2>
           <div className="space-y-3">
@@ -232,7 +232,7 @@ export function ReceivedChallenges({ challenges, onRefresh }: ReceivedChallenges
                 return (
                   <div
                     key={assignment.id}
-                    className="bg-[#151A25] border border-white/5 rounded-xl p-3"
+                    className="bg-gray-50 dark:bg-[#151A25] border border-gray-200 dark:border-white/5 rounded-xl p-3"
                   >
                     <div className="flex gap-3 items-center">
                       {/* Small image */}
@@ -246,7 +246,7 @@ export function ReceivedChallenges({ challenges, onRefresh }: ReceivedChallenges
                       
                       {/* Challenge info */}
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-bold text-white text-sm mb-0.5 truncate">
+                        <h3 className="font-bold text-gray-900 dark:text-white text-sm mb-0.5 truncate">
                           {assignment.challenge_title}
                         </h3>
                         <div className="flex items-center gap-2">
@@ -256,7 +256,7 @@ export function ReceivedChallenges({ challenges, onRefresh }: ReceivedChallenges
                           >
                             {getInitials(assignment.sender_name)}
                           </div>
-                          <span className="text-xs text-white/50">
+                          <span className="text-xs text-gray-500 dark:text-white/50">
                             from {assignment.sender_name || 'Unknown'}
                           </span>
                         </div>
@@ -271,11 +271,55 @@ export function ReceivedChallenges({ challenges, onRefresh }: ReceivedChallenges
                 );
               }
 
+              // ✅ DECLINED CHALLENGES - Render kompaktowy widok (jak completed)
+              if (assignment.status === 'rejected' || assignment.user_challenge_status === 'rejected') {
+                return (
+                  <div
+                    key={assignment.id}
+                    className="bg-gray-50 dark:bg-[#151A25] border border-gray-200 dark:border-white/5 rounded-xl p-3 opacity-60"
+                  >
+                    <div className="flex gap-3 items-center">
+                      {/* Small image */}
+                      <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
+                        <img
+                          src={assignment.challenge_image_url}
+                          alt={assignment.challenge_title}
+                          className="w-full h-full object-cover grayscale"
+                        />
+                      </div>
+                      
+                      {/* Challenge info */}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-gray-900 dark:text-white text-sm mb-0.5 truncate">
+                          {assignment.challenge_title}
+                        </h3>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                            style={{ backgroundColor: getColorFromName(assignment.sender_name) }}
+                          >
+                            {getInitials(assignment.sender_name)}
+                          </div>
+                          <span className="text-xs text-gray-500 dark:text-white/50">
+                            from {assignment.sender_name || 'Unknown'}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Badge */}
+                      <span className="bg-red-500/20 text-red-400 text-xs font-bold px-2 py-1 rounded whitespace-nowrap">
+                        Declined
+                      </span>
+                    </div>
+                  </div>
+                );
+              }
+
               // ✅ ACTIVE / NOT STARTED CHALLENGES - Render duży widok (jak było)
               return (
                 <div
                   key={assignment.id}
-                  className="bg-[#151A25] border border-white/5 rounded-2xl overflow-hidden"
+                  className="bg-gray-50 dark:bg-[#151A25] border border-gray-200 dark:border-white/5 rounded-2xl overflow-hidden"
                 >
                   {/* Challenge Image with Blur */}
                   <div className="relative w-full h-32">
@@ -304,11 +348,6 @@ export function ReceivedChallenges({ challenges, onRefresh }: ReceivedChallenges
                           Active
                         </span>
                       )}
-                      {assignment.status === 'rejected' && (
-                        <span className="bg-red-500/90 backdrop-blur-sm text-white text-xs font-bold px-2.5 py-1 rounded-full">
-                          Declined
-                        </span>
-                      )}
                     </div>
 
                     {/* Challenge Title & Sender */}
@@ -328,15 +367,16 @@ export function ReceivedChallenges({ challenges, onRefresh }: ReceivedChallenges
                         </span>
                       </div>
                     </div>
+
                   </div>
 
                   {/* Challenge Details */}
                   <div className="p-4">
                     {/* Time & Progress Info */}
                     <div className="grid grid-cols-2 gap-3 mb-3">
-                      <div className="bg-white/5 rounded-xl p-2.5">
-                        <div className="text-xs text-white/50 mb-0.5">Goal</div>
-                        <div className="text-sm font-bold text-white">
+                      <div className="bg-gray-100 dark:bg-white/5 rounded-xl p-2.5">
+                        <div className="text-xs text-gray-500 dark:text-white/50 mb-0.5">Goal</div>
+                        <div className="text-sm font-bold text-gray-900 dark:text-white">
                           {(assignment.challenge_goal_steps / 1000).toFixed(0)}k steps
                         </div>
                       </div>
@@ -361,7 +401,7 @@ export function ReceivedChallenges({ challenges, onRefresh }: ReceivedChallenges
                         </button>
                         <button
                           onClick={() => handleDeclineChallenge(assignment.id, assignment.challenge_title)}
-                          className="w-full text-xs text-white/40 hover:text-red-400 transition-colors py-1"
+                          className="w-full text-xs text-gray-400 dark:text-white/40 hover:text-red-400 transition-colors py-1"
                         >
                           Decline
                         </button>
@@ -372,16 +412,16 @@ export function ReceivedChallenges({ challenges, onRefresh }: ReceivedChallenges
                     {hasStarted && isActive && (
                       <div className="mb-3">
                         <div className="flex items-center justify-between text-xs mb-2">
-                          <span className="text-white/60">Progress</span>
-                          <span className="text-white font-bold">{progress}%</span>
+                          <span className="text-gray-500 dark:text-white/60">Progress</span>
+                          <span className="text-gray-900 dark:text-white font-bold">{progress}%</span>
                         </div>
-                        <div className="bg-white/10 rounded-full h-2 overflow-hidden">
+                        <div className="bg-gray-200 dark:bg-white/10 rounded-full h-2 overflow-hidden">
                           <div
                             className="bg-gradient-to-r from-green-500 to-emerald-500 h-full rounded-full transition-all"
                             style={{ width: `${progress}%` }}
                           />
                         </div>
-                        <div className="text-xs text-white/50 mt-1 mb-3">
+                        <div className="text-xs text-gray-500 dark:text-white/50 mt-1 mb-3">
                           {assignment.current_steps?.toLocaleString() || '0'} / {assignment.challenge_goal_steps.toLocaleString()} steps
                         </div>
                         
@@ -400,9 +440,9 @@ export function ReceivedChallenges({ challenges, onRefresh }: ReceivedChallenges
 
                     {/* Message */}
                     {assignment.message && (
-                      <div className="bg-white/5 rounded-lg p-2.5 border border-white/5 mt-3">
-                        <div className="text-xs text-white/40 mb-1">Message:</div>
-                        <p className="text-xs text-white/70 italic">
+                      <div className="bg-gray-100 dark:bg-white/5 rounded-lg p-2.5 border border-gray-200 dark:border-white/5 mt-3">
+                        <div className="text-xs text-gray-400 dark:text-white/40 mb-1">Message:</div>
+                        <p className="text-xs text-gray-700 dark:text-white/70 italic">
                           "{assignment.message}"
                         </p>
                       </div>

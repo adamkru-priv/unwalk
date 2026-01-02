@@ -365,8 +365,8 @@ export async function claimCompletedChallenge(userChallengeId: string): Promise<
 
   if (error) throw error;
   
-  // ✅ Add XP reward based on challenge difficulty
-  if (data?.admin_challenge?.goal_steps) {
+  // ✅ FIX: Add XP reward ONLY if challenge was FULLY completed (100%)
+  if (data?.is_fully_completed && data?.admin_challenge?.goal_steps) {
     const xpAmount = calculateChallengePoints(data.admin_challenge.goal_steps, data.admin_challenge.is_daily || false);
     
     try {
@@ -378,15 +378,18 @@ export async function claimCompletedChallenge(userChallengeId: string): Promise<
       );
       
       if (result) {
-        console.log(`✅ [API] Added ${xpAmount} XP for challenge completion`, result);
+        console.log(`✅ [API] Added ${xpAmount} XP for FULLY completed challenge`, result);
       }
     } catch (xpError) {
       console.error('⚠️ [API] Failed to add XP reward:', xpError);
       // Don't throw - claiming challenge is more important than XP reward
     }
+  } else if (!data?.is_fully_completed) {
+    console.log('ℹ️ [API] Challenge was not fully completed (< 100%), skipping XP reward');
   }
   
   // ✅ Check and unlock achievements for PRO users
+  // Note: Achievement check already filtered by is_fully_completed in database trigger
   try {
     await badgesService.checkAchievements();
     console.log('✅ [API] Checked achievements after claiming challenge');

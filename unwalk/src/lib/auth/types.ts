@@ -7,6 +7,7 @@ export interface UserProfile {
   id: string;
   email: string | null;
   display_name: string;
+  nickname?: string | null; // 🎯 NEW: Custom nickname (max 9 chars, can be duplicated)
   avatar_url: string | null;
   tier: 'free' | 'pro';
   device_id?: string | null;

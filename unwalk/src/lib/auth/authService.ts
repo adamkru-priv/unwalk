@@ -1,18 +1,56 @@
 import { supabase } from '../supabase';
 import type { User, Session } from '@supabase/supabase-js';
+import { getDeviceId } from '../deviceId';
 import type { UserProfile } from './types';
 
 /**
- * AuthService - Wrapper dla Supabase Auth
+ * AuthService - Authentication & User Profile Management
+ * Handles sign in/out, OAuth, guest users, and profile operations
  */
-export class AuthService {
+class AuthService {
   private static instance: AuthService;
+  private guestUserId: string | null = null;
 
   static getInstance(): AuthService {
     if (!AuthService.instance) {
       AuthService.instance = new AuthService();
     }
     return AuthService.instance;
+  }
+
+  /**
+   * Initialize guest user (create in DB if not exists)
+   */
+  async initGuestUser(): Promise<string | null> {
+    try {
+      const session = await this.getSession();
+      if (session) return null;
+
+      if (this.guestUserId) return this.guestUserId;
+
+      const deviceId = getDeviceId();
+      const { data, error } = await supabase.rpc('create_guest_user', {
+        p_device_id: deviceId
+      });
+
+      if (error) throw error;
+
+      this.guestUserId = data as string;
+      console.log('✅ [Auth] Guest user initialized:', this.guestUserId);
+      
+      return this.guestUserId;
+    } catch (error) {
+      console.error('❌ [Auth] Init guest user error:', error);
+      return null;
+    }
+  }
+
+  getGuestUserId(): string | null {
+    return this.guestUserId;
+  }
+
+  clearGuestUser(): void {
+    this.guestUserId = null;
   }
 
   /**
@@ -28,7 +66,6 @@ export class AuthService {
       });
 
       if (error) throw error;
-
       console.log('✉️ [Auth] Magic link sent to:', email);
       return { error: null };
     } catch (error) {
@@ -39,9 +76,6 @@ export class AuthService {
 
   /**
    * Sign in with OTP (email code)
-   *
-   * IMPORTANT: This only works if "Email OTP" is enabled in Supabase Auth settings.
-   * If the project is configured for magic links, Supabase will send mail_type: magic_link.
    */
   async signInWithOTP(email: string): Promise<{ error: Error | null }> {
     try {
@@ -53,7 +87,6 @@ export class AuthService {
       });
 
       if (error) throw error;
-
       console.log('🔢 [Auth] OTP requested for:', email);
       return { error: null };
     } catch (error) {
@@ -74,37 +107,43 @@ export class AuthService {
       });
 
       if (error) throw error;
-
       console.log('✅ [Auth] OTP verified for:', email);
       
-      // Create user profile if doesn't exist
       if (data.user) {
-        const { error: profileError } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from('users')
-          .select('id')
+          .select('id, is_guest')
           .eq('id', data.user.id)
           .single();
 
-        // If user doesn't exist in users table yet, create profile
+        if (!profileError && profile?.is_guest) {
+          console.log('🔄 [Auth] Converting guest to authenticated user...');
+          
+          await supabase
+            .from('users')
+            .update({
+              is_guest: false,
+              email: email,
+              display_name: email.split('@')[0],
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', data.user.id);
+        }
+        
         if (profileError && profileError.code === 'PGRST116') {
           console.log('⚠️ [Auth] Creating user profile after OTP verification...');
           
-          const { error: insertError } = await supabase
+          await supabase
             .from('users')
             .insert({
               id: data.user.id,
               email: email,
               display_name: email.split('@')[0],
+              is_guest: false,
               tier: 'pro',
               daily_step_goal: 10000,
               onboarding_completed: true,
             });
-
-          if (insertError) {
-            console.error('❌ [Auth] Failed to create user profile:', insertError);
-          } else {
-            console.log('✅ [Auth] User profile created successfully');
-          }
         }
       }
       
@@ -121,25 +160,22 @@ export class AuthService {
   async signInWithApple(): Promise<{ error: Error | null }> {
     try {
       console.log('🍎 [Auth] signInWithApple: starting');
-      console.log('🍎 [Auth] supabase url:', import.meta.env.VITE_SUPABASE_URL);
 
-      // Always use the hosted callback page (custom domain). It immediately deep-links back
-      // into the iOS app (movee://auth/callback...) and looks better than a supabase.co page.
-      const redirectTo = 'https://movee.one/auth/callback';
+      let isNative = false;
+      try {
+        const { Capacitor } = await import('@capacitor/core');
+        isNative = Capacitor.isNativePlatform();
+      } catch {
+        isNative = false;
+      }
 
-      console.log('🍎 [Auth] signInWithApple redirectTo:', redirectTo);
+      const redirectTo = isNative 
+        ? 'https://movee.one/auth/callback'
+        : window.location.origin + '/app/';
 
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: 'apple',
-        options: {
-          redirectTo,
-        },
-      });
-
-      console.log('🍎 [Auth] signInWithApple result:', {
-        hasData: !!data,
-        url: (data as any)?.url,
-        error: error ? { name: error.name, message: error.message } : null,
+        options: { redirectTo },
       });
 
       if (error) throw error;
@@ -155,14 +191,21 @@ export class AuthService {
    */
   async signInWithGoogle(): Promise<{ error: Error | null }> {
     try {
-      // Use the same hosted callback page as Apple.
-      const redirectTo = 'https://movee.one/auth/callback';
+      let isNative = false;
+      try {
+        const { Capacitor } = await import('@capacitor/core');
+        isNative = Capacitor.isNativePlatform();
+      } catch {
+        isNative = false;
+      }
+
+      const redirectTo = isNative 
+        ? 'https://movee.one/auth/callback'
+        : window.location.origin + '/app/';
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: {
-          redirectTo,
-        },
+        options: { redirectTo },
       });
 
       if (error) throw error;
@@ -174,8 +217,7 @@ export class AuthService {
   }
 
   /**
-   * Link Apple identity to the currently signed-in account.
-   * Use this when the user is already logged in (e.g., via Email OTP) and wants to connect Apple.
+   * Link Apple identity to current account
    */
   async linkApple(): Promise<{ error: Error | null }> {
     try {
@@ -195,41 +237,28 @@ export class AuthService {
     try {
       console.log('🚪 [Auth] Starting sign out...');
       
-      // 1. Sign out from Supabase (clears server session)
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      this.clearGuestUser();
 
-      // 2. Clear app storage (works on both web and native)
       try {
-        // Check if running on native platform
         const { Capacitor } = await import('@capacitor/core');
         
         if (Capacitor.isNativePlatform()) {
-          // ✅ iOS/Android: Clear Capacitor Preferences
           const { Preferences } = await import('@capacitor/preferences');
           
-          console.log('📱 [Auth] Clearing Capacitor storage...');
-          
-          // ✅ FIX: Get project reference from Supabase URL
           const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
           const projectRef = supabaseUrl.split('//')[1]?.split('.')[0] || '';
           
-          console.log('🔍 [Auth] Project ref:', projectRef);
-          
-          // ✅ FIX: Clear ALL possible auth keys (wait for all operations)
           const keysToRemove = [
             'unwalk-auth',
             `sb-${projectRef}-auth-token`,
             'unclaimedChallenges',
-            'push_device_token', // Push token from iosPush.ts
-            'apns_device_token', // Legacy push token
+            'push_device_token',
+            'apns_device_token',
           ];
           
-          // ✅ FIX: Wait for ALL remove operations to complete
           await Promise.all(
             keysToRemove.map(async (key) => {
               try {
-                console.log('🗑️ [Auth] Removing Capacitor key:', key);
                 await Preferences.remove({ key });
               } catch (e) {
                 console.warn('⚠️ [Auth] Failed to remove key:', key, e);
@@ -237,40 +266,25 @@ export class AuthService {
             })
           );
           
-          // ✅ FIX: Also try to clear ALL keys (nuclear option for iOS/Android)
-          // This ensures we don't leave any orphaned auth data
-          try {
-            console.log('🧹 [Auth] Clearing all Capacitor Preferences...');
-            await Preferences.clear();
-            console.log('✅ [Auth] All Capacitor Preferences cleared');
-          } catch (e) {
-            console.warn('⚠️ [Auth] Failed to clear all preferences:', e);
-          }
-          
-          console.log('✅ [Auth] Capacitor storage cleared');
+          await Preferences.clear();
         } else {
-          // ✅ Web: Clear localStorage
-          console.log('🌐 [Auth] Clearing localStorage...');
           localStorage.removeItem('unclaimedChallenges');
           localStorage.removeItem('push_device_token');
           localStorage.removeItem('apns_device_token');
           
-          // Clear all Supabase auth keys
           const authKeys = Object.keys(localStorage).filter(key => 
             key.includes('supabase') || key.includes('auth-token') || key.includes('unwalk') || key.includes('sb-')
           );
           
-          authKeys.forEach(key => {
-            console.log('🗑️ [Auth] Removing key:', key);
-            localStorage.removeItem(key);
-          });
-          
-          console.log('✅ [Auth] localStorage cleared');
+          authKeys.forEach(key => localStorage.removeItem(key));
         }
       } catch (storageError) {
         console.error('⚠️ [Auth] Storage clear error:', storageError);
-        // Don't throw - sign out is more important than clearing storage
+        throw new Error('Failed to clear local storage: ' + (storageError as Error).message);
       }
+
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
 
       console.log('👋 [Auth] Signed out successfully');
       return { error: null };
@@ -280,62 +294,35 @@ export class AuthService {
     }
   }
 
-  /**
-   * Get current session
-   */
   async getSession(): Promise<Session | null> {
     const { data } = await supabase.auth.getSession();
     return data.session;
   }
 
-  /**
-   * Get current user (authenticated or guest)
-   */
   async getUser(): Promise<User | null> {
     const { data } = await supabase.auth.getUser();
     return data.user;
   }
 
   /**
-   * Get current user profile (extended data)
-   * Returns guest profile if not authenticated
+   * Get current user profile
    */
   async getUserProfile(): Promise<UserProfile | null> {
     try {
-      console.log('🔍 [Auth] getUserProfile: Starting...');
-
-      console.log('🔍 [Auth] Getting session...');
       const sessionResponse = await supabase.auth.getSession();
-      console.log('🔍 [Auth] Session response:', {
-        hasData: !!sessionResponse.data,
-        hasSession: !!sessionResponse.data?.session,
-        userId: sessionResponse.data?.session?.user?.id,
-        email: sessionResponse.data?.session?.user?.email,
-      });
-
       const session = sessionResponse.data?.session;
       const user = session?.user || null;
 
-      console.log('🔍 [Auth] getUserProfile: User ID:', user?.id, 'Email:', user?.email);
-
-      // ✅ Authenticated user = we have a Supabase user id (email may be null for Apple)
       if (user?.id) {
-        console.log('🔍 [Auth] Fetching authenticated user profile...');
-
         const { data, error } = await supabase
           .from('users')
           .select('*')
           .eq('id', user.id)
           .maybeSingle();
 
-        if (error) {
-          console.error('❌ [Auth] Error fetching user profile:', error);
-          throw error;
-        }
+        if (error) throw error;
 
         if (!data) {
-          console.log('⚠️ [Auth] Authenticated user not in users table, creating profile...');
-
           const email = user.email || null;
           const displayName = email ? email.split('@')[0] : 'User';
 
@@ -345,6 +332,7 @@ export class AuthService {
               id: user.id,
               email,
               display_name: displayName,
+              is_guest: false,
               tier: 'pro',
               daily_step_goal: 10000,
               onboarding_completed: true,
@@ -352,24 +340,63 @@ export class AuthService {
             .select()
             .single();
 
-          if (insertError) {
-            console.error('❌ [Auth] Failed to create user profile:', insertError);
-            throw insertError;
-          }
-
-          console.log('✅ [Auth] Created user profile:', newUser.email);
+          if (insertError) throw insertError;
           return newUser as UserProfile;
         }
 
-        console.log('✅ [Auth] Authenticated profile loaded:', data.email);
+        if (data.is_guest) {
+          const { data: fixed } = await supabase
+            .from('users')
+            .update({
+              is_guest: false,
+              email: data.email ?? user.email ?? null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', user.id)
+            .select()
+            .single();
+
+          return (fixed || data) as UserProfile;
+        }
+
         return data as UserProfile;
       }
 
-      console.log('❌ [Auth] No authenticated user found');
-      return null;
+      // Guest user
+      const deviceId = getDeviceId();
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('device_id', deviceId)
+        .eq('is_guest', true)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (!data) {
+        const { data: guestId, error: rpcError } = await supabase.rpc('create_guest_user', {
+          p_device_id: deviceId,
+        });
+
+        if (rpcError) throw rpcError;
+        if (!guestId) return null;
+
+        const { data: guestData, error: guestError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', guestId)
+          .single();
+
+        if (guestError) throw guestError;
+
+        this.guestUserId = guestId;
+        return guestData as UserProfile;
+      }
+
+      this.guestUserId = data.id;
+      return data as UserProfile;
     } catch (error) {
       console.error('❌ [Auth] Get profile error:', error);
-      console.error('❌ [Auth] Error stack:', error instanceof Error ? error.stack : 'No stack');
       return null;
     }
   }
@@ -388,11 +415,37 @@ export class AuthService {
         .eq('id', user.id);
 
       if (error) throw error;
-
-      console.log('✅ [Auth] Profile updated');
       return { error: null };
     } catch (error) {
       console.error('❌ [Auth] Update profile error:', error);
+      return { error: error as Error };
+    }
+  }
+
+  /**
+   * Convert guest to authenticated user
+   */
+  async convertGuestToUser(): Promise<{ error: Error | null }> {
+    try {
+      const user = await this.getUser();
+      if (!user || !user.email) {
+        throw new Error('No authenticated user found');
+      }
+
+      const deviceId = getDeviceId();
+
+      const { error } = await supabase.rpc('convert_guest_to_user', {
+        p_device_id: deviceId,
+        p_auth_user_id: user.id,
+        p_email: user.email
+      });
+
+      if (error) throw error;
+
+      this.clearGuestUser();
+      return { error: null };
+    } catch (error) {
+      console.error('❌ [Auth] Convert guest error:', error);
       return { error: error as Error };
     }
   }
@@ -407,43 +460,23 @@ export class AuthService {
   }
 
   /**
-   * Delete user account and all associated data
-   * This is a permanent action that cannot be undone
+   * Delete user account
    */
   async deleteAccount(): Promise<{ error: Error | null }> {
     try {
-      // ✅ Use getUserProfile() instead of getUser() to support both auth and guest users
-      const profile = await this.getUserProfile();
-      if (!profile?.id) {
-        throw new Error('Not authenticated - no user profile found');
-      }
+      const user = await this.getUser();
+      if (!user) throw new Error('Not authenticated');
 
-      console.log('🗑️ [Auth] Deleting account for user:', profile.id, profile.email);
-
-      // Call RPC function to delete all user data
       const { error: rpcError } = await supabase.rpc('delete_user_account', {
-        p_user_id: profile.id
+        p_user_id: user.id
       });
 
-      if (rpcError) {
-        console.error('❌ [Auth] RPC delete_user_account failed:', rpcError);
-        throw rpcError;
-      }
+      if (rpcError) throw rpcError;
 
-      console.log('✅ [Auth] RPC delete_user_account succeeded');
-
-      // Sign out and clear session
       await this.signOut();
-
-      console.log('🗑️ [Auth] Account deleted successfully');
       return { error: null };
     } catch (error) {
       console.error('❌ [Auth] Delete account error:', error);
-      console.error('❌ [Auth] Error details:', {
-        message: (error as any)?.message,
-        code: (error as any)?.code,
-        details: (error as any)?.details,
-      });
       return { error: error as Error };
     }
   }

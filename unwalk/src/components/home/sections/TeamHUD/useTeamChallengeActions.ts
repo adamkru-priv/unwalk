@@ -176,7 +176,7 @@ export function useTeamChallengeActions({
 
   const endChallenge = async (challengeId: string) => {
     if (ending) return false;
-    if (!confirm('🏁 Are you sure you want to end this team challenge?')) {
+    if (!confirm('🏁 End this team challenge for EVERYONE?\n\nThis will complete the challenge for all team members.')) {
       return false;
     }
 
@@ -186,20 +186,77 @@ export function useTeamChallengeActions({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const { error } = await supabase
+      // 🎯 CRITICAL FIX: Get the challenge to find team_id
+      const { data: challenge, error: fetchError } = await supabase
         .from('user_challenges')
-        .update({ status: 'completed' })
+        .select('id, team_id, admin_challenge_id')
         .eq('id', challengeId)
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .single();
 
-      if (error) throw error;
+      if (fetchError) {
+        console.error('Failed to fetch challenge:', fetchError);
+        throw fetchError;
+      }
 
-      alert('✅ Challenge ended!');
+      if (!challenge) {
+        throw new Error('Challenge not found');
+      }
+
+      console.log('[endChallenge] Ending challenge for team_id:', challenge.team_id);
+
+      // 🎯 FIX: End challenge for ALL team members, not just host
+      if (challenge.team_id) {
+        // End for entire team using team_id
+        const { data: updatedChallenges, error } = await supabase
+          .from('user_challenges')
+          .update({ status: 'completed' })
+          .eq('team_id', challenge.team_id)
+          .eq('status', 'active')
+          .select();
+
+        if (error) {
+          console.error('Failed to end team challenge:', error);
+          throw error;
+        }
+
+        console.log(`✅ Ended challenge for ${updatedChallenges?.length || 0} team members`);
+      } else {
+        // Fallback: End only for current user if no team_id
+        console.warn('⚠️ No team_id found - ending only for current user');
+        const { error } = await supabase
+          .from('user_challenges')
+          .update({ status: 'completed' })
+          .eq('id', challengeId)
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+      }
+
+      // 🎯 FIX: Clear challenge invitations status in team_members
+      if (challenge.admin_challenge_id) {
+        const { error: clearError } = await supabase
+          .from('team_members')
+          .update({ 
+            challenge_status: null,
+            active_challenge_id: null 
+          })
+          .eq('active_challenge_id', challenge.admin_challenge_id);
+
+        if (clearError) {
+          console.error('Failed to clear team_members status:', clearError);
+          // Don't throw - challenge is already ended
+        } else {
+          console.log('✅ Cleared team_members challenge status');
+        }
+      }
+
+      alert('✅ Team challenge ended for everyone!');
       onChallengeEnded?.();
       return true;
     } catch (error) {
       console.error('Failed to end challenge:', error);
-      alert('❌ Failed to end challenge');
+      alert('❌ Failed to end challenge. Please try again.');
       return false;
     } finally {
       setEnding(false);

@@ -19,15 +19,15 @@ type Step = 'select-challenge' | 'select-friends';
 
 // 🎯 Presets for Solo and Team challenges
 const SOLO_PRESETS = [
-  { level: 'Easy', steps: 5000, icon: '🚶', color: 'from-green-500 to-emerald-500', time: 24, xp: 50 },      // 3K-7K range → 5K middle
-  { level: 'Advanced', steps: 10000, icon: '🏃', color: 'from-blue-500 to-cyan-500', time: 48, xp: 200 },    // 7.5K-12.5K range → 10K middle
-  { level: 'Expert+', steps: 20000, icon: '⚡', color: 'from-purple-500 to-pink-500', time: 72, xp: 400 }    // 13K+ → 20K
+  { level: 'Easy', steps: 15000, icon: '🚶', color: 'from-green-500 to-emerald-500', time: 6, xp: 50 },
+  { level: 'Advanced', steps: 20000, icon: '🏃', color: 'from-blue-500 to-cyan-500', time: 12, xp: 100 },
+  { level: 'Expert+', steps: 30000, icon: '⚡', color: 'from-purple-500 to-pink-500', time: 24, xp: 150 }
 ];
 
 const TEAM_PRESETS = [
-  { level: 'Easy', steps: 50000, icon: '🚶', color: 'from-green-500 to-emerald-500', time: 48, xp: 500 },
-  { level: 'Advanced', steps: 100000, icon: '🏃', color: 'from-blue-500 to-cyan-500', time: 72, xp: 1000 },
-  { level: 'Expert+', steps: 250000, icon: '⚡', color: 'from-purple-500 to-pink-500', time: 120, xp: 2500 }
+  { level: 'Easy', steps: 50000, icon: '🚶', color: 'from-green-500 to-emerald-500', time: 6, xp: 200 },
+  { level: 'Advanced', steps: 100000, icon: '🏃', color: 'from-blue-500 to-cyan-500', time: 12, xp: 500 },
+  { level: 'Expert+', steps: 250000, icon: '⚡', color: 'from-purple-500 to-pink-500', time: 24, xp: 1000 }
 ];
 
 export function SelectChallengeModal({ isOpen, onClose, onSuccess, mode }: SelectChallengeModalProps) {
@@ -37,7 +37,6 @@ export function SelectChallengeModal({ isOpen, onClose, onSuccess, mode }: Selec
   const [selectedFriends, setSelectedFriends] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   
-  const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
   const setActiveChallenge = useChallengeStore((s) => s.setActiveChallenge);
 
   const presets = mode === 'solo' ? SOLO_PRESETS : TEAM_PRESETS;
@@ -55,7 +54,7 @@ export function SelectChallengeModal({ isOpen, onClose, onSuccess, mode }: Selec
 
       const { data, error } = await supabase
         .from('team_members')
-        .select('member_id, member:users!member_id(id, display_name, avatar_url)')
+        .select('member_id, member:users!member_id(id, display_name, nickname, avatar_url)')
         .eq('user_id', user.id)
         .neq('member_id', user.id);
 
@@ -65,7 +64,8 @@ export function SelectChallengeModal({ isOpen, onClose, onSuccess, mode }: Selec
         .filter((m: any) => m.member)
         .map((m: any) => ({
           id: m.member.id,
-          display_name: m.member.display_name || 'Unknown',
+          // ✅ Use nickname if available, otherwise display_name
+          display_name: m.member.nickname || m.member.display_name || 'Unknown',
           avatar_url: m.member.avatar_url
         }));
 
@@ -276,11 +276,6 @@ export function SelectChallengeModal({ isOpen, onClose, onSuccess, mode }: Selec
     }
   };
 
-  const handleCustomChallengeClick = () => {
-    handleClose();
-    setCurrentScreen('customChallenge'); // 🎯 FIX: Open Custom Challenge Creator instead of library
-  };
-
   const handleClose = () => {
     setStep('select-challenge');
     setSelectedChallenge(null);
@@ -333,18 +328,15 @@ export function SelectChallengeModal({ isOpen, onClose, onSuccess, mode }: Selec
                     key={preset.level}
                     onClick={() => handlePresetSelect(preset)}
                     disabled={loading}
-                    className="w-full text-left p-4 rounded-2xl bg-gradient-to-r border-2 border-transparent hover:border-white/20 transition-all disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98]"
-                    style={{
-                      backgroundImage: `linear-gradient(135deg, ${preset.color.split(' ')[1]} 0%, ${preset.color.split(' ')[2]} 100%)`
-                    }}
+                    className={`w-full text-left p-4 rounded-2xl border-2 border-transparent hover:border-white/20 dark:hover:border-white/20 transition-all disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98] bg-gradient-to-r ${preset.color}`}
                   >
                     <div className="flex items-center gap-3">
                       <div className="text-3xl flex-shrink-0">{preset.icon}</div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-black text-white text-lg mb-1">
+                        <h3 className="font-black text-white text-lg mb-1 drop-shadow-md">
                           {preset.level}
                         </h3>
-                        <div className="text-white/90 text-sm font-bold">
+                        <div className="text-white/95 text-sm font-bold drop-shadow">
                           {preset.steps.toLocaleString()} steps • {preset.time}h • +{preset.xp} XP
                         </div>
                       </div>
@@ -352,36 +344,13 @@ export function SelectChallengeModal({ isOpen, onClose, onSuccess, mode }: Selec
                   </button>
                 ))}
               </div>
-
-              {/* Custom Challenge Button */}
-              <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-800">
-                <button
-                  onClick={handleCustomChallengeClick}
-                  className="w-full text-left p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-2 border-amber-500/30 hover:border-amber-500/50 transition-all group hover:scale-[1.02] active:scale-[0.98]"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="text-3xl flex-shrink-0">✨</div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-black text-gray-900 dark:text-white text-lg mb-1 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                        Custom Challenge
-                      </h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Create your own challenge
-                      </p>
-                    </div>
-                    <svg className="w-5 h-5 text-amber-500 dark:text-amber-400 group-hover:translate-x-1 transition-transform flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </button>
-              </div>
             </div>
           )}
 
           {step === 'select-friends' && mode === 'team' && (
             <div className="space-y-3">
               {/* Selected Challenge Summary */}
-              <div className="p-3 rounded-2xl bg-gradient-to-r from-orange-500/10 to-pink-500/10 border border-orange-500/20">
+              <div className="p-3 rounded-2xl bg-gradient-to-r from-orange-500/10 to-pink-500/10 dark:from-orange-500/20 dark:to-pink-500/20 border border-orange-500/20 dark:border-orange-500/30">
                 <div className="flex items-center gap-2.5">
                   <span className="text-3xl">{presets.find(p => p.level === selectedChallenge?.level)?.icon || '🎯'}</span>
                   <div>
@@ -416,7 +385,7 @@ export function SelectChallengeModal({ isOpen, onClose, onSuccess, mode }: Selec
                       className={`w-full p-3 rounded-xl flex items-center gap-3 transition-all ${
                         selectedFriends.has(member.id)
                           ? 'bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-lg scale-105'
-                          : 'bg-gray-50 dark:bg-[#0B101B] hover:bg-gray-100 dark:hover:bg-gray-800'
+                          : 'bg-gray-50 dark:bg-[#0B101B] hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-900 dark:text-white'
                       }`}
                     >
                       {/* Avatar */}

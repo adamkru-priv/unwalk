@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useChallengeStore } from '../../stores/useChallengeStore';
 import { createCustomChallenge, uploadChallengeImage, getMyCustomChallenges, deleteCustomChallenge, startChallenge, updateCustomChallenge } from '../../lib/api';
-import { teamService, type TeamMember } from '../../lib/auth';
+import { teamService, type TeamMember } from '../../lib/auth'; // ✅ FIX: Corrected import path
 import type { AdminChallenge } from '../../types';
 import { AppHeader } from '../common/AppHeader';
 import { BottomNavigation } from '../common/BottomNavigation';
@@ -15,7 +15,7 @@ export function CustomChallenge() {
   const [error, setError] = useState<string | null>(null);
   const [myCustomChallenges, setMyCustomChallenges] = useState<AdminChallenge[]>([]);
   const [editingChallenge, setEditingChallenge] = useState<AdminChallenge | null>(null);
-  const { setCurrentScreen, setActiveChallenge } = useChallengeStore();
+  const { setCurrentScreen, setActiveChallenge, assignTarget, setAssignTarget } = useChallengeStore();
 
   // Form state
   const [title, setTitle] = useState('');
@@ -46,7 +46,12 @@ export function CustomChallenge() {
   useEffect(() => {
     loadMyCustomChallenges();
     loadTeamMembers();
-  }, []);
+    
+    // ✅ FIX: Clear assignTarget when component unmounts
+    return () => {
+      setAssignTarget(null);
+    };
+  }, [setAssignTarget]);
 
   const loadMyCustomChallenges = async () => {
     try {
@@ -171,10 +176,39 @@ export function CustomChallenge() {
   };
 
   const openAssignModal = (challenge: AdminChallenge) => {
-    setAssigningChallenge(challenge);
-    setAssignMode('solo');
-    setSelectedMember('');
-    setAssignModalOpen(true);
+    // ✅ FIX: If assignTarget exists, send directly without modal
+    if (assignTarget) {
+      handleDirectAssign(challenge);
+    } else {
+      // Open modal for manual selection (Just Me / Team Up)
+      setAssigningChallenge(challenge);
+      setAssignMode('solo');
+      setSelectedMember('');
+      setAssignModalOpen(true);
+    }
+  };
+
+  const handleDirectAssign = async (challenge: AdminChallenge) => {
+    if (!assignTarget) return;
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Assign to team member (solo challenge)
+      await teamService.assignChallenge(assignTarget.id, challenge.id);
+      
+      // Clear assignTarget after successful assign
+      setAssignTarget(null);
+      
+      // Show success message or notification
+      alert(`Challenge "${challenge.title}" sent to ${assignTarget.name}!`);
+    } catch (e) {
+      console.error('Failed to assign challenge:', e);
+      setError('Failed to assign challenge. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const closeAssignModal = () => {
@@ -191,26 +225,19 @@ export function CustomChallenge() {
       setLoading(true);
       setError(null);
 
-      if (assignMode === 'solo') {
-        if (selectedMember === 'myself') {
-          // Start for self
-          const userChallenge = await startChallenge(assigningChallenge.id);
-          setActiveChallenge(userChallenge);
-          setCurrentScreen('dashboard');
-        } else {
-          // Assign to team member (solo challenge)
-          await teamService.assignChallenge(selectedMember, assigningChallenge.id);
-          closeAssignModal();
-        }
+      if (assignMode === 'solo' && selectedMember === 'myself') {
+        // Start for self
+        const userChallenge = await startChallenge(assigningChallenge.id);
+        setActiveChallenge(userChallenge);
+        setCurrentScreen('dashboard');
+        closeAssignModal();
       } else {
-        // Team challenge - use RPC function
-        const { supabase } = await import('../../lib/supabase');
-        const { error: rpcError } = await supabase.rpc('start_team_challenge', {
-          p_member_id: selectedMember,
-          p_challenge_id: assigningChallenge.id,
-        });
+        // Regular assign to team member (solo challenge)
+        await teamService.assignChallenge(selectedMember, assigningChallenge.id);
         
-        if (rpcError) throw rpcError;
+        const memberName = teamMembers.find(m => m.member_id === selectedMember)?.display_name || 'team member';
+        alert(`Challenge "${assigningChallenge.title}" sent to ${memberName}!`);
+        
         closeAssignModal();
       }
     } catch (e) {
@@ -274,44 +301,74 @@ export function CustomChallenge() {
                 {myCustomChallenges.map((challenge) => (
                   <div
                     key={challenge.id}
-                    className="bg-white dark:bg-[#151A25] rounded-2xl p-4 border border-gray-200 dark:border-white/10"
+                    className="bg-white dark:bg-[#151A25] rounded-2xl overflow-hidden border border-gray-200 dark:border-white/10"
                   >
-                    <div className="flex items-start gap-4">
+                    {/* Image Header - Only clickable if assignTarget exists */}
+                    <div 
+                      className={`relative h-32 ${assignTarget ? 'cursor-pointer hover:opacity-90 transition-opacity' : ''}`}
+                      onClick={assignTarget ? () => openAssignModal(challenge) : undefined}
+                    >
                       <img
                         src={challenge.image_url}
                         alt={challenge.title}
-                        className="w-16 h-16 rounded-xl object-cover flex-shrink-0"
+                        className="w-full h-full object-cover"
                       />
-                      
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold truncate">{challenge.title}</h3>
-                        <div className="flex items-center gap-2 mt-1 text-sm text-gray-600 dark:text-white/60">
-                          <span>🎯 {(challenge.goal_steps / 1000).toFixed(0)}k steps</span>
-                          <span>•</span>
-                          <span>≈ {(challenge.goal_steps / 1250).toFixed(1)} km</span>
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                      <div className="absolute bottom-3 left-3 right-3">
+                        <h3 className="font-bold text-white text-lg drop-shadow-lg">{challenge.title}</h3>
+                      </div>
+                    </div>
+
+                    {/* Content */}
+                    <div className="p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-4">
+                          <div className="text-center">
+                            <div className="text-2xl font-black text-gray-900 dark:text-white">
+                              {(challenge.goal_steps / 1000).toFixed(0)}k
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-white/50">steps</div>
+                          </div>
+                          <div className="h-8 w-px bg-gray-200 dark:bg-white/10" />
+                          <div className="text-center">
+                            <div className="text-2xl font-black text-gray-900 dark:text-white">
+                              {(challenge.goal_steps / 1250).toFixed(1)}
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-white/50">km</div>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditChallenge(challenge);
+                            }}
+                            className="w-9 h-9 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/15 transition-colors"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteChallenge(challenge.id, challenge.title);
+                            }}
+                            className="w-9 h-9 flex items-center justify-center rounded-lg bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-colors"
+                          >
+                            🗑️
+                          </button>
                         </div>
                       </div>
 
-                      <div className="flex gap-2">
+                      {/* Only show button if assignTarget exists (came from Team -> User) */}
+                      {assignTarget && (
                         <button
                           onClick={() => openAssignModal(challenge)}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-medium text-sm"
+                          className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-3 rounded-xl font-bold transition-all shadow-lg"
                         >
-                          Assign
+                          {assignTarget ? `Send to ${assignTarget.name}` : 'Assign Challenge'}
                         </button>
-                        <button
-                          onClick={() => handleEditChallenge(challenge)}
-                          className="bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/15 px-2 py-1.5 rounded-lg text-sm"
-                        >
-                          ✏️
-                        </button>
-                        <button
-                          onClick={() => handleDeleteChallenge(challenge.id, challenge.title)}
-                          className="bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 px-2 py-1.5 rounded-lg text-sm"
-                        >
-                          🗑️
-                        </button>
-                      </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -477,108 +534,143 @@ export function CustomChallenge() {
       {assignModalOpen && assigningChallenge && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={closeAssignModal}>
           <div
-            className="w-full max-w-md bg-white dark:bg-[#151A25] rounded-3xl p-6 border border-gray-200 dark:border-white/10"
+            className="w-full max-w-md bg-white dark:bg-[#151A25] rounded-3xl overflow-hidden border border-gray-200 dark:border-white/10"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold">Assign Challenge</h2>
-              <button onClick={closeAssignModal} className="text-gray-500 hover:text-gray-700 dark:text-white/60 dark:hover:text-white">
+            {/* Header with challenge image */}
+            <div className="relative h-40">
+              <img
+                src={assigningChallenge.image_url}
+                alt={assigningChallenge.title}
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+              <button 
+                onClick={closeAssignModal} 
+                className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center text-white hover:bg-black/70 transition-colors"
+              >
                 ✕
               </button>
-            </div>
-
-            <p className="text-sm text-gray-600 dark:text-white/60 mb-4">{assigningChallenge.title}</p>
-
-            {/* Challenge Type */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">Challenge Type</label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setAssignMode('solo')}
-                  className={`py-3 rounded-xl font-medium ${
-                    assignMode === 'solo'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/15'
-                  }`}
-                >
-                  Solo
-                </button>
-                <button
-                  onClick={() => setAssignMode('team')}
-                  className={`py-3 rounded-xl font-medium ${
-                    assignMode === 'team'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/15'
-                  }`}
-                >
-                  Team
-                </button>
+              <div className="absolute bottom-3 left-4 right-4">
+                <h2 className="text-xl font-black text-white drop-shadow-lg mb-1">{assigningChallenge.title}</h2>
+                <div className="flex items-center gap-3 text-white/90 text-sm">
+                  <span className="font-bold">{(assigningChallenge.goal_steps / 1000).toFixed(0)}k steps</span>
+                  <span>•</span>
+                  <span>{(assigningChallenge.goal_steps / 1250).toFixed(1)} km</span>
+                </div>
               </div>
             </div>
 
-            {/* Assign To */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">
-                {assignMode === 'solo' ? 'Assign To' : 'Challenge Team Member'}
-              </label>
-              
-              {assignMode === 'solo' && (
-                <button
-                  onClick={() => setSelectedMember('myself')}
-                  className={`w-full p-3 rounded-xl mb-2 text-left ${
-                    selectedMember === 'myself'
-                      ? 'bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-500'
-                      : 'bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10'
-                  }`}
-                >
-                  <div className="font-medium">Myself</div>
-                  <div className="text-xs text-gray-500 dark:text-white/50">Start now</div>
-                </button>
+            <div className="p-5">
+              {/* Info box if assignTarget exists */}
+              {assignTarget && (
+                <div className="mb-4 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                  <div className="text-sm font-medium text-blue-900 dark:text-blue-200">
+                    Sending challenge to: <span className="font-bold">{assignTarget.name}</span>
+                  </div>
+                </div>
               )}
 
-              <div className="space-y-2">
-                {teamMembers.map((member) => (
-                  <button
-                    key={member.member_id}
-                    onClick={() => setSelectedMember(member.member_id)}
-                    className={`w-full p-3 rounded-xl text-left flex items-center gap-3 ${
-                      selectedMember === member.member_id
-                        ? 'bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-500'
-                        : 'bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10'
-                    }`}
-                  >
-                    {member.avatar_url ? (
-                      <img src={member.avatar_url} alt="" className="w-10 h-10 rounded-full" />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-white/10 flex items-center justify-center">
-                        👤
+              {/* Challenge Type - only show if no assignTarget */}
+              {!assignTarget && (
+                <div className="mb-4">
+                  <label className="block text-sm font-bold mb-2 text-gray-900 dark:text-white">Who will do this challenge?</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => {
+                        setAssignMode('solo');
+                        setSelectedMember('myself');
+                      }}
+                      className={`py-3 rounded-xl font-bold ${
+                        assignMode === 'solo' && selectedMember === 'myself'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/15'
+                      }`}
+                    >
+                      Just Me
+                    </button>
+                    <button
+                      onClick={() => {
+                        setAssignMode('team');
+                        setSelectedMember('');
+                      }}
+                      className={`py-3 rounded-xl font-bold ${
+                        assignMode === 'team'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/15'
+                      }`}
+                    >
+                      Team Up
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Show team member selection if: team mode OR assignTarget exists */}
+              {(assignMode === 'team' || assignTarget) && (
+                <div className="mb-4">
+                  <label className="block text-sm font-bold mb-2 text-gray-900 dark:text-white">
+                    {assignMode === 'team' ? 'Choose team member:' : 'Confirm assignment:'}
+                  </label>
+                  
+                  <div className="space-y-2">
+                    {teamMembers.map((member) => (
+                      <button
+                        key={member.member_id}
+                        onClick={() => setSelectedMember(member.member_id)}
+                        className={`w-full p-3 rounded-xl text-left flex items-center gap-3 transition-all ${
+                          selectedMember === member.member_id
+                            ? 'bg-blue-600 text-white shadow-lg scale-105'
+                            : 'bg-gray-50 dark:bg.white/5 border border-gray-200 dark:border-white/10 hover:border-blue-500'
+                        }`}
+                      >
+                        {member.avatar_url ? (
+                          <img src={member.avatar_url} alt="" className="w-10 h-10 rounded-full" />
+                        ) : (
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${
+                            selectedMember === member.member_id
+                              ? 'bg-white/20'
+                              : 'bg-gray-200 dark:bg-white/10'
+                          }`}>
+                            👤
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-bold truncate">
+                            {member.custom_name || member.display_name || member.email}
+                          </div>
+                          {member.relationship && (
+                            <div className={`text-xs ${
+                              selectedMember === member.member_id
+                                ? 'text-white/80'
+                                : 'text-gray-500 dark:text-white/50'
+                            }`}>
+                              {member.relationship}
+                            </div>
+                          )}
+                        </div>
+                        {selectedMember === member.member_id && (
+                          <div className="text-lg">✓</div>
+                        )}
+                      </button>
+                    ))}
+                    {teamMembers.length === 0 && (
+                      <div className="text-sm text-gray-500 dark:text-white/50 text-center py-6">
+                        No team members yet. Add someone from the Team tab first.
                       </div>
                     )}
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium truncate">
-                        {member.custom_name || member.display_name || member.email}
-                      </div>
-                      {member.relationship && (
-                        <div className="text-xs text-gray-500 dark:text-white/50">{member.relationship}</div>
-                      )}
-                    </div>
-                  </button>
-                ))}
-                {teamMembers.length === 0 && (
-                  <div className="text-sm text-gray-500 dark:text-white/50 text-center py-4">
-                    No team members yet. Invite someone first.
                   </div>
-                )}
-              </div>
-            </div>
+                </div>
+              )}
 
-            <button
-              onClick={handleAssign}
-              disabled={!selectedMember || loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white py-3 rounded-xl font-semibold disabled:cursor-not-allowed"
-            >
-              {loading ? 'Assigning...' : 'Confirm'}
-            </button>
+              <button
+                onClick={handleAssign}
+                disabled={!selectedMember || loading}
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-400 text-white py-4 rounded-xl font-black text-lg disabled:cursor-not-allowed transition-all shadow-lg"
+              >
+                {loading ? 'Sending...' : (assignMode === 'team' || assignTarget) ? 'Send Challenge' : 'Start Challenge'}
+              </button>
+            </div>
           </div>
         </div>
       )}

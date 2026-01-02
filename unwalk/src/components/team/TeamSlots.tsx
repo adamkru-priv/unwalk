@@ -38,12 +38,12 @@ export function TeamSlots({ teamMembers, userProfile, onInviteClick, onMemberCli
   const isAtLimit = usedSlots + pendingSlots >= maxSlots;
 
   return (
-    <div className="bg-gradient-to-br from-[#151A25] to-[#1A1F2E] border border-white/10 rounded-3xl p-5">
+    <div className="bg-gradient-to-br from-gray-100 to-gray-200 dark:from-[#151A25] dark:to-[#1A1F2E] border border-gray-300 dark:border-white/10 rounded-3xl p-5">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-lg font-black text-white mb-1">Your Team</h2>
-          <p className="text-xs text-white/50">
+          <h2 className="text-lg font-black text-gray-900 dark:text-white mb-1">Your Team</h2>
+          <p className="text-xs text-gray-500 dark:text-white/50">
             {usedSlots + pendingSlots}/{maxSlots} slots used
           </p>
         </div>
@@ -52,7 +52,7 @@ export function TeamSlots({ teamMembers, userProfile, onInviteClick, onMemberCli
 
       {/* Progress bar */}
       <div className="mb-5">
-        <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+        <div className="h-2 bg-gray-300 dark:bg-white/5 rounded-full overflow-hidden">
           <motion.div
             className={`h-full rounded-full ${
               isAtLimit 
@@ -92,17 +92,11 @@ export function TeamSlots({ teamMembers, userProfile, onInviteClick, onMemberCli
                     className="w-14 h-14 rounded-full flex items-center justify-center text-white text-base font-bold mb-2 ring-2 ring-blue-500/50 group-hover:ring-blue-500 transition-all"
                     style={{ backgroundColor: getColorFromName(slot.member.display_name || slot.member.email) }}
                   >
-                    {getInitials(slot.member.custom_name || slot.member.display_name || slot.member.email)}
+                    {getInitials(slot.member.display_name || slot.member.email)}
                   </div>
-                  <div className="font-bold text-white text-sm truncate w-full mb-0.5">
-                    {slot.member.custom_name || slot.member.display_name || slot.member.email.split('@')[0]}
+                  <div className="font-bold text-gray-900 dark:text-white text-sm truncate w-full mb-0.5">
+                    {slot.member.display_name || slot.member.email.split('@')[0]}
                   </div>
-                  {slot.member.relationship && (
-                    <div className="text-xs text-blue-400 truncate w-full">
-                      {slot.member.relationship}
-                    </div>
-                  )}
-                  {/* Removed PRO badge from team member cards */}
                 </div>
               </button>
             ) : slot.type === 'pending' ? (
@@ -118,7 +112,7 @@ export function TeamSlots({ teamMembers, userProfile, onInviteClick, onMemberCli
                   <div className="text-xs font-bold text-amber-400">
                     Pending
                   </div>
-                  <div className="text-xs text-white/40 mt-0.5">
+                  <div className="text-xs text-gray-500 dark:text-white/40 mt-0.5">
                     Awaiting response
                   </div>
                 </div>
@@ -130,19 +124,19 @@ export function TeamSlots({ teamMembers, userProfile, onInviteClick, onMemberCli
                 disabled={isAtLimit}
                 className={`w-full border-2 border-dashed rounded-2xl p-3 transition-all ${
                   isAtLimit
-                    ? 'border-white/10 bg-white/5 cursor-not-allowed opacity-50'
-                    : 'border-white/20 bg-white/5 hover:bg-white/10 hover:border-blue-500/50 cursor-pointer group'
+                    ? 'border-gray-300 dark:border-white/10 bg-gray-100 dark:bg-white/5 cursor-not-allowed opacity-50'
+                    : 'border-gray-400 dark:border-white/20 bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 hover:border-blue-500/50 cursor-pointer group'
                 }`}
               >
                 <div className="flex flex-col items-center text-center">
                   {/* Avatar circle - same size as filled */}
                   <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-2 transition-all ${
                     isAtLimit
-                      ? 'bg-white/5'
-                      : 'bg-white/10 group-hover:bg-blue-500/20'
+                      ? 'bg-gray-200 dark:bg-white/5'
+                      : 'bg-gray-200 dark:bg-white/10 group-hover:bg-blue-500/20'
                   }`}>
                     <svg className={`w-7 h-7 transition-all ${
-                      isAtLimit ? 'text-white/20' : 'text-white/40 group-hover:text-blue-400'
+                      isAtLimit ? 'text-gray-400 dark:text-white/20' : 'text-gray-600 dark:text-white/40 group-hover:text-blue-400'
                     }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
@@ -150,7 +144,7 @@ export function TeamSlots({ teamMembers, userProfile, onInviteClick, onMemberCli
                   
                   {/* Text line - same spacing as name */}
                   <div className={`text-xs font-bold transition-colors mb-0.5 ${
-                    isAtLimit ? 'text-white/30' : 'text-white/50 group-hover:text-blue-400'
+                    isAtLimit ? 'text-gray-400 dark:text-white/30' : 'text-gray-600 dark:text-white/50 group-hover:text-blue-400'
                   }`}>
                     {isAtLimit ? 'No slots' : 'Invite'}
                   </div>

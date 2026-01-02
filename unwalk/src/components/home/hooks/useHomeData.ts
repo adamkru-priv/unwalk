@@ -133,11 +133,19 @@ export function useHomeData() {
 
       const { data: usersData } = await supabase
         .from('users')
-        .select('id, display_name, avatar_url')
+        .select('id, display_name, nickname, avatar_url')
         .in('id', allUserIds);
 
       // Create user lookup map
       const userMap = new Map(usersData?.map(u => [u.id, u]) || []);
+
+      // 🎯 NEW: Determine who is the host (first user who started the challenge)
+      const sortedByStartTime = [...(teamChallenges || [])].sort((a, b) => 
+        new Date(a.started_at).getTime() - new Date(b.started_at).getTime()
+      );
+      const hostUserId = sortedByStartTime[0]?.user_id;
+
+      console.log('[useHomeData] Host user ID (first to start):', hostUserId);
 
       // Calculate total team steps (only from active user_challenges)
       const totalTeamSteps = (teamChallenges || []).reduce((sum, tc) => sum + (tc.current_steps || 0), 0);
@@ -145,13 +153,20 @@ export function useHomeData() {
       // Members with active user_challenges
       const activeMembers = (teamChallenges || []).map((tc: any) => {
         const isMe = tc.user_id === user.id;
+        const memberIsHost = tc.user_id === hostUserId;
         const userData = userMap.get(tc.user_id);
+        // ✅ Use nickname for everyone (including current user)
+        const displayName = userData?.nickname || userData?.display_name || 'Unknown';
+        
         return {
-          id: tc.user_id,
-          name: isMe ? 'You' : userData?.display_name || 'Unknown',
+          id: tc.id, // 🎯 FIX: Use user_challenges.id (primary key) instead of user_id
+          userId: tc.user_id, // 🎯 NEW: Also include user_id for reference
+          name: displayName,
           avatar: userData?.avatar_url,
           steps: tc.current_steps || 0,
           percentage: totalTeamSteps > 0 ? Math.round((tc.current_steps / totalTeamSteps) * 100) : 0,
+          isCurrentUser: isMe,
+          isHost: memberIsHost, // ✅ Flag to identify the host
         };
       });
 

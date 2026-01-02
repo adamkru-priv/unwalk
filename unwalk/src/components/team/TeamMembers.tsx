@@ -91,20 +91,20 @@ export function TeamMembers({
       {/* SENT INVITATIONS - moved to bottom, simplified */}
       {sentInvitations.filter(inv => inv.status === 'pending').length > 0 && (
         <section>
-          <h2 className="text-sm font-bold text-white/60 mb-3 px-1 uppercase tracking-wider">
+          <h2 className="text-sm font-bold text-gray-400 dark:text-white/60 mb-3 px-1 uppercase tracking-wider">
             Pending Invites
           </h2>
           <div className="space-y-2">
             {sentInvitations.filter(inv => inv.status === 'pending').map((invitation) => (
               <div
                 key={invitation.id}
-                className="bg-[#151A25] border border-white/5 rounded-2xl p-3 flex items-center gap-3"
+                className="bg-gray-50 dark:bg-[#151A25] border border-gray-200 dark:border-white/5 rounded-2xl p-3 flex items-center gap-3"
               >
                 <div className="flex-1 min-w-0">
-                  <div className="font-bold text-white text-sm truncate">
+                  <div className="font-bold text-gray-900 dark:text-white text-sm truncate">
                     {invitation.recipient_email}
                   </div>
-                  <div className="text-xs text-white/50">
+                  <div className="text-xs text-gray-500 dark:text-white/50">
                     Sent {new Date(invitation.invited_at).toLocaleDateString()}
                   </div>
                 </div>

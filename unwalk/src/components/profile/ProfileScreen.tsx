@@ -65,6 +65,11 @@ export function ProfileScreen() {
   const dailyStepGoal = useChallengeStore((s) => s.dailyStepGoal); // 🎯 NEW
   const setDailyStepGoal = useChallengeStore((s) => s.setDailyStepGoal); // 🎯 NEW
 
+  // 🎯 NEW: Nickname editing state
+  const [isEditingNickname, setIsEditingNickname] = useState(false);
+  const [nicknameValue, setNicknameValue] = useState('');
+  const [nicknameSaving, setNicknameSaving] = useState(false);
+
   // ✅ NEW: Push notification status
   const [pushNotifStatus, setPushNotifStatus] = useState({
     isAvailable: false,
@@ -322,6 +327,43 @@ export function ProfileScreen() {
     }
   };
 
+  // 🎯 NEW: Handle nickname save
+  const handleSaveNickname = async () => {
+    if (!userProfile) return;
+
+    // Validate nickname (max 9 chars)
+    if (nicknameValue.length > 9) {
+      alert('Nickname must be 9 characters or less');
+      return;
+    }
+
+    setNicknameSaving(true);
+
+    try {
+      const { error } = await authService.updateProfile({ nickname: nicknameValue || null } as any);
+      if (error) throw error;
+
+      setUserProfile({ ...userProfile, nickname: nicknameValue || null });
+      setIsEditingNickname(false);
+    } catch (e) {
+      alert('Failed to update nickname. Please try again.');
+    } finally {
+      setNicknameSaving(false);
+    }
+  };
+
+  // 🎯 NEW: Handle start editing nickname
+  const handleEditNickname = () => {
+    setNicknameValue(userProfile?.nickname || '');
+    setIsEditingNickname(true);
+  };
+
+  // 🎯 NEW: Handle cancel editing nickname
+  const handleCancelNickname = () => {
+    setIsEditingNickname(false);
+    setNicknameValue('');
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0B101B] text-gray-900 dark:text-white pb-20 font-sans">
       <AppHeader />
@@ -364,6 +406,61 @@ export function ProfileScreen() {
 
         {/* Settings List */}
         <div className="space-y-3">
+          {/* 🎯 NEW: Nickname Editor */}
+          <div className="bg-white dark:bg-[#151A25] rounded-2xl px-4 py-3.5 shadow-sm border border-gray-100 dark:border-white/5">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <div className="text-[15px] font-medium text-gray-900 dark:text-white">Display Nickname</div>
+                <div className="text-[13px] text-gray-500 dark:text-gray-400">
+                  {userProfile?.nickname || 'Not set'}
+                </div>
+              </div>
+
+              {!isEditingNickname && (
+                <button
+                  onClick={handleEditNickname}
+                  className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-medium transition-colors"
+                >
+                  Edit
+                </button>
+              )}
+            </div>
+
+            {isEditingNickname && (
+              <div className="mt-3 space-y-2">
+                <input
+                  type="text"
+                  value={nicknameValue}
+                  onChange={(e) => setNicknameValue(e.target.value.slice(0, 9))}
+                  placeholder="Enter nickname (max 9 chars)"
+                  maxLength={9}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-[#0B101B] text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {nicknameValue.length}/9 characters
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleCancelNickname}
+                      disabled={nicknameSaving}
+                      className="px-3 py-1.5 rounded-lg bg-gray-200 dark:bg-white/10 hover:bg-gray-300 dark:hover:bg-white/15 text-gray-700 dark:text-gray-300 text-[13px] font-medium transition-colors disabled:opacity-60"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveNickname}
+                      disabled={nicknameSaving}
+                      className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-medium transition-colors disabled:opacity-60"
+                    >
+                      {nicknameSaving ? 'Saving...' : 'Save'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* 🎯 REMOVED: Challenge History - moved to BadgesScreen */}
 
           {/* My Custom Challenges */}

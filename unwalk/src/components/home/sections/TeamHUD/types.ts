@@ -4,6 +4,8 @@ export interface TeamMember {
   avatar?: string;
   steps: number;
   percentage: number;
+  isCurrentUser?: boolean; // 🎯 NEW: Is this member the current user
+  isHost?: boolean; // 🎯 NEW: Is this member the host of the challenge
 }
 
 export interface PendingInvitation {

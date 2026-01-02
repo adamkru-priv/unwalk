@@ -49,8 +49,8 @@ export function SentChallenges({ challenges, onRefresh }: SentChallengesProps) {
     return (
       <div className="text-center py-16">
         <div className="text-6xl mb-4">📤</div>
-        <h3 className="text-xl font-bold text-white mb-2">No Sent Challenges</h3>
-        <p className="text-white/50 text-sm">
+        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">No Sent Challenges</h3>
+        <p className="text-gray-500 dark:text-white/50 text-sm">
           Send your first challenge to a team member!
         </p>
       </div>
@@ -70,7 +70,7 @@ export function SentChallenges({ challenges, onRefresh }: SentChallengesProps) {
         return (
           <div
             key={assignment.id}
-            className="bg-[#151A25] border border-white/5 rounded-2xl p-4"
+            className="bg-gray-50 dark:bg-[#151A25] border border-gray-200 dark:border-white/5 rounded-2xl p-4"
           >
             <div className="flex gap-3 mb-3">
               <div className="relative w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
@@ -81,7 +81,7 @@ export function SentChallenges({ challenges, onRefresh }: SentChallengesProps) {
                 />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-white text-sm mb-1 truncate">
+                <h3 className="font-bold text-gray-900 dark:text-white text-sm mb-1 truncate">
                   {assignment.challenge_title}
                 </h3>
                 <div className="flex items-center gap-2">
@@ -91,7 +91,7 @@ export function SentChallenges({ challenges, onRefresh }: SentChallengesProps) {
                   >
                     {getInitials(assignment.recipient_name)}
                   </div>
-                  <span className="text-xs text-white/60">
+                  <span className="text-xs text-gray-500 dark:text-white/60">
                     {assignment.recipient_name || 'Unknown'}
                   </span>
                 </div>
@@ -127,18 +127,18 @@ export function SentChallenges({ challenges, onRefresh }: SentChallengesProps) {
 
             {/* Progress bar - show for active challenges */}
             {assignment.status === 'accepted' && assignment.user_challenge_id && !isCompleted && (
-              <div className="mt-3 pt-3 border-t border-white/5">
+              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-white/5">
                 <div className="flex items-center justify-between text-xs mb-2">
-                  <span className="text-white/60">Progress</span>
-                  <span className="text-white font-bold">{progress}%</span>
+                  <span className="text-gray-500 dark:text-white/60">Progress</span>
+                  <span className="text-gray-900 dark:text-white font-bold">{progress}%</span>
                 </div>
-                <div className="bg-white/10 rounded-full h-2 overflow-hidden">
+                <div className="bg-gray-200 dark:bg-white/10 rounded-full h-2 overflow-hidden">
                   <div
                     className="bg-gradient-to-r from-blue-500 to-purple-500 h-full rounded-full transition-all"
                     style={{ width: `${progress}%` }}
                   />
                 </div>
-                <div className="text-xs text-white/50 mt-1">
+                <div className="text-xs text-gray-500 dark:text-white/50 mt-1">
                   {assignment.current_steps?.toLocaleString()} / {assignment.challenge_goal_steps.toLocaleString()} steps
                 </div>
               </div>
@@ -146,25 +146,25 @@ export function SentChallenges({ challenges, onRefresh }: SentChallengesProps) {
 
             {/* Completion info - show for completed challenges */}
             {assignment.status === 'accepted' && isCompleted && (
-              <div className="mt-3 pt-3 border-t border-white/5">
+              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-white/5">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-green-400">✓ Challenge completed!</span>
                   <span className="text-green-400 font-bold">{progress}%</span>
                 </div>
-                <div className="bg-white/10 rounded-full h-2 overflow-hidden mt-2">
+                <div className="bg-gray-200 dark:bg-white/10 rounded-full h-2 overflow-hidden mt-2">
                   <div
                     className="bg-gradient-to-r from-green-500 to-emerald-500 h-full rounded-full transition-all"
                     style={{ width: `${progress}%` }}
                   />
                 </div>
-                <div className="text-xs text-white/50 mt-1">
+                <div className="text-xs text-gray-500 dark:text-white/50 mt-1">
                   {assignment.current_steps?.toLocaleString()} / {assignment.challenge_goal_steps.toLocaleString()} steps
                 </div>
               </div>
             )}
 
             {assignment.message && (
-              <p className="text-xs text-white/50 italic mt-3 bg-white/5 rounded-lg p-2">
+              <p className="text-xs text-gray-600 dark:text-white/50 italic mt-3 bg-gray-100 dark:bg-white/5 rounded-lg p-2">
                 "{assignment.message}"
               </p>
             )}

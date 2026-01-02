@@ -1,11 +1,13 @@
 import { supabase } from '../supabase';
-import type { Team, TeamInvitation, TeamMember, ChallengeAssignment, TeamChallengeInvitation } from './types';
+import { getDeviceId } from '../deviceId';
+import type { TeamInvitation, TeamMember, ChallengeAssignment } from './types';
 import { authService } from './authService';
 
 /**
- * TeamService - Team management functionality
+ * TeamService - Team & Challenge Assignment Management
+ * Handles team invitations, members, and challenge assignments
  */
-export class TeamService {
+class TeamService {
   private static instance: TeamService;
 
   static getInstance(): TeamService {
@@ -15,200 +17,32 @@ export class TeamService {
     return TeamService.instance;
   }
 
-  /**
-   * Create a new team
-   */
-  async createTeam(name: string): Promise<{ team: Team | null; error: Error | null }> {
-    try {
-      const { data, error } = await supabase
-        .from('teams')
-        .insert({ name })
-        .select('*')
-        .single();
-
-      if (error) throw error;
-
-      console.log('✅ [Team] Created team:', name);
-      return { team: data as Team, error: null };
-    } catch (error) {
-      console.error('❌ [Team] Create team error:', error);
-      return { team: null, error: error as Error };
-    }
-  }
-
-  /**
-   * Get user's teams
-   */
-  async getUserTeams(userId: string): Promise<{ teams: Team[]; error: Error | null }> {
-    try {
-      const { data, error } = await supabase
-        .from('teams')
-        .select(`
-          *,
-          team_members!inner(user_id)
-        `)
-        .eq('team_members.user_id', userId);
-
-      if (error) throw error;
-
-      return { teams: data as Team[], error: null };
-    } catch (error) {
-      console.error('❌ [Team] Get teams error:', error);
-      return { teams: [], error: error as Error };
-    }
-  }
-
-  /**
-   * Invite user to team
-   */
-  async inviteToTeam(teamId: string, email: string): Promise<{ error: Error | null }> {
-    try {
-      const { error } = await supabase.rpc('invite_user_to_team', {
-        p_team_id: teamId,
-        p_invited_email: email,
-      });
-
-      if (error) throw error;
-
-      console.log('✉️ [Team] Invitation sent to:', email);
-      return { error: null };
-    } catch (error) {
-      console.error('❌ [Team] Invite error:', error);
-      return { error: error as Error };
-    }
-  }
-
-  /**
-   * Get pending invitations for current user
-   */
-  async getPendingInvitations(email: string): Promise<{ invitations: TeamInvitation[]; error: Error | null }> {
-    try {
-      const { data, error } = await supabase
-        .from('team_invitations')
-        .select(`
-          *,
-          teams!inner(name),
-          inviter:users!team_invitations_inviter_id_fkey(display_name)
-        `)
-        .eq('invited_email', email)
-        .eq('status', 'pending');
-
-      if (error) throw error;
-
-      return { invitations: data as TeamInvitation[], error: null };
-    } catch (error) {
-      console.error('❌ [Team] Get invitations error:', error);
-      return { invitations: [], error: error as Error };
-    }
-  }
-
-  /**
-   * Accept team invitation
-   */
-  async acceptInvitation(invitationId: string): Promise<{ error: Error | null }> {
-    try {
-      const { error } = await supabase.rpc('accept_team_invitation', {
-        p_invitation_id: invitationId,
-      });
-
-      if (error) throw error;
-
-      console.log('✅ [Team] Invitation accepted');
-      return { error: null };
-    } catch (error) {
-      console.error('❌ [Team] Accept invitation error:', error);
-      return { error: error as Error };
-    }
-  }
-
-  /**
-   * Reject team invitation
-   */
-  async rejectInvitation(invitationId: string): Promise<{ error: Error | null }> {
-    try {
-      const { error } = await supabase
-        .from('team_invitations')
-        .update({ status: 'rejected' })
-        .eq('id', invitationId);
-
-      if (error) throw error;
-
-      console.log('❌ [Team] Invitation rejected');
-      return { error: null };
-    } catch (error) {
-      console.error('❌ [Team] Reject invitation error:', error);
-      return { error: error as Error };
-    }
-  }
-
-  /**
-   * Leave team
-   */
-  async leaveTeam(teamId: string, userId: string): Promise<{ error: Error | null }> {
-    try {
-      const { error } = await supabase
-        .from('team_members')
-        .delete()
-        .eq('team_id', teamId)
-        .eq('user_id', userId);
-
-      if (error) throw error;
-
-      console.log('👋 [Team] Left team');
-      return { error: null };
-    } catch (error) {
-      console.error('❌ [Team] Leave team error:', error);
-      return { error: error as Error };
-    }
-  }
-
-  /**
-   * Delete team (creator only)
-   */
-  async deleteTeam(teamId: string): Promise<{ error: Error | null }> {
-    try {
-      const { error } = await supabase
-        .from('teams')
-        .delete()
-        .eq('id', teamId);
-
-      if (error) throw error;
-
-      console.log('🗑️ [Team] Team deleted');
-      return { error: null };
-    } catch (error) {
-      console.error('❌ [Team] Delete team error:', error);
-      return { error: error as Error };
-    }
-  }
+  // ============================================
+  // TEAM INVITATIONS
+  // ============================================
 
   /**
    * Send team invitation
    */
   async sendInvitation(recipientEmail: string, message?: string): Promise<{ error: Error | null }> {
     try {
-      // Get current user profile (works for both authenticated and guest users)
       const profile = await authService.getUserProfile();
       if (!profile) throw new Error('Not authenticated');
 
-      // Guest users cannot send invitations
       if (profile.is_guest) {
         throw new Error('Guest users cannot send team invitations. Please sign up first.');
       }
 
-      // Check if user is inviting themselves
       if (recipientEmail.toLowerCase() === profile.email?.toLowerCase()) {
         throw new Error('You cannot invite yourself');
       }
 
-      // Get recipient_id if they're already registered
       const { data: recipient } = await supabase
         .from('users')
         .select('id')
         .eq('email', recipientEmail)
         .maybeSingle();
 
-      // Check if invitation already exists (by email OR recipient_id if known)
       let existingQuery = supabase
         .from('team_invitations')
         .select('id, status')
@@ -216,10 +50,8 @@ export class TeamService {
         .eq('status', 'pending');
 
       if (recipient?.id) {
-        // User is registered - check by recipient_id
         existingQuery = existingQuery.eq('recipient_id', recipient.id);
       } else {
-        // User not registered - check by email
         existingQuery = existingQuery.eq('recipient_email', recipientEmail.toLowerCase());
       }
 
@@ -229,7 +61,6 @@ export class TeamService {
         throw new Error('Invitation already sent to this email');
       }
 
-      // Check if recipient is already in team (if registered)
       if (recipient?.id) {
         const { data: existingMember } = await supabase
           .from('team_members')
@@ -243,7 +74,6 @@ export class TeamService {
         }
       }
 
-      // Insert invitation
       const { data: newInvitation, error: insertError } = await supabase
         .from('team_invitations')
         .insert({
@@ -259,12 +89,12 @@ export class TeamService {
 
       console.log('✉️ [Team] Invitation sent to:', recipientEmail);
       
-      // Send email notification via Resend Edge Function
+      // Send email notification
       try {
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
         const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-        const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-team-invitation`, {
+        await fetch(`${supabaseUrl}/functions/v1/send-team-invitation`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -278,12 +108,6 @@ export class TeamService {
             invitationId: newInvitation.id,
           }),
         });
-
-        if (!emailResponse.ok) {
-          console.error('❌ [Team] Failed to send invitation email:', await emailResponse.text());
-        } else {
-          console.log('📧 [Team] Invitation email sent successfully');
-        }
       } catch (emailError) {
         console.error('❌ [Team] Email sending error:', emailError);
       }
@@ -295,9 +119,6 @@ export class TeamService {
     }
   }
 
-  /**
-   * Get my sent invitations
-   */
   async getSentInvitations(): Promise<TeamInvitation[]> {
     try {
       const { data, error } = await supabase
@@ -305,7 +126,6 @@ export class TeamService {
         .select('*');
 
       if (error) throw error;
-
       return data as TeamInvitation[];
     } catch (error) {
       console.error('❌ [Team] Get sent invitations error:', error);
@@ -313,9 +133,6 @@ export class TeamService {
     }
   }
 
-  /**
-   * Get my received invitations
-   */
   async getReceivedInvitations(): Promise<TeamInvitation[]> {
     try {
       const { data, error } = await supabase
@@ -323,7 +140,6 @@ export class TeamService {
         .select('*');
 
       if (error) throw error;
-
       return data as TeamInvitation[];
     } catch (error) {
       console.error('❌ [Team] Get received invitations error:', error);
@@ -331,77 +147,51 @@ export class TeamService {
     }
   }
 
-  /**
-   * Get received team challenge invitations (NEW - for team challenges)
-   */
-  async getTeamChallengeInvitations(): Promise<TeamChallengeInvitation[]> {
+  async acceptInvitation(invitationId: string): Promise<{ error: Error | null }> {
     try {
-      const user = await authService.getUser();
-      if (!user) return [];
-
-      const { data, error } = await supabase
-        .from('team_challenge_invitations')
-        .select(`
-          id,
-          invited_by,
-          invited_user,
-          challenge_id,
-          status,
-          invited_at,
-          responded_at,
-          sender:users!team_challenge_invitations_invited_by_fkey(display_name, email, avatar_url),
-          challenge:admin_challenges!team_challenge_invitations_challenge_id_fkey(title, icon, goal_steps, time_limit_hours)
-        `)
-        .eq('invited_user', user.id)
-        .eq('status', 'pending')
-        .order('invited_at', { ascending: false });
+      const { error } = await supabase.rpc('accept_team_invitation', {
+        invitation_id: invitationId,
+      });
 
       if (error) throw error;
-
-      // Transform data
-      const invitations = (data || []).map((item: any) => ({
-        id: item.id,
-        invited_by: item.invited_by,
-        invited_user: item.invited_user,
-        challenge_id: item.challenge_id,
-        status: item.status,
-        invited_at: item.invited_at,
-        responded_at: item.responded_at,
-        sender_name: item.sender?.display_name || null,
-        sender_email: item.sender?.email || null,
-        sender_avatar: item.sender?.avatar_url || null,
-        challenge_title: item.challenge?.title || 'Unknown Challenge',
-        challenge_icon: item.challenge?.icon || '🎯',
-        challenge_goal_steps: item.challenge?.goal_steps || 0,
-        challenge_time_limit_hours: item.challenge?.time_limit_hours || 0,
-      }));
-
-      return invitations as TeamChallengeInvitation[];
+      console.log('✅ [Team] Invitation accepted');
+      return { error: null };
     } catch (error) {
-      console.error('❌ [Team] Get team challenge invitations error:', error);
-      return [];
+      console.error('❌ [Team] Accept invitation error:', error);
+      return { error: error as Error };
     }
   }
 
-  /**
-   * Cancel invitation (sender)
-   * Deletes the invitation instead of updating status to avoid unique constraint issues
-   */
+  async rejectInvitation(invitationId: string): Promise<{ error: Error | null }> {
+    try {
+      const { error } = await supabase
+        .from('team_invitations')
+        .update({
+          status: 'rejected',
+          responded_at: new Date().toISOString(),
+        })
+        .eq('id', invitationId);
+
+      if (error) throw error;
+      return { error: null };
+    } catch (error) {
+      console.error('❌ [Team] Reject invitation error:', error);
+      return { error: error as Error };
+    }
+  }
+
   async cancelInvitation(invitationId: string): Promise<{ error: Error | null }> {
     try {
       const profile = await authService.getUserProfile();
       if (!profile) throw new Error('Not authenticated');
 
-      // Delete invitation (better than updating status to 'cancelled')
       const { error } = await supabase
         .from('team_invitations')
         .delete()
         .eq('id', invitationId)
-        .eq('sender_id', profile.id); // Security: only sender can cancel
+        .eq('sender_id', profile.id);
 
       if (error) throw error;
-
-      console.log('🗑️ [Team] Invitation deleted');
       return { error: null };
     } catch (error) {
       console.error('❌ [Team] Cancel invitation error:', error);
@@ -409,36 +199,10 @@ export class TeamService {
     }
   }
 
-  /**
-   * Cancel team challenge invitation (sender only)
-   * Deletes the team challenge invitation
-   */
-  async cancelTeamChallengeInvitation(invitationId: string): Promise<{ error: Error | null }> {
-    try {
-      const user = await authService.getUser();
-      if (!user) throw new Error('Not authenticated');
+  // ============================================
+  // TEAM MEMBERS
+  // ============================================
 
-      // Delete invitation - only sender can cancel
-      const { error } = await supabase
-        .from('team_challenge_invitations')
-        .delete()
-        .eq('id', invitationId)
-        .eq('invited_by', user.id) // Security: only sender can cancel
-        .eq('status', 'pending'); // Can only cancel pending invitations
-
-      if (error) throw error;
-
-      console.log('🗑️ [Team] Team challenge invitation cancelled');
-      return { error: null };
-    } catch (error) {
-      console.error('❌ [Team] Cancel team challenge invitation error:', error);
-      return { error: error as Error };
-    }
-  }
-
-  /**
-   * Get my team members
-   */
   async getTeamMembers(): Promise<TeamMember[]> {
     try {
       const { data, error } = await supabase
@@ -446,7 +210,6 @@ export class TeamService {
         .select('*');
 
       if (error) throw error;
-
       return data as TeamMember[];
     } catch (error) {
       console.error('❌ [Team] Get team members error:', error);
@@ -454,9 +217,6 @@ export class TeamService {
     }
   }
 
-  /**
-   * Remove team member
-   */
   async removeMember(memberId: string): Promise<{ error: Error | null }> {
     try {
       const user = await authService.getUser();
@@ -469,8 +229,6 @@ export class TeamService {
         .eq('member_id', memberId);
 
       if (error) throw error;
-
-      console.log('🗑️ [Team] Member removed');
       return { error: null };
     } catch (error) {
       console.error('❌ [Team] Remove member error:', error);
@@ -478,10 +236,6 @@ export class TeamService {
     }
   }
 
-  /**
-   * Update team member personalization (name, relationship, notes)
-   * Also updates the user's display_name in users table if custom_name is provided
-   */
   async updateMemberPersonalization(
     teamMemberId: string,
     updates: {
@@ -494,18 +248,6 @@ export class TeamService {
       const user = await authService.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // 🎯 NEW: Get member_id from team_members to update their display_name
-      const { data: teamMember, error: fetchError } = await supabase
-        .from('team_members')
-        .select('member_id')
-        .eq('id', teamMemberId)
-        .eq('user_id', user.id)
-        .single();
-
-      if (fetchError) throw fetchError;
-      if (!teamMember) throw new Error('Team member not found');
-
-      // Update team_members table (custom_name, relationship, notes)
       const { error } = await supabase
         .from('team_members')
         .update(updates)
@@ -513,23 +255,6 @@ export class TeamService {
         .eq('user_id', user.id);
 
       if (error) throw error;
-
-      // 🎯 NEW: If custom_name is provided, also update users.display_name
-      if (updates.custom_name && updates.custom_name.trim()) {
-        const { error: userUpdateError } = await supabase
-          .from('users')
-          .update({ display_name: updates.custom_name.trim() })
-          .eq('id', teamMember.member_id);
-
-        if (userUpdateError) {
-          console.error('⚠️ [Team] Failed to update user display_name:', userUpdateError);
-          // Don't throw - team_members update succeeded, this is just a nice-to-have
-        } else {
-          console.log('✅ [Team] Updated user display_name:', updates.custom_name);
-        }
-      }
-
-      console.log('✅ [Team] Member personalization updated');
       return { error: null };
     } catch (error) {
       console.error('❌ [Team] Update member personalization error:', error);
@@ -537,9 +262,37 @@ export class TeamService {
     }
   }
 
+  // ============================================
+  // TEAM CHALLENGE INVITATIONS
+  // ============================================
+
   /**
-   * Assign challenge to team member
+   * Cancel team challenge invitation (for team challenges, not regular team invitations)
    */
+  async cancelTeamChallengeInvitation(invitationId: string): Promise<{ error: Error | null }> {
+    try {
+      const user = await authService.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('team_challenge_invitations')
+        .delete()
+        .eq('id', invitationId)
+        .eq('invited_by', user.id); // Only host can cancel
+
+      if (error) throw error;
+      console.log('🗑️ [Team] Team challenge invitation cancelled');
+      return { error: null };
+    } catch (error) {
+      console.error('❌ [Team] Cancel team challenge invitation error:', error);
+      return { error: error as Error };
+    }
+  }
+
+  // ============================================
+  // CHALLENGE ASSIGNMENTS
+  // ============================================
+
   async assignChallenge(
     recipientId: string,
     challengeId: string,
@@ -559,8 +312,6 @@ export class TeamService {
         });
 
       if (error) throw error;
-
-      console.log('🎯 [Team] Challenge assigned');
       return { error: null };
     } catch (error) {
       console.error('❌ [Team] Assign challenge error:', error);
@@ -568,16 +319,10 @@ export class TeamService {
     }
   }
 
-  /**
-   * Get received challenge assignments (pending)
-   */
   async getReceivedChallenges(): Promise<ChallengeAssignment[]> {
     try {
       const user = await authService.getUser();
-      if (!user) {
-        console.log('❌ [Team] No user found for getReceivedChallenges');
-        return [];
-      }
+      if (!user) return [];
 
       const { data, error } = await supabase
         .from('challenge_assignments')
@@ -590,7 +335,7 @@ export class TeamService {
           status,
           sent_at,
           responded_at,
-          sender:sender_id(display_name, avatar_url),
+          sender:sender_id(display_name, nickname, avatar_url),
           challenge:admin_challenge_id(title, goal_steps, image_url)
         `)
         .eq('recipient_id', user.id)
@@ -599,11 +344,10 @@ export class TeamService {
 
       if (error) throw error;
 
-      // Transform data to match ChallengeAssignment interface
       const assignments = (data || []).map((item: any) => ({
         id: item.id,
         sender_id: item.sender_id,
-        sender_name: item.sender?.display_name || null,
+        sender_name: item.sender?.nickname || item.sender?.display_name || null,
         sender_avatar: item.sender?.avatar_url || null,
         admin_challenge_id: item.admin_challenge_id,
         challenge_title: item.challenge?.title || 'Unknown Challenge',
@@ -622,9 +366,6 @@ export class TeamService {
     }
   }
 
-  /**
-   * Get count of pending challenge assignments
-   */
   async getPendingChallengesCount(): Promise<number> {
     try {
       const user = await authService.getUser();
@@ -637,7 +378,6 @@ export class TeamService {
         .eq('status', 'pending');
 
       if (error) throw error;
-
       return count || 0;
     } catch (error) {
       console.error('❌ [Team] Get pending challenges count error:', error);
@@ -645,15 +385,11 @@ export class TeamService {
     }
   }
 
-  /**
-   * Accept challenge assignment (without starting it immediately)
-   */
   async acceptChallengeAssignment(assignmentId: string): Promise<{ error: Error | null }> {
     try {
       const user = await authService.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Update assignment status to 'accepted' (but don't create user_challenge yet)
       const { error: updateError } = await supabase
         .from('challenge_assignments')
         .update({
@@ -665,8 +401,6 @@ export class TeamService {
         .eq('status', 'pending');
 
       if (updateError) throw updateError;
-
-      console.log('✅ [Team] Challenge assignment accepted (not started yet)');
       return { error: null };
     } catch (error) {
       console.error('❌ [Team] Accept challenge assignment error:', error);
@@ -674,19 +408,14 @@ export class TeamService {
     }
   }
 
-  /**
-   * Start an accepted challenge assignment
-   */
   async startChallengeAssignment(assignmentId: string): Promise<{ error: Error | null }> {
     try {
       const user = await authService.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Get user profile to get device_id
       const profile = await authService.getUserProfile();
       if (!profile) throw new Error('User profile not found');
 
-      // Get assignment details including sender_id
       const { data: assignment, error: fetchError } = await supabase
         .from('challenge_assignments')
         .select('admin_challenge_id, recipient_id, sender_id, status, user_challenge_id')
@@ -698,13 +427,10 @@ export class TeamService {
       if (!assignment) throw new Error('Assignment not found');
       if (assignment.status !== 'accepted') throw new Error('Challenge must be accepted first');
 
-      // If challenge already has user_challenge_id, it was already started
       if (assignment.user_challenge_id) {
-        console.log('✅ [Team] Challenge already started, skipping creation');
         return { error: null };
       }
 
-      // Check if user already has ANY other DIFFERENT active challenge
       const { data: activeChallenge } = await supabase
         .from('user_challenges')
         .select('id, admin_challenge_id')
@@ -716,17 +442,8 @@ export class TeamService {
         throw new Error('You already have an active challenge. Complete or pause it first before starting a new one.');
       }
 
-      // Cast all IDs explicitly as text to avoid UUID casting errors
-      const deviceId = profile.device_id || crypto.randomUUID();
-      
-      console.log('🔍 [Team] Creating user_challenge with:', {
-        user_id: user.id,
-        device_id: deviceId,
-        admin_challenge_id: assignment.admin_challenge_id,
-        assigned_by: assignment.sender_id,
-      });
+      const deviceId = profile.device_id || getDeviceId();
 
-      // Create user_challenge (start the challenge)
       const { data: userChallenge, error: createError } = await supabase
         .from('user_challenges')
         .insert({
@@ -741,12 +458,8 @@ export class TeamService {
         .select()
         .single();
 
-      if (createError) {
-        console.error('❌ [Team] Create user_challenge error:', createError);
-        throw createError;
-      }
+      if (createError) throw createError;
 
-      // Update assignment with user_challenge_id
       const { error: updateError } = await supabase
         .from('challenge_assignments')
         .update({
@@ -756,7 +469,6 @@ export class TeamService {
 
       if (updateError) throw updateError;
 
-      console.log('✅ [Team] Challenge assignment started');
       return { error: null };
     } catch (error) {
       console.error('❌ [Team] Start challenge assignment error:', error);
@@ -764,9 +476,6 @@ export class TeamService {
     }
   }
 
-  /**
-   * Cancel challenge assignment (sender only, before it's accepted)
-   */
   async cancelChallengeAssignment(assignmentId: string): Promise<{ error: Error | null }> {
     try {
       const user = await authService.getUser();
@@ -780,8 +489,6 @@ export class TeamService {
         .eq('status', 'pending');
 
       if (error) throw error;
-
-      console.log('🗑️ [Team] Challenge assignment cancelled');
       return { error: null };
     } catch (error) {
       console.error('❌ [Team] Cancel challenge assignment error:', error);
@@ -789,9 +496,6 @@ export class TeamService {
     }
   }
 
-  /**
-   * Reject challenge assignment
-   */
   async rejectChallengeAssignment(assignmentId: string): Promise<{ error: Error | null }> {
     try {
       const { error } = await supabase
@@ -803,8 +507,6 @@ export class TeamService {
         .eq('id', assignmentId);
 
       if (error) throw error;
-
-      console.log('❌ [Team] Challenge assignment rejected');
       return { error: null };
     } catch (error) {
       console.error('❌ [Team] Reject challenge assignment error:', error);
@@ -812,10 +514,6 @@ export class TeamService {
     }
   }
 
-  /**
-   * Decline an already accepted challenge (before starting it)
-   * Changes status back to 'rejected'
-   */
   async declineChallenge(assignmentId: string): Promise<{ error: Error | null }> {
     try {
       const user = await authService.getUser();
@@ -833,8 +531,6 @@ export class TeamService {
         .is('user_challenge_id', null);
 
       if (error) throw error;
-
-      console.log('🗑️ [Team] Accepted challenge declined');
       return { error: null };
     } catch (error) {
       console.error('❌ [Team] Decline challenge error:', error);
@@ -842,9 +538,6 @@ export class TeamService {
     }
   }
 
-  /**
-   * Get sent challenge assignments (all statuses)
-   */
   async getSentChallengeAssignments(): Promise<ChallengeAssignment[]> {
     try {
       const user = await authService.getUser();
@@ -862,7 +555,7 @@ export class TeamService {
           sent_at,
           responded_at,
           user_challenge_id,
-          recipient:recipient_id(display_name, avatar_url),
+          recipient:recipient_id(display_name, nickname, avatar_url),
           challenge:admin_challenge_id(title, goal_steps, image_url),
           user_challenge:user_challenge_id(current_steps, status)
         `)
@@ -871,12 +564,11 @@ export class TeamService {
 
       if (error) throw error;
 
-      // Transform data
       const assignments = (data || []).map((item: any) => ({
         id: item.id,
         sender_id: item.sender_id,
         recipient_id: item.recipient_id,
-        recipient_name: item.recipient?.display_name || null,
+        recipient_name: item.recipient?.nickname || item.recipient?.display_name || null,
         recipient_avatar: item.recipient?.avatar_url || null,
         admin_challenge_id: item.admin_challenge_id,
         challenge_title: item.challenge?.title || 'Unknown Challenge',
@@ -900,9 +592,6 @@ export class TeamService {
     }
   }
 
-  /**
-   * Get received challenge assignments (all statuses - including active ones)
-   */
   async getReceivedChallengeHistory(): Promise<ChallengeAssignment[]> {
     try {
       const user = await authService.getUser();
@@ -920,7 +609,7 @@ export class TeamService {
           sent_at,
           responded_at,
           user_challenge_id,
-          sender:sender_id(display_name, avatar_url),
+          sender:sender_id(display_name, nickname, avatar_url),
           challenge:admin_challenge_id(title, goal_steps, image_url),
           user_challenge:user_challenge_id(current_steps, status)
         `)
@@ -929,11 +618,10 @@ export class TeamService {
 
       if (error) throw error;
 
-      // Transform data
       const assignments = (data || []).map((item: any) => ({
         id: item.id,
         sender_id: item.sender_id,
-        sender_name: item.sender?.display_name || null,
+        sender_name: item.sender?.nickname || item.sender?.display_name || null,
         sender_avatar: item.sender?.avatar_url || null,
         admin_challenge_id: item.admin_challenge_id,
         challenge_title: item.challenge?.title || 'Unknown Challenge',

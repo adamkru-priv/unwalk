@@ -42,10 +42,28 @@ export function InviteMoreToTeamChallengeModal({
       console.log('[InviteMoreModal] Loading team members for user:', user.id);
       console.log('[InviteMoreModal] Already invited:', alreadyInvitedUserIds);
 
-      // Get all team members (excluding current user and already invited)
+      // 🎯 FIX: Get all team members EXCLUDING those with rejected/cancelled invitations for THIS challenge
+      // We want to show:
+      // 1. Team members who have NEVER been invited to this challenge
+      // 2. Team members who were removed from this challenge (challenge_status=rejected AND active_challenge_id=null)
+      
+      // First, get members who are currently invited/accepted to THIS challenge
+      const { data: currentChallengeMembers, error: challengeError } = await supabase
+        .from('team_members')
+        .select('member_id')
+        .eq('user_id', user.id)
+        .eq('active_challenge_id', challengeId)
+        .in('challenge_status', ['invited', 'accepted']);
+
+      if (challengeError) throw challengeError;
+
+      const excludedMemberIds = (currentChallengeMembers || []).map(m => m.member_id);
+      console.log('[InviteMoreModal] Members currently in this challenge:', excludedMemberIds);
+
+      // Now get ALL team members (general team, not challenge-specific)
       const { data, error } = await supabase
         .from('team_members')
-        .select('member_id, member:users!member_id(id, display_name, avatar_url)')
+        .select('member_id, member:users!member_id(id, display_name, nickname, avatar_url)')
         .eq('user_id', user.id)
         .neq('member_id', user.id);
 
@@ -58,14 +76,14 @@ export function InviteMoreToTeamChallengeModal({
           console.log('[InviteMoreModal] Processing member:', m);
           return m.member;
         })
-        .filter((m: any) => !alreadyInvitedUserIds.includes(m.member.id)) // Filter out already invited
+        .filter((m: any) => !excludedMemberIds.includes(m.member.id)) // 🎯 Filter out currently invited/accepted
         .map((m: any) => ({
           id: m.member.id,
-          display_name: m.member.display_name || 'Unknown',
+          display_name: m.member.nickname || m.member.display_name || 'Unknown',
           avatar_url: m.member.avatar_url
         }));
 
-      console.log('[InviteMoreModal] Processed members:', members);
+      console.log('[InviteMoreModal] Available members to invite:', members);
       setTeamMembers(members);
     } catch (error) {
       console.error('Failed to load team members:', error);

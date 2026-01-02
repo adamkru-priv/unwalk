@@ -8,6 +8,7 @@ interface TeamMember {
   steps: number;
   percentage: number;
   isCurrentUser?: boolean;
+  isHost?: boolean; // 🎯 NEW: Flag to identify the host
 }
 
 interface PendingInvitation {
@@ -24,9 +25,10 @@ interface TeamChallengeSlotsProps {
   onInviteClick?: () => void;
   onRemoveMember?: (memberId: string, memberName: string) => void;
   onCancelInvitation?: (invitationId: string) => void;
+  isHost?: boolean; // 🎯 NEW: Is current user the host?
 }
 
-export function TeamChallengeSlots({ members, challengeId, maxMembers = 5, onInviteClick, onRemoveMember, onCancelInvitation }: TeamChallengeSlotsProps) {
+export function TeamChallengeSlots({ members, challengeId, maxMembers = 5, onInviteClick, onRemoveMember, onCancelInvitation, isHost }: TeamChallengeSlotsProps) {
   const [pendingInvitations, setPendingInvitations] = useState<PendingInvitation[]>([]);
 
   const loadPendingInvitations = async () => {
@@ -49,7 +51,7 @@ export function TeamChallengeSlots({ members, challengeId, maxMembers = 5, onInv
           id,
           member_id,
           challenge_status,
-          invited_user:users!member_id(display_name, avatar_url)
+          invited_user:users!member_id(display_name, nickname, avatar_url)
         `)
         .eq('user_id', user.id) // You are the host
         .eq('active_challenge_id', challengeId) // For this specific challenge
@@ -64,7 +66,8 @@ export function TeamChallengeSlots({ members, challengeId, maxMembers = 5, onInv
       const invitations = (data || []).map((inv: any) => ({
         id: inv.id,
         invited_user: inv.member_id,
-        display_name: inv.invited_user?.display_name || 'Unknown',
+        // ✅ Use nickname if available, otherwise display_name
+        display_name: inv.invited_user?.nickname || inv.invited_user?.display_name || 'Unknown',
         avatar_url: inv.invited_user?.avatar_url
       }));
 
@@ -82,8 +85,17 @@ export function TeamChallengeSlots({ members, challengeId, maxMembers = 5, onInv
     loadPendingInvitations();
   }, [challengeId, members.length]); // Reload when members count changes (after sending invitation)
 
+  // 🎯 NEW: Sort members - host always first, then by steps descending
+  const sortedMembers = [...members].sort((a, b) => {
+    // Host always comes first
+    if (a.isHost && !b.isHost) return -1;
+    if (!a.isHost && b.isHost) return 1;
+    // Then sort by steps (highest first)
+    return b.steps - a.steps;
+  });
+
   // 🎯 Combine members + pending invitations into one array for grid
-  const totalSlots = members.length + pendingInvitations.length;
+  const totalSlots = sortedMembers.length + pendingInvitations.length;
   const emptySlots = Math.max(0, (maxMembers + 1) - totalSlots);
 
   return (
@@ -95,14 +107,16 @@ export function TeamChallengeSlots({ members, challengeId, maxMembers = 5, onInv
       {/* Grid 3x2 - wszyscy członkowie + zaproszenia */}
       <div className="grid grid-cols-3 gap-3">
         {/* Active members */}
-        {members.map((member) => (
+        {sortedMembers.map((member) => (
           <div key={member.id} className="flex flex-col items-center group">
             {/* Krzesło z awatarem */}
             <div className="relative mb-2">
-              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg border-2 border-white dark:border-gray-800 ${
-                member.isCurrentUser 
-                  ? 'bg-gradient-to-br from-blue-500 to-purple-600' 
-                  : 'bg-gradient-to-br from-orange-400 to-pink-500'
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg border-2 ${
+                member.isHost
+                  ? 'border-yellow-400 dark:border-yellow-500 bg-gradient-to-br from-yellow-400 to-orange-500'
+                  : member.isCurrentUser 
+                  ? 'border-white dark:border-gray-800 bg-gradient-to-br from-blue-500 to-purple-600' 
+                  : 'border-white dark:border-gray-800 bg-gradient-to-br from-orange-400 to-pink-500'
               }`}>
                 {member.avatar ? (
                   <img 
@@ -117,8 +131,8 @@ export function TeamChallengeSlots({ members, challengeId, maxMembers = 5, onInv
                 )}
               </div>
               
-              {/* Przycisk usuwania - tylko dla innych userów, nie dla Ciebie */}
-              {!member.isCurrentUser && onRemoveMember && (
+              {/* Przycisk usuwania - tylko host może usuwać innych (nie siebie) */}
+              {isHost && !member.isCurrentUser && onRemoveMember && (
                 <button
                   onClick={(e) => {
                     e.preventDefault();
@@ -135,18 +149,25 @@ export function TeamChallengeSlots({ members, challengeId, maxMembers = 5, onInv
               )}
             </div>
             
-            {/* Nazwa */}
+            {/* Nazwa z rolą */}
             <div className={`text-xs font-semibold text-center truncate w-full mb-0.5 ${
-              member.isCurrentUser 
+              member.isHost
+                ? 'text-yellow-600 dark:text-yellow-400'
+                : member.isCurrentUser 
                 ? 'text-blue-600 dark:text-blue-400' 
                 : 'text-gray-900 dark:text-white'
             }`}>
-              {member.name}{member.isCurrentUser ? ' (You)' : ''}
+              {member.name}
+              {member.isHost && member.isCurrentUser && ' (You, Host)'}
+              {member.isHost && !member.isCurrentUser && ' (Host)'}
+              {!member.isHost && member.isCurrentUser && ' (You)'}
             </div>
             
             {/* Procent wkładu */}
             <div className={`text-xs font-bold ${
-              member.isCurrentUser 
+              member.isHost
+                ? 'text-yellow-600 dark:text-yellow-400'
+                : member.isCurrentUser 
                 ? 'text-blue-600 dark:text-blue-400' 
                 : 'text-orange-600 dark:text-orange-400'
             }`}>
@@ -155,7 +176,7 @@ export function TeamChallengeSlots({ members, challengeId, maxMembers = 5, onInv
           </div>
         ))}
 
-        {/* Pending invitations - pokazujemy jako krzesła */}
+        {/* Pending invitations - pokazujemy jako krzesła (tylko host widzi X) */}
         {pendingInvitations.map((invitation) => (
           <div key={`pending-${invitation.id}`} className="flex flex-col items-center group">
             <div className="relative mb-2">
@@ -177,8 +198,8 @@ export function TeamChallengeSlots({ members, challengeId, maxMembers = 5, onInv
                 </div>
               </div>
               
-              {/* Przycisk anulowania zaproszenia */}
-              {onCancelInvitation && (
+              {/* Przycisk anulowania zaproszenia - tylko dla hosta */}
+              {isHost && onCancelInvitation && (
                 <button
                   onClick={(e) => {
                     e.preventDefault();
