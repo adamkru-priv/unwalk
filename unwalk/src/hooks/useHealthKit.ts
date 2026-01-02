@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { healthKitService } from '../services/healthKit.native';
 import { useChallengeStore } from '../stores/useChallengeStore';
-import { syncDailySteps, getTodayQuest, updateQuestProgress } from '../lib/gamification';
+import { getTodayQuest, updateQuestProgress } from '../lib/gamification'; // ✅ REMOVED: syncDailySteps import
 import { updateChallengeProgress, getActiveTeamChallenge } from '../lib/api'; // 🎯 FIX: Import getActiveTeamChallenge
 
 export function useHealthKit() {
@@ -24,11 +24,17 @@ export function useHealthKit() {
         console.log('✅ Health Connect available:', available);
         setIsAvailable(available);
 
-        // 🎯 Only CHECK if authorized, don't REQUEST automatically
+        // ✅ NEW: Check if already authorized (don't request automatically)
         if (Capacitor.isNativePlatform() && available) {
-          // Check if we already have authorization (don't request it automatically)
-          // User needs to click "Connect" button to request permissions
-          setHealthConnected(false);
+          const authorized = await healthKitService.isAuthorized();
+          console.log('✅ Health Connect authorization status:', authorized);
+          setIsAuthorized(authorized);
+          setHealthConnected(authorized);
+          
+          // If authorized, sync steps immediately
+          if (authorized) {
+            await syncSteps();
+          }
         } else {
           setHealthConnected(false);
         }
@@ -38,7 +44,7 @@ export function useHealthKit() {
         setHealthConnected(false);
       }
     })();
-  }, [setHealthConnected, setTodaySteps]);
+  }, [setHealthConnected]);
 
   const requestPermission = useCallback(async (): Promise<boolean> => {
     setIsLoading(true);
@@ -63,14 +69,15 @@ export function useHealthKit() {
 
     setIsLoading(true);
     try {
-      // 🎯 Get TODAY'S steps (from beginning of day) - for Daily XP and Quests
+      // 🎯 Get TODAY'S steps (from beginning of day) - for Daily Quests only
       const todayStepsCount = await healthKitService.getTodaySteps();
       setTodaySteps(todayStepsCount);
       
-      // Sync steps to backend and award Base XP
+      // ✅ REMOVED: syncDailySteps() - no more Base XP for steps!
+      // Users only get XP from: Solo Challenges, Team Challenges, and Badges
+      
       try {
-        await syncDailySteps(todayStepsCount);
-        console.log(`✅ Synced ${todayStepsCount} steps → ${Math.floor(todayStepsCount / 1000)} Base XP`);
+        console.log(`✅ Synced ${todayStepsCount} steps (no XP awarded)`);
         
         // Update Daily Quest progress if quest is steps-based
         try {
@@ -116,7 +123,7 @@ export function useHealthKit() {
           console.error('Failed to update team challenge progress:', teamError);
         }
       } catch (error) {
-        console.error('Failed to sync daily steps to backend:', error);
+        console.error('Failed to sync steps to backend:', error);
       }
       
       return todayStepsCount;

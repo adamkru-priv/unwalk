@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useHealthKit } from '../../../hooks/useHealthKit';
 import { useChallengeStore } from '../../../stores/useChallengeStore';
 
@@ -35,11 +35,26 @@ export function StepsHistoryChart({ isOpen, onClose }: StepsHistoryChartProps) {
   const todaySteps = useChallengeStore((s) => s.todaySteps);
   const userProfile = useChallengeStore((s) => s.userProfile);
 
+  // ✅ Ref do kontenera kalendarza dla auto-scroll
+  const calendarRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (isOpen) {
       loadData();
     }
   }, [isOpen, todaySteps]);
+
+  // ✅ Auto-scroll do końca (aktualnego tygodnia) po załadowaniu
+  useEffect(() => {
+    if (isOpen && !loading && weeks.length > 0 && calendarRef.current) {
+      // Poczekaj na render, potem scrolluj do końca
+      setTimeout(() => {
+        if (calendarRef.current) {
+          calendarRef.current.scrollTop = calendarRef.current.scrollHeight;
+        }
+      }, 100);
+    }
+  }, [isOpen, loading, weeks]);
 
   const loadData = async () => {
     setLoading(true);
@@ -120,38 +135,32 @@ export function StepsHistoryChart({ isOpen, onClose }: StepsHistoryChartProps) {
         });
       }
 
-      // Oblicz statystyki (tylko z rzeczywistych dni, nie pustych)
-      const realDays = extendedDays.filter(d => d.steps >= 0);
-      const daysWithData = realDays.filter(d => d.steps > 0);
-      const daysAboveGoal = realDays.filter(d => d.steps >= DAILY_GOAL).length;
+      // Tylko rzeczywiste dni (bez pustych placeholder'ów)
+      const realDays = allDays.filter(d => d.steps >= 0);
       
-      // Current streak (od dzisiaj wstecz)
+      // ✅ NOWE: Streak - dni po kolei powyżej celu (od dzisiaj wstecz)
       let currentStreak = 0;
       for (let i = realDays.length - 1; i >= 0; i--) {
         if (realDays[i].steps >= DAILY_GOAL) {
           currentStreak++;
         } else {
-          break;
+          break; // Przerwij przy pierwszym dniu poniżej celu
         }
       }
       
-      // Best streak
-      let bestStreak = 0;
-      let tempStreak = 0;
+      // ✅ NOWE: Najlepsza liczba kroków w całej historii
+      let bestDaySteps = 0;
       for (const day of realDays) {
-        if (day.steps >= DAILY_GOAL) {
-          tempStreak++;
-          bestStreak = Math.max(bestStreak, tempStreak);
-        } else {
-          tempStreak = 0;
+        if (day.steps > bestDaySteps) {
+          bestDaySteps = day.steps;
         }
       }
       
       setStats({
-        totalDays: daysWithData.length,
-        daysAboveGoal,
+        totalDays: 0, // Nie używamy już
+        daysAboveGoal: 0, // Nie używamy już
         currentStreak,
-        bestStreak
+        bestStreak: bestDaySteps // Używamy dla "best" (max steps)
       });
 
       // Pogrupuj w tygodnie (używamy extendedDays zamiast allDays)
@@ -206,8 +215,8 @@ export function StepsHistoryChart({ isOpen, onClose }: StepsHistoryChartProps) {
         }
       }
       
-      // ✅ NIE odwracamy kolejności - najstarsze na górze, najnowsze na dole
-      // weeksData.reverse(); // USUNIĘTE
+      // ✅ NIE odwracamy kolejności - zachowujemy chronologiczną (starsze → nowsze)
+      // Auto-scroll do końca załatwi wyświetlenie aktualnego tygodnia na górze
       
       // Dodaj nagłówki miesięcy
       let lastSeenMonth = '';
@@ -258,29 +267,21 @@ export function StepsHistoryChart({ isOpen, onClose }: StepsHistoryChartProps) {
         </div>
 
         {/* Stats Bar */}
-        {!loading && stats.totalDays > 0 && (
-          <div className="grid grid-cols-4 gap-2 p-4 border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
-            <div className="text-center">
-              <div className="text-lg font-black text-gray-900 dark:text-white">{stats.totalDays}</div>
-              <div className="text-[10px] text-gray-500 dark:text-gray-400">Total days</div>
-            </div>
-            <div className="text-center">
-              <div className="text-lg font-black text-green-500">{stats.daysAboveGoal}</div>
-              <div className="text-[10px] text-gray-500 dark:text-gray-400">Above goal</div>
-            </div>
+        {!loading && (
+          <div className="grid grid-cols-2 gap-2 p-4 border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
             <div className="text-center">
               <div className="text-lg font-black text-orange-500">{stats.currentStreak}</div>
-              <div className="text-[10px] text-gray-500 dark:text-gray-400">Current</div>
+              <div className="text-[10px] text-gray-500 dark:text-gray-400">Current Streak</div>
             </div>
             <div className="text-center">
-              <div className="text-lg font-black text-purple-500">{stats.bestStreak}</div>
-              <div className="text-[10px] text-gray-500 dark:text-gray-400">Best</div>
+              <div className="text-lg font-black text-purple-500">{stats.bestStreak.toLocaleString()}</div>
+              <div className="text-[10px] text-gray-500 dark:text-gray-400">Best Steps</div>
             </div>
           </div>
         )}
 
         {/* Scrollable calendar */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+        <div ref={calendarRef} className="flex-1 overflow-y-auto overflow-x-hidden">
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-gray-500 dark:text-gray-400">Loading...</div>

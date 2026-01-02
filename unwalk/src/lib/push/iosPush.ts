@@ -303,6 +303,26 @@ async function fetchNativeTokenFallback(): Promise<string | null> {
 }
 
 /**
+ * Clear the app badge counter on iOS
+ */
+export async function clearBadgeCount(): Promise<void> {
+  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'ios') {
+    return;
+  }
+
+  try {
+    console.log('🔔 [Push] Clearing badge count...');
+    
+    // Remove all delivered notifications
+    await PushNotifications.removeAllDeliveredNotifications();
+    
+    console.log('✅ [Push] Badge count cleared');
+  } catch (e) {
+    console.error('❌ [Push] Failed to clear badge count:', e);
+  }
+}
+
+/**
  * Check if push notifications are available and check permission status
  */
 export async function checkPushNotificationStatus(): Promise<{
@@ -371,6 +391,8 @@ export async function initIosPushNotifications(): Promise<void> {
   if (initialized) {
     console.log('🔔 [Push] Already initialized, re-registering token...');
     void reregisterPushToken();
+    // ✅ NEW: Clear badge on app resume
+    void clearBadgeCount();
     return;
   }
   
@@ -387,6 +409,12 @@ export async function initIosPushNotifications(): Promise<void> {
 
   try {
     console.log(`🔔 [Push] Initializing push notifications for ${platform}`);
+
+    // ✅ NEW: Clear badge count on app start
+    if (platform === 'ios') {
+      console.log('🔔 [Push] Clearing badge on app start...');
+      await clearBadgeCount();
+    }
 
     // ✅ CRITICAL: Add registration listener BEFORE calling register()
     // This ensures we catch the token when it arrives (especially important for Android!)
@@ -438,6 +466,11 @@ export async function initIosPushNotifications(): Promise<void> {
 
     PushNotifications.addListener('pushNotificationActionPerformed', (action: ActionPerformed) => {
       console.log('➡️ [Push] pushNotificationActionPerformed:', action);
+      
+      // ✅ NEW: Clear badge when user taps on notification
+      if (platform === 'ios') {
+        void clearBadgeCount();
+      }
     });
 
     const permStatus = await PushNotifications.checkPermissions();

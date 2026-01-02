@@ -491,6 +491,7 @@ export async function createCustomChallenge(challenge: {
       is_image_hidden: challenge.is_image_hidden,
       deadline: challenge.deadline,
       is_custom: true,
+      points: 0, // ✅ NEW: Custom challenges don't award XP
       created_by_device_id: deviceId,
       created_by_user_id: user?.id ?? null,
       difficulty: 'medium',

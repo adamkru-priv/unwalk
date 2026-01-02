@@ -21,6 +21,7 @@ export interface HealthKitService {
   echo: () => Promise<string>;
   isAvailable: () => Promise<boolean>;
   requestAuthorization: () => Promise<boolean>;
+  isAuthorized: () => Promise<boolean>; // ✅ NEW: Check if already authorized
   // Keep legacy name used by some callers
   getStepCount: (startDate: Date, endDate: Date) => Promise<number>;
   // Alias used by hooks/web-style API
@@ -57,6 +58,18 @@ class HealthKitNativeService implements HealthKitService {
       return result.available;
     } catch (error) {
       console.error('❌ Health availability check failed:', error);
+      return false;
+    }
+  }
+
+  async isAuthorized(): Promise<boolean> {
+    try {
+      const { MoveeHealthKit } = await loadMoveeHealthKit();
+      const result = await MoveeHealthKit.isAuthorized();
+      console.log('✅ Health authorization status:', result.authorized);
+      return result.authorized;
+    } catch (error) {
+      console.error('❌ Health authorization check failed:', error);
       return false;
     }
   }
@@ -117,6 +130,11 @@ class HealthKitMockService implements HealthKitService {
 
   async isAvailable(): Promise<boolean> {
     console.log('⚠️ HealthKit Mock: Running on web/simulator');
+    return false;
+  }
+
+  async isAuthorized(): Promise<boolean> {
+    console.log('⚠️ HealthKit Mock: Authorization check simulated');
     return false;
   }
 

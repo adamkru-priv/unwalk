@@ -280,7 +280,7 @@ export function Dashboard() {
     <div className="min-h-screen bg-gray-900 text-white relative overflow-hidden">
       {/* BLURRED IMAGE AS BACKGROUND */}
       <div className="absolute inset-0 z-0 pointer-events-none">
-        {activeUserChallenge.admin_challenge?.image_url ? (
+        {activeUserChallenge.admin_challenge?.image_url && !activeUserChallenge.admin_challenge.image_url.includes('placeholder') ? (
           <>
             <img
               src={activeUserChallenge.admin_challenge.image_url}
@@ -300,7 +300,7 @@ export function Dashboard() {
             <div className="absolute inset-0 bg-gradient-to-b from-gray-900/60 via-transparent to-gray-900/80" />
           </>
         ) : (
-          // Fallback gradient when no image
+          // Fallback gradient when no image or placeholder
           <div className="absolute inset-0 bg-gradient-to-br from-purple-900/50 via-gray-900 to-blue-900/50" />
         )}
       </div>

@@ -19,7 +19,7 @@ import { supabase } from './lib/supabase';
 import './lib/authDebug';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
-import { reregisterPushToken } from './lib/push/iosPush';
+import { reregisterPushToken, clearBadgeCount } from './lib/push/iosPush';
 import { LeaderboardScreen } from './components/leaderboard/LeaderboardScreen';
 
 function App() {
@@ -181,6 +181,8 @@ function App() {
         
         // ✅ FIX: Re-register push token when app becomes visible
         void reregisterPushToken();
+        // ✅ NEW: Clear badge count when app becomes visible
+        void clearBadgeCount();
         
         const { data: { session } } = await supabase.auth.getSession();
         const hasEmail = !!session?.user?.email;
@@ -208,6 +210,8 @@ function App() {
           if (isActive) {
             console.log('✅ [App] App became active - re-registering push token...');
             void reregisterPushToken();
+            // ✅ NEW: Clear badge count when app becomes active
+            void clearBadgeCount();
           }
         });
       })();

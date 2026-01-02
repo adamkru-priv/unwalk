@@ -99,17 +99,27 @@ export function ChallengeHistory({ embedded = false }: ChallengeHistoryProps) {
                   className="flex items-center gap-3 py-2.5 px-3 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg transition-colors"
                 >
                   {/* Image Thumbnail */}
-                  {challenge.admin_challenge?.image_url && (
+                  {challenge.admin_challenge?.image_url && !challenge.admin_challenge.image_url.includes('placeholder') ? (
                     <button
                       onClick={() => setSelectedImage(challenge.admin_challenge!.image_url)}
                       className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-gray-200 dark:bg-gray-800 hover:ring-2 hover:ring-blue-500 transition-all"
                     >
                       <img
                         src={challenge.admin_challenge.image_url}
-                        alt=""
+                        alt={challenge.admin_challenge.title}
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          console.error('Failed to load image:', challenge.admin_challenge?.image_url);
+                          // Hide image on error and show parent fallback
+                          (e.target as HTMLImageElement).parentElement!.style.display = 'none';
+                        }}
                       />
                     </button>
+                  ) : (
+                    // Fallback icon if no image or placeholder
+                    <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center">
+                      <span className="text-lg">🎯</span>
+                    </div>
                   )}
 
                   {/* Challenge Info */}
