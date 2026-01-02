@@ -23,7 +23,9 @@ export function ChallengeHistory({ embedded = false }: ChallengeHistoryProps) {
     try {
       setLoading(true);
       const challenges = await getCompletedChallenges();
-      setCompletedChallenges(challenges);
+      // ✅ FIX: Filtruj tylko w pełni ukończone challengy (100%)
+      const fullyCompleted = challenges.filter(c => c.is_fully_completed);
+      setCompletedChallenges(fullyCompleted);
     } catch (error) {
       console.error('Failed to load challenge history:', error);
     } finally {

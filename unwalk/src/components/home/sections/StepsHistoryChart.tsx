@@ -268,14 +268,14 @@ export function StepsHistoryChart({ isOpen, onClose }: StepsHistoryChartProps) {
 
         {/* Stats Bar */}
         {!loading && (
-          <div className="grid grid-cols-2 gap-2 p-4 border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
+          <div className="grid grid-cols-2 gap-2 px-4 py-3 border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
             <div className="text-center">
-              <div className="text-lg font-black text-orange-500">{stats.currentStreak}</div>
-              <div className="text-[10px] text-gray-500 dark:text-gray-400">Current Streak</div>
+              <div className="text-2xl font-black text-orange-500">{stats.currentStreak}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">Current Streak</div>
             </div>
             <div className="text-center">
-              <div className="text-lg font-black text-purple-500">{stats.bestStreak.toLocaleString()}</div>
-              <div className="text-[10px] text-gray-500 dark:text-gray-400">Best Steps</div>
+              <div className="text-2xl font-black text-purple-500">{stats.bestStreak.toLocaleString()}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">Best Steps</div>
             </div>
           </div>
         )}
@@ -299,12 +299,12 @@ export function StepsHistoryChart({ isOpen, onClose }: StepsHistoryChartProps) {
               </div>
             </div>
           ) : (
-            <div className="p-4 space-y-2">
+            <div className="p-4 space-y-3">
               {/* Days of week header - sticky */}
-              <div className="sticky top-0 bg-white dark:bg-[#151A25] pb-2 z-10">
+              <div className="sticky top-0 bg-white dark:bg-[#151A25] pb-3 z-10 border-b border-gray-200 dark:border-gray-800">
                 <div className="grid grid-cols-7 gap-2">
                   {DAYS_OF_WEEK.map((day, i) => (
-                    <div key={i} className="text-center text-xs font-bold text-gray-500 dark:text-gray-400">
+                    <div key={i} className="text-center text-sm font-bold text-gray-700 dark:text-gray-300">
                       {day}
                     </div>
                   ))}

@@ -44,6 +44,7 @@ export interface UserChallenge {
   group_members?: string[]; // Array of device IDs in the group
   team_id?: string; // 🎯 NEW: If set, this is a team challenge (linked to parent team challenge)
   user_id?: string; // 🎯 NEW: User ID for authenticated users
+  is_fully_completed?: boolean; // 🎯 NEW: True if challenge was completed at 100% (not abandoned early)
 }
 
 // Legacy Challenge type (keeping for backward compatibility)
