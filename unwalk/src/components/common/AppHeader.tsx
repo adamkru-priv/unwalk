@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { teamService, type TeamInvitation } from '../../lib/auth';
 import { getUnclaimedChallenges } from '../../lib/api';
 import type { UserChallenge } from '../../types';
+import { Capacitor } from '@capacitor/core';
+import { checkPushNotificationStatus } from '../../lib/push/iosPush';
 
 interface AppHeaderProps {
   title?: string;
@@ -20,8 +22,27 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
   const userProfile = useChallengeStore((s) => s.userProfile);
 
-  // ✅ NEW: Check if push notifications are disabled
-  const pushNotificationsDisabled = userProfile?.push_enabled === false;
+  // ✅ NEW: Check native push notification permission status
+  const [pushNotifStatus, setPushNotifStatus] = useState({
+    isAvailable: false,
+    isGranted: false,
+    isDenied: false,
+    isPrompt: false,
+  });
+
+  // Check push notification status on mount (for native only)
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      checkPushNotificationStatus().then(setPushNotifStatus);
+    }
+  }, []);
+
+  // ✅ FIXED: Show notification bell with slash when:
+  // 1. User disabled push_enabled in settings, OR
+  // 2. Native permission not granted (prompt or denied)
+  const pushNotificationsDisabled = 
+    userProfile?.push_enabled === false || 
+    (Capacitor.isNativePlatform() && pushNotifStatus.isAvailable && !pushNotifStatus.isGranted);
 
   const loadNotifications = useCallback(async () => {
     try {

@@ -483,7 +483,7 @@ export function ProfileScreen() {
                 </div>
                 <div className="text-[13px] text-gray-500 dark:text-gray-400">
                   {isNative && healthKitAvailable
-                    ? isHealthConnected
+                    ? healthKitAuthorized
                       ? `${todaySteps.toLocaleString()} steps today`
                       : 'Not connected'
                     : 'Unavailable'}
