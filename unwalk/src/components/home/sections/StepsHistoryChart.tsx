@@ -47,10 +47,14 @@ export function StepsHistoryChart({ isOpen, onClose }: StepsHistoryChartProps) {
   // ✅ Auto-scroll do końca (aktualnego tygodnia) po załadowaniu
   useEffect(() => {
     if (isOpen && !loading && weeks.length > 0 && calendarRef.current) {
-      // Poczekaj na render, potem scrolluj do końca
+      // Poczekaj na render, potem scrolluj do końca z marginesem
       setTimeout(() => {
         if (calendarRef.current) {
-          calendarRef.current.scrollTop = calendarRef.current.scrollHeight;
+          // Zamiast scrollować na sam dół, scrolluj tak aby aktualny tydzień był widoczny
+          // ale zostawiając przestrzeń od dołu (150px marginesu)
+          const maxScroll = calendarRef.current.scrollHeight - calendarRef.current.clientHeight;
+          const targetScroll = maxScroll - 150; // Zostaw 150px miejsca od dołu
+          calendarRef.current.scrollTop = Math.max(0, targetScroll);
         }
       }, 100);
     }

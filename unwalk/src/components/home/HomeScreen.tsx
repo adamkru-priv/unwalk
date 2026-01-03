@@ -1,5 +1,5 @@
 import { useChallengeStore } from '../../stores/useChallengeStore';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AppHeader } from '../common/AppHeader';
 import { BottomNavigation } from '../common/BottomNavigation';
 import type { UserChallenge } from '../../types';
@@ -12,6 +12,7 @@ import { useHomeData } from './hooks/useHomeData';
 import { useGamification } from './hooks/useGamification';
 import { useHealthKitSync } from './hooks/useHealthKitSync';
 import { useHealthKit } from '../../hooks/useHealthKit';
+import { clearBadgeCount } from '../../lib/push/iosPush';
 
 export function HomeScreen() {
   const [selectedCompletedChallenge, setSelectedCompletedChallenge] = useState<UserChallenge | null>(null);
@@ -56,6 +57,15 @@ export function HomeScreen() {
 
   // 🎯 Get sync function from HealthKit hook
   const { syncSteps } = useHealthKit();
+
+  // ✅ NEW: Clear badge when user opens Home screen
+  useEffect(() => {
+    // Clear the app icon badge when user sees the home screen
+    // This ensures badge is removed even if user didn't tap a notification
+    clearBadgeCount().catch((err) => {
+      console.warn('Failed to clear badge on HomeScreen mount:', err);
+    });
+  }, []); // Run once on mount
 
   // 🎯 Manual refresh function for carousel slides (triggered by refresh button only)
   const handleRefresh = async () => {
