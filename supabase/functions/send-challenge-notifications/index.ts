@@ -26,7 +26,17 @@ Deno.serve(async (req) => {
 
     console.log('🔔 Checking for pending challenge notifications...')
 
-    // Call the database function to send pending notifications
+    // 1. Check and notify expired challenges
+    console.log('⏰ Checking for expired challenges...')
+    const { data: expiredData, error: expiredError } = await supabase.rpc('check_and_notify_expired_challenges')
+    
+    if (expiredError) {
+      console.error('❌ Error checking expired challenges:', expiredError)
+    } else {
+      console.log(`✅ Sent ${expiredData || 0} expiry notifications`)
+    }
+
+    // 2. Call the database function to send pending notifications
     const { data, error } = await supabase.rpc('send_pending_challenge_notifications')
 
     if (error) {
@@ -45,6 +55,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
+        expired_challenges_notified: expiredData || 0,
         sent_count: result.sent_count,
         details: result.details,
         timestamp: new Date().toISOString()

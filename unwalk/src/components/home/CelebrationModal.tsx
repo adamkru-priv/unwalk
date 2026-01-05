@@ -3,7 +3,8 @@ import { motion } from 'framer-motion';
 import type { UserChallenge } from '../../types';
 import { calculateChallengePoints, claimCompletedChallenge } from '../../lib/api';
 import { useChallengeStore } from '../../stores/useChallengeStore';
-import { authService } from '../../lib/auth'; // 🎯 NEW: Import authService
+import { authService } from '../../lib/auth';
+import { analytics, AnalyticsEvents } from '../../lib/analytics'; // 🎯 NEW: Analytics
 
 interface CelebrationModalProps {
   challenge: UserChallenge;
@@ -27,6 +28,23 @@ export function CelebrationModal({ challenge, onClaim }: CelebrationModalProps) 
       
       console.log('✅ [Claim] Challenge claimed successfully with XP reward!');
       
+      // 🎯 NEW: Track challenge completed
+      const durationMs = challenge.started_at 
+        ? new Date().getTime() - new Date(challenge.started_at).getTime()
+        : 0;
+      const durationHours = durationMs / (1000 * 60 * 60);
+      
+      analytics.track(AnalyticsEvents.CHALLENGE_COMPLETED, {
+        challenge_id: challenge.id,
+        challenge_type: challenge.admin_challenge?.is_team_challenge ? 'team' : 'solo',
+        difficulty: challenge.admin_challenge?.difficulty,
+        goal_steps: challenge.admin_challenge?.goal_steps,
+        actual_steps: challenge.current_steps,
+        time_taken_hours: Math.round(durationHours * 10) / 10,
+        xp_earned: xpReward || 0,
+        user_id: challenge.user_id,
+      });
+      
       // 🎯 NEW: Refresh user profile to update XP/Level in header
       console.log('🔄 [Claim] Refreshing user profile...');
       const updatedProfile = await authService.getUserProfile();
@@ -38,6 +56,7 @@ export function CelebrationModal({ challenge, onClaim }: CelebrationModalProps) 
       onClaim();
     } catch (error: any) {
       console.error('❌ [Claim] Failed to claim reward:', error);
+      analytics.trackError(error, { context: 'challenge_claim' });
       alert(`Failed to claim reward: ${error?.message || 'Unknown error'}\n\nPlease try again or contact support.`);
       setClaiming(false);
     }

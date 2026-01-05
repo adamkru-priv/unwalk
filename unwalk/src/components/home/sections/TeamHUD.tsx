@@ -220,12 +220,14 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
       
       console.log('✅ [TeamHUD] Steps updated successfully');
       
-      if (onChallengeStarted) {
-        await onChallengeStarted();
+      // 🎯 FIX: Call onRefresh instead of onChallengeStarted to reload all team data
+      if (onRefresh) {
+        await onRefresh();
       }
     } catch (error) {
       console.error('❌ [TeamHUD] Failed to update steps:', error);
       alert('Failed to update progress. Please try again.');
+    } finally {
       setIsUpdating(false);
     }
   };
@@ -280,51 +282,33 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
     const radius = (size - strokeWidth) / 2;
 
     if (!pendingChallenge) {
+      // 🎯 SIMPLIFIED: Compact empty state - just title, description, and CTA
       return (
         <div className="w-full px-4">
-          <div className="bg-white dark:bg-[#151A25] rounded-3xl p-6 shadow-xl">
-            <div className="text-center mb-4">
-              <h3 className="text-xl font-black text-gray-800 dark:text-white">
-                My Team Challenge
-              </h3>
-            </div>
-
-            <div className="flex justify-center mb-6">
-              <div className="relative" style={{ width: size, height: size }}>
-                <svg className="transform -rotate-90" width={size} height={size}>
-                  <circle
-                    cx={size / 2}
-                    cy={size / 2}
-                    r={radius}
-                    stroke="currentColor"
-                    strokeWidth={strokeWidth}
-                    fill="transparent"
-                    className="text-gray-200 dark:text-gray-800"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <div className="text-6xl mb-2">👥</div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400 font-semibold text-center px-4">
-                    No Team Challenge
-                  </div>
-                </div>
+          <div className="bg-gradient-to-br from-orange-50 to-pink-50 dark:from-orange-900/20 dark:to-pink-900/20 rounded-3xl p-6 shadow-xl border border-orange-200 dark:border-orange-500/30">
+            {/* Compact Icon */}
+            <div className="flex justify-center mb-4">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-500 to-pink-600 flex items-center justify-center shadow-lg">
+                <span className="text-4xl">👥</span>
               </div>
             </div>
 
-            <div className="text-center mb-4">
-              <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-1">
-                Team
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Walk together with friends
+            {/* Title & Description */}
+            <div className="text-center mb-5">
+              <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-2">
+                Ready to Team Up?
+              </h2>
+              <p className="text-gray-600 dark:text-gray-300 text-sm">
+                Team up with friends to reach goals together
               </p>
             </div>
 
+            {/* CTA Button */}
             <button
               onClick={onClick}
-              className="w-full bg-gradient-to-r from-orange-500 to-pink-500 text-white py-4 rounded-2xl font-bold text-base shadow-lg hover:shadow-xl active:scale-98 transition-all duration-200"
+              className="w-full bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white py-4 rounded-2xl font-black text-lg shadow-xl hover:shadow-2xl active:scale-98 transition-all duration-200"
             >
-              Start here
+              Start Team Challenge →
             </button>
           </div>
         </div>
@@ -333,7 +317,7 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
 
     return (
       <div className="w-full px-4">
-        <div className="bg-white dark:bg-[#151A25] rounded-3xl p-6 shadow-xl">
+        <div className="bg-white dark:bg-[#151A25] rounded-3xl pt-6 px-6 pb-12 shadow-xl">
           <div className="text-center mb-4">
             <h3 className="text-xl font-black text-gray-800 dark:text-white">
               My Team Challenge
@@ -490,7 +474,7 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
 
     return (
       <div className="w-full px-4">
-        <div className="bg-white dark:bg-[#151A25] rounded-3xl p-6 shadow-xl relative">
+        <div className="bg-white dark:bg-[#151A25] rounded-3xl pt-6 px-6 pb-8 shadow-xl relative">
           <div className="text-center mb-4">
             <h3 className="text-xl font-black text-gray-800 dark:text-white">
               My Team Challenge
@@ -502,7 +486,32 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
             onClick={handleRefresh}
           >
             <div className="relative transition-transform duration-200 group-hover:scale-105" style={{ width: size, height: size }}>
-              <svg className="transform -rotate-90" width={size} height={size}>
+              {/* 🎯 NEW: Animated background - "filling water" effect (like Solo) */}
+              <div className="absolute inset-0 rounded-full overflow-hidden">
+                <div 
+                  className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-orange-400/30 via-pink-400/20 to-transparent transition-all duration-1000 ease-out"
+                  style={{ 
+                    height: `${progressPercent}%`,
+                    animation: 'wave 3s ease-in-out infinite'
+                  }}
+                />
+                {/* 🎯 Floating footsteps animation */}
+                {progressPercent > 10 && (
+                  <>
+                    <div className="absolute bottom-[20%] left-[30%] text-2xl animate-float" style={{ animationDelay: '0s' }}>
+                      👣
+                    </div>
+                    <div className="absolute bottom-[40%] right-[25%] text-xl animate-float" style={{ animationDelay: '1s' }}>
+                      👣
+                    </div>
+                    <div className="absolute bottom-[60%] left-[40%] text-lg animate-float" style={{ animationDelay: '2s', opacity: 0.6 }}>
+                      👣
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <svg className="transform -rotate-90 relative z-10" width={size} height={size}>
                 <circle
                   cx={size / 2}
                   cy={size / 2}
@@ -536,7 +545,7 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
                 </defs>
               </svg>
 
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
                 <div className="text-xs text-gray-500 dark:text-gray-400 font-bold uppercase mb-1">
                   Team Total
                 </div>

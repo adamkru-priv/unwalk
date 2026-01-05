@@ -556,8 +556,8 @@ class TeamService {
           responded_at,
           user_challenge_id,
           recipient:recipient_id(display_name, nickname, avatar_url),
-          challenge:admin_challenge_id(title, goal_steps, image_url),
-          user_challenge:user_challenge_id(current_steps, status)
+          challenge:admin_challenge_id(title, goal_steps, time_limit_hours, image_url),
+          user_challenge:user_challenge_id(current_steps, status, started_at, completed_at)
         `)
         .eq('sender_id', user.id)
         .order('sent_at', { ascending: false });
@@ -573,6 +573,7 @@ class TeamService {
         admin_challenge_id: item.admin_challenge_id,
         challenge_title: item.challenge?.title || 'Unknown Challenge',
         challenge_goal_steps: item.challenge?.goal_steps || 0,
+        challenge_time_limit_hours: item.challenge?.time_limit_hours || null,
         challenge_image_url: item.challenge?.image_url || '',
         message: item.message,
         status: item.status,
@@ -610,8 +611,8 @@ class TeamService {
           responded_at,
           user_challenge_id,
           sender:sender_id(display_name, nickname, avatar_url),
-          challenge:admin_challenge_id(title, goal_steps, image_url),
-          user_challenge:user_challenge_id(current_steps, status)
+          challenge:admin_challenge_id(title, goal_steps, time_limit_hours, image_url),
+          user_challenge:user_challenge_id(current_steps, status, started_at, completed_at)
         `)
         .eq('recipient_id', user.id)
         .order('sent_at', { ascending: false });
@@ -626,6 +627,7 @@ class TeamService {
         admin_challenge_id: item.admin_challenge_id,
         challenge_title: item.challenge?.title || 'Unknown Challenge',
         challenge_goal_steps: item.challenge?.goal_steps || 0,
+        challenge_time_limit_hours: item.challenge?.time_limit_hours || null,
         challenge_image_url: item.challenge?.image_url || '',
         message: item.message,
         status: item.status,

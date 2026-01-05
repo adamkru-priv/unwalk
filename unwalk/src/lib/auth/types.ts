@@ -104,6 +104,7 @@ export interface ChallengeAssignment {
   admin_challenge_id: string;
   challenge_title: string;
   challenge_goal_steps: number;
+  challenge_time_limit_hours?: number | null; // 🎯 NEW: Time limit from admin_challenge
   challenge_image_url: string;
   message: string | null;
   status: 'pending' | 'accepted' | 'rejected';

@@ -365,8 +365,8 @@ export async function claimCompletedChallenge(userChallengeId: string): Promise<
 
   if (error) throw error;
   
-  // ✅ FIX: Add XP reward ONLY if challenge was FULLY completed (100%)
-  if (data?.is_fully_completed && data?.admin_challenge?.goal_steps) {
+  // ✅ FIX: Add XP reward ONLY if challenge was FULLY completed (100%) AND NOT assigned by someone else
+  if (data?.is_fully_completed && data?.admin_challenge?.goal_steps && !data?.assigned_by) {
     const xpAmount = calculateChallengePoints(data.admin_challenge.goal_steps, data.admin_challenge.is_daily || false);
     
     try {
@@ -384,6 +384,8 @@ export async function claimCompletedChallenge(userChallengeId: string): Promise<
       console.error('⚠️ [API] Failed to add XP reward:', xpError);
       // Don't throw - claiming challenge is more important than XP reward
     }
+  } else if (data?.assigned_by) {
+    console.log('ℹ️ [API] Challenge was assigned by another user, skipping XP reward');
   } else if (!data?.is_fully_completed) {
     console.log('ℹ️ [API] Challenge was not fully completed (< 100%), skipping XP reward');
   }
@@ -432,14 +434,18 @@ export async function updateChallengeStatus(
 }
 
 // Delete user challenge (exit challenge)
+// 🎯 FIX: Set status to 'cancelled' instead of deleting to prevent expiry notifications
 export async function deleteUserChallenge(userChallengeId: string): Promise<void> {
   const { error } = await supabase
     .from('user_challenges')
-    .delete()
+    .update({
+      status: 'cancelled',
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', userChallengeId);
 
   if (error) throw error;
-  console.log('✅ [API] User challenge deleted:', userChallengeId);
+  console.log('✅ [API] User challenge cancelled (not deleted):', userChallengeId);
 }
 
 // ========== CUSTOM CHALLENGES API ==========

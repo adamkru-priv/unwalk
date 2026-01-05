@@ -91,4 +91,30 @@
       transform: translateY(0);
     }
   }
+
+  /* 🎯 NEW: Floating footsteps animation */
+  .animate-float {
+    animation: float 4s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0px);
+      opacity: 0.3;
+    }
+    50% {
+      transform: translateY(-20px);
+      opacity: 0.8;
+    }
+  }
+
+  /* 🎯 NEW: Wave animation for "filling water" effect */
+  @keyframes wave {
+    0%, 100% {
+      border-radius: 50% 50% 40% 40%;
+    }
+    50% {
+      border-radius: 40% 40% 50% 50%;
+    }
+  }
 }

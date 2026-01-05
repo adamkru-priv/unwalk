@@ -71,53 +71,33 @@ export function RunnerHUD({
   };
 
   if (!activeChallenge) {
-    const size = 280;
-    const strokeWidth = 20;
-    const radius = (size - strokeWidth) / 2;
-    
+    // 🎯 SIMPLIFIED: Compact empty state - just title, description, and CTA
     return (
       <div className="w-full px-4">
-        <div className="bg-white dark:bg-[#151A25] rounded-3xl p-6 shadow-xl">
-          <div className="text-center mb-4">
-            <h2 className="text-xl font-black text-gray-800 dark:text-white">My Challenge</h2>
-          </div>
-
-          <div className="flex justify-center mb-6">
-            <div className="relative" style={{ width: size, height: size }}>
-              <svg className="transform -rotate-90" width={size} height={size}>
-                <circle
-                  cx={size / 2}
-                  cy={size / 2}
-                  r={radius}
-                  stroke="currentColor"
-                  strokeWidth={strokeWidth}
-                  fill="transparent"
-                  className="text-gray-200 dark:text-gray-800"
-                />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <div className="text-6xl mb-2 scale-x-[-1]">🚶</div>
-                <div className="text-sm text-gray-500 dark:text-gray-400 font-semibold text-center px-4">
-                  No Active Challenge
-                </div>
-              </div>
+        <div className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-3xl p-6 shadow-xl border border-blue-200 dark:border-blue-500/30">
+          {/* Compact Icon */}
+          <div className="flex justify-center mb-4">
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg">
+              <span className="text-4xl">🎯</span>
             </div>
           </div>
 
-          <div className="text-center mb-4">
-            <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-1">
-              Solo
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Start your personal journey
+          {/* Title & Description */}
+          <div className="text-center mb-5">
+            <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-2">
+              Ready for a Challenge?
+            </h2>
+            <p className="text-gray-600 dark:text-gray-300 text-sm">
+              Track your progress with real-time updates
             </p>
           </div>
 
+          {/* CTA Button */}
           <button
             onClick={onClick}
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 rounded-2xl font-bold text-base shadow-lg hover:shadow-xl active:scale-98 transition-all duration-200"
+            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-4 rounded-2xl font-black text-lg shadow-xl hover:shadow-2xl active:scale-98 transition-all duration-200"
           >
-            Start here
+            Start Challenge →
           </button>
         </div>
       </div>
@@ -166,6 +146,7 @@ export function RunnerHUD({
   const deadline = calculateDeadline();
 
   // Calculate distance metrics
+  // @ts-ignore - Reserved for future display
   const distanceKm = (currentSteps * 0.000762).toFixed(2);
   // @ts-ignore - Reserved for future display
   const currentDistanceKm = (currentSteps * 0.000762).toFixed(2);
@@ -227,13 +208,13 @@ export function RunnerHUD({
             </button>
             
             <div className="relative rounded-2xl overflow-hidden bg-black" style={{ height: '70vh' }}>
-              <div 
-                className="absolute inset-0 w-full h-full"
+              {/* 🎯 FIXED: Show clear image at 100%, blurred below 100% */}
+              <img
+                src={activeChallenge.admin_challenge.image_url}
+                alt={activeChallenge.admin_challenge.title}
+                className="absolute inset-0 w-full h-full object-cover transition-all duration-1000"
                 style={{
-                  backgroundImage: `url(${activeChallenge.admin_challenge.image_url})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                  filter: 'blur(20px)',
+                  filter: progressPercent >= 100 ? 'blur(0px)' : 'blur(20px)',
                 }}
               />
               
@@ -265,8 +246,8 @@ export function RunnerHUD({
         document.body
       )}
 
-      <div className="w-full px-4">
-        <div className="bg-white dark:bg-[#151A25] rounded-3xl p-6 shadow-xl relative">
+      <div className="w-full px-4" id="active-challenge">
+        <div className="bg-white dark:bg-[#151A25] rounded-3xl pt-6 px-6 pb-12 shadow-xl relative">
           <div className="text-center mb-4">
             <h2 className="text-xl font-black text-gray-800 dark:text-white">My Challenge</h2>
           </div>
@@ -276,7 +257,32 @@ export function RunnerHUD({
             onClick={handleRefresh}
           >
             <div className="relative transition-transform duration-200 group-hover:scale-105" style={{ width: size, height: size }}>
-              <svg className="transform -rotate-90" width={size} height={size}>
+              {/* 🎯 NEW: Animated background - "filling water" effect */}
+              <div className="absolute inset-0 rounded-full overflow-hidden">
+                <div 
+                  className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-blue-400/30 via-purple-400/20 to-transparent transition-all duration-1000 ease-out"
+                  style={{ 
+                    height: `${progressPercent}%`,
+                    animation: 'wave 3s ease-in-out infinite'
+                  }}
+                />
+                {/* 🎯 Floating footsteps animation */}
+                {progressPercent > 10 && (
+                  <>
+                    <div className="absolute bottom-[20%] left-[30%] text-2xl animate-float" style={{ animationDelay: '0s' }}>
+                      👣
+                    </div>
+                    <div className="absolute bottom-[40%] right-[25%] text-xl animate-float" style={{ animationDelay: '1s' }}>
+                      👣
+                    </div>
+                    <div className="absolute bottom-[60%] left-[40%] text-lg animate-float" style={{ animationDelay: '2s', opacity: 0.6 }}>
+                      👣
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <svg className="transform -rotate-90 relative z-10" width={size} height={size}>
                 <circle
                   cx={size / 2}
                   cy={size / 2}
@@ -310,8 +316,7 @@ export function RunnerHUD({
                 </defs>
               </svg>
 
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                {/* 🎯 OPTIMISTIC UI: Always show steps, never show spinner */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
                 <div className="text-5xl font-black text-gray-900 dark:text-white mb-1">
                   {currentSteps.toLocaleString()}
                 </div>
@@ -321,7 +326,6 @@ export function RunnerHUD({
                 <div className="mt-2 text-lg font-black text-blue-600 dark:text-blue-400">
                   {progressPercent}%
                 </div>
-                {/* 🎯 Show subtle refresh indicator when refreshing in background */}
                 {isRefreshing && (
                   <div className="mt-2 text-xs text-blue-400 dark:text-blue-300 animate-pulse">
                     Updating...
@@ -338,33 +342,36 @@ export function RunnerHUD({
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Goal: {goalSteps.toLocaleString()} steps • Reward: {xpReward} XP
             </p>
-          </div>
-
-          <div className="flex items-center justify-center gap-6 mb-6 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">📍</span>
-              <div>
-                <div className="font-black text-gray-900 dark:text-white">
-                  {distanceKm} km
-                </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">Walked</div>
-              </div>
-            </div>
-
+            
+            {/* ✅ TYLKO DEADLINE - jak w Team Challenge */}
             {deadline && (
-              <>
-                <div className="w-px h-8 bg-gray-300 dark:bg-gray-700"></div>
-
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">⏱️</span>
-                  <div>
-                    <div className="font-black text-gray-900 dark:text-white">{deadline}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">Deadline</div>
-                  </div>
-                </div>
-              </>
+              <p className={`text-sm font-medium mt-1 ${deadline === 'Expired' ? 'text-red-500' : 'text-orange-500'}`}>
+                ⏱️ {deadline} left
+              </p>
+            )}
+            {!deadline && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                ⏱️ Unlimited Time
+              </p>
             )}
           </div>
+
+          {/* 🎯 NEW: Challenge from - ALWAYS VISIBLE if assigned by someone */}
+          {activeChallenge.assigned_by && (
+            <div className="mb-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-500/30 rounded-xl p-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center flex-shrink-0 shadow-md">
+                  <span className="text-xl">🤝</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs text-amber-700 dark:text-amber-400 font-semibold uppercase tracking-wide">Challenge from</div>
+                  <div className="text-base text-gray-900 dark:text-white font-bold truncate">
+                    {activeChallenge.assigned_by_name || 'Team Member'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           <button 
             onClick={(e) => {
@@ -390,7 +397,7 @@ export function RunnerHUD({
             }`}
           >
             <div className="space-y-3">
-              {activeChallenge.admin_challenge?.image_url && (
+              {activeChallenge.admin_challenge?.image_url && !activeChallenge.admin_challenge.image_url.includes('placeholder') ? (
                 <div 
                   onClick={(e) => {
                     e.stopPropagation();
@@ -418,7 +425,12 @@ export function RunnerHUD({
                     </div>
                   </div>
                 </div>
-              )}
+              ) : activeChallenge.admin_challenge?.image_url?.includes('placeholder') ? (
+                <div className="h-48 rounded-xl overflow-hidden bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex flex-col items-center justify-center border border-blue-400/30">
+                  <span className="text-6xl mb-3">🎯</span>
+                  <h4 className="text-gray-900 dark:text-white font-black text-lg">{activeChallenge.admin_challenge.title}</h4>
+                </div>
+              ) : null}
 
               {progressPercent < 100 && !isNative && (
                 <div className="bg-blue-900/80 backdrop-blur-sm rounded-xl p-3 border border-blue-700/50">
@@ -482,22 +494,6 @@ export function RunnerHUD({
               </div>
             </div>
           </div>
-
-          {activeChallenge.assigned_by && (
-            <div className="mt-4 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-400/30 rounded-xl p-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center flex-shrink-0">
-                  <span className="text-xl">🤝</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs text-gray-600 dark:text-gray-400 font-semibold uppercase">Challenge from</div>
-                  <div className="text-sm text-gray-900 dark:text-white font-bold truncate">
-                    {activeChallenge.assigned_by_name || 'Team Member'}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </>

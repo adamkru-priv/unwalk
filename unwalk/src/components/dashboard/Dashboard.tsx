@@ -190,6 +190,7 @@ export function Dashboard() {
     return { days, hours, minutes, totalSeconds };
   };
 
+  // @ts-ignore - Reserved for future display
   const formatElapsedTime = () => {
     const { days, hours, minutes } = calculateElapsedTime();
     
@@ -254,14 +255,6 @@ export function Dashboard() {
   const progress = activeUserChallenge 
     ? Math.min((activeUserChallenge.current_steps / (activeUserChallenge.admin_challenge?.goal_steps || 1)) * 100, 100)
     : 0;
-  const remaining = activeUserChallenge 
-    ? Math.max((activeUserChallenge.admin_challenge?.goal_steps || 0) - activeUserChallenge.current_steps, 0)
-    : 0;
-  const blurAmount = Math.max(0, 30 - (progress * 0.3));
-
-  const distanceKm = activeUserChallenge 
-    ? ((activeUserChallenge.current_steps * 0.8) / 1000).toFixed(1) 
-    : 0;
 
   if (!activeUserChallenge) {
     return (
@@ -286,7 +279,7 @@ export function Dashboard() {
               src={activeUserChallenge.admin_challenge.image_url}
               alt="Challenge"
               className="w-full h-full object-cover"
-              style={{ filter: `blur(${blurAmount}px)` }}
+              style={{ filter: `blur(${30 - (progress * 0.3)}px)` }}
               onError={(e) => {
                 console.error('❌ [Dashboard] Failed to load challenge image:', activeUserChallenge.admin_challenge?.image_url);
                 // Hide image on error
@@ -423,54 +416,60 @@ export function Dashboard() {
             {/* Challenge Title */}
             <div className="text-center">
               <h2 className="text-xl font-bold mb-1">{activeUserChallenge.admin_challenge?.title}</h2>
+              <p className="text-sm text-gray-400 mb-2">
+                Goal: {(activeUserChallenge.admin_challenge?.goal_steps || 0).toLocaleString()} steps
+              </p>
+              
+              {/* ✅ TYLKO DEADLINE - tak jak w Team Challenge */}
               {hasTimeLimit && (
-                <div className={`text-sm font-medium ${isExpired ? 'text-red-400' : 'text-orange-400'}`}>
-                  {formatTimeRemaining()}
-                </div>
+                <p className={`text-sm font-medium ${isExpired ? 'text-red-500' : 'text-orange-500'}`}>
+                  ⏱️ {formatTimeRemaining()}
+                </p>
               )}
               {!hasTimeLimit && (
-                <div className="text-sm text-white/50">Unlimited Time</div>
+                <p className="text-xs text-gray-500">
+                  ⏱️ Unlimited Time
+                </p>
               )}
             </div>
 
-            {/* Stats grid */}
-            <div className="bg-gray-900/40 backdrop-blur-md rounded-xl p-4 border border-white/10">
-              <div className="grid grid-cols-3 gap-4 text-center mb-4">
-                {/* Steps */}
-                <div>
-                  <div className="text-2xl font-bold text-yellow-400">{Math.min(activeUserChallenge.current_steps, activeUserChallenge.admin_challenge?.goal_steps || activeUserChallenge.current_steps).toLocaleString()}</div>
-                  <div className="text-xs text-white/50 mt-1">steps</div>
-                </div>
-                {/* Remaining */}
-                <div>
-                  <div className="text-2xl font-bold text-white">{remaining.toLocaleString()}</div>
-                  <div className="text-xs text-white/50 mt-1">to go</div>
-                </div>
-                {/* Distance */}
-                <div>
-                  <div className="text-2xl font-bold text-blue-400">{distanceKm}</div>
-                  <div className="text-xs text-white/50 mt-1">km</div>
-                </div>
-              </div>
-              
-              {/* Progress bar */}
-              <div className="mb-3 bg-white/10 rounded-full h-2 overflow-hidden">
-                <div 
-                  className="bg-gradient-to-r from-yellow-400 to-yellow-500 h-full rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(progress, 100)}%` }}
-                />
-              </div>
-
-              {/* Time info row */}
-              <div className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-1 text-purple-400">
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span>{formatElapsedTime()} elapsed</span>
-                </div>
-                <div className="text-white/50">
-                  {Math.round(progress)}% complete
+            {/* Progress circle - skopiowany z Team Challenge */}
+            <div className="flex justify-center">
+              <div className="relative" style={{ width: 280, height: 280 }}>
+                <svg width="280" height="280" className="transform -rotate-90">
+                  {/* Background circle */}
+                  <circle
+                    cx="140"
+                    cy="140"
+                    r="130"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="20"
+                    className="text-gray-700"
+                  />
+                  {/* Progress circle */}
+                  <circle
+                    cx="140"
+                    cy="140"
+                    r="130"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="20"
+                    strokeLinecap="round"
+                    strokeDasharray={2 * Math.PI * 130}
+                    strokeDashoffset={2 * Math.PI * 130 * (1 - progress / 100)}
+                    className="text-orange-500 transition-all duration-500"
+                  />
+                </svg>
+                
+                {/* Center text */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <div className="text-5xl font-black text-white mb-1">
+                    {Math.round(progress)}%
+                  </div>
+                  <div className="text-sm text-gray-400">
+                    {activeUserChallenge.current_steps.toLocaleString()} / {(activeUserChallenge.admin_challenge?.goal_steps || 0).toLocaleString()}
+                  </div>
                 </div>
               </div>
             </div>

@@ -13,6 +13,7 @@ import { MyCustomChallenges } from './components/challenge/MyCustomChallenges';
 import { TeamScreen } from './components/team/TeamScreen';
 import { ProfileScreen } from './components/profile/ProfileScreen';
 import { BadgesScreen } from './components/badges/BadgesScreen';
+import { StatsScreen } from './components/stats/StatsScreen';
 import { authService } from './lib/auth';
 import { getActiveUserChallenge, getPausedChallenges } from './lib/api';
 import { supabase } from './lib/supabase';
@@ -21,6 +22,7 @@ import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { reregisterPushToken, clearBadgeCount } from './lib/push/iosPush';
 import { LeaderboardScreen } from './components/leaderboard/LeaderboardScreen';
+import { analytics } from './lib/analytics'; // 🎯 NEW: Import analytics (AnalyticsEvents będzie używany później)
 
 function App() {
   const isOnboardingComplete = useChallengeStore((s) => s.isOnboardingComplete); // 🎯 RESTORED: Needed for landing page
@@ -38,6 +40,12 @@ function App() {
   // Toast management
   const toasts = useToastStore((s) => s.toasts);
   const removeToast = useToastStore((s) => s.removeToast);
+
+  // 🎯 NEW: Initialize analytics on mount
+  useEffect(() => {
+    console.log('🚀 [App] Initializing analytics...');
+    analytics.init();
+  }, []);
 
   // ✅ CRITICAL FIX: Check store IMMEDIATELY on mount, don't wait for auth listener
   useEffect(() => {
@@ -712,6 +720,8 @@ function App() {
         return <Dashboard />;
       case 'team':
         return <TeamScreen />;
+      case 'stats':
+        return <StatsScreen />;
       case 'leaderboard':
         return <LeaderboardScreen />;
       case 'profile':

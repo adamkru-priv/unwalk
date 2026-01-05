@@ -152,6 +152,30 @@ export function useHealthKit() {
       }
 
       try {
+        // 🎯 WEB MOCK DATA: Generate random steps for testing on localhost
+        if (!Capacitor.isNativePlatform()) {
+          console.log(`📊 [Web Mock] Generating ${days} days of mock steps data`);
+          const history = [];
+          const today = new Date();
+          
+          for (let i = days - 1; i >= 0; i--) {
+            const date = new Date(today);
+            date.setDate(date.getDate() - i);
+            
+            // Generate realistic random steps (2000-15000)
+            const randomSteps = Math.floor(Math.random() * 13000) + 2000;
+            
+            history.push({
+              date: date.toISOString().split('T')[0],
+              steps: randomSteps
+            });
+          }
+          
+          console.log(`✅ [Web Mock] Generated ${history.length} days of mock data`);
+          return history;
+        }
+        
+        // 🎯 NATIVE: Real HealthKit data
         const history = [];
         const today = new Date();
         

@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion';
 import type { UserChallenge } from '../../../types';
-import { calculateChallengePoints } from '../../../lib/api';
 
 interface CompletedChallengesListProps {
   challenges: UserChallenge[];
@@ -36,10 +35,10 @@ export function CompletedChallengesList({ challenges, isGuest, onChallengeClick 
               </h2>
               <div className="flex items-center gap-2 text-xs font-bold text-white/80">
                 <span>{steps.toLocaleString()} steps</span>
-                {!isGuest && firstChallenge.admin_challenge?.goal_steps && (
+                {!isGuest && firstChallenge.admin_challenge?.points && (
                   <>
                     <span>•</span>
-                    <span>+{calculateChallengePoints(firstChallenge.admin_challenge.goal_steps, firstChallenge.admin_challenge.is_daily || false)} XP</span>
+                    <span>+{firstChallenge.admin_challenge.points} XP</span>
                   </>
                 )}
               </div>

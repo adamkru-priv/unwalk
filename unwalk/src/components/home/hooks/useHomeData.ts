@@ -16,27 +16,43 @@ export function useHomeData() {
   const [loading, setLoading] = useState(true);
   
   const setActiveChallenge = useChallengeStore((s) => s.setActiveChallenge);
+  const setActiveChallenges = (challenges: UserChallenge[]) => {
+    // 🎯 NEW: Update activeUserChallenges array in store
+    useChallengeStore.setState({ activeUserChallenges: challenges });
+    // Also update legacy activeUserChallenge (for backwards compatibility)
+    if (challenges.length > 0) {
+      setActiveChallenge(challenges[0]);
+    } else {
+      setActiveChallenge(null);
+    }
+  };
 
   const loadActiveChallenge = async () => {
     try {
-      console.log('🔄 [useHomeData] Loading active challenge...');
-      // 🎯 FIX: This now returns ONLY solo challenges (team_id IS NULL)
-      const activeChallenge = await getActiveUserChallenge();
+      console.log('🔄 [useHomeData] Loading ALL active challenges (solo + team)...');
       
-      if (activeChallenge) {
-        console.log('✅ [useHomeData] Loaded active SOLO challenge:', {
-          title: activeChallenge.admin_challenge?.title,
-          id: activeChallenge.id,
-          current_steps: activeChallenge.current_steps,
-          goal_steps: activeChallenge.admin_challenge?.goal_steps
-        });
-        setActiveChallenge(activeChallenge);
-      } else {
-        setActiveChallenge(null);
-        console.log('ℹ️ [useHomeData] No active SOLO challenge');
-      }
+      // Load SOLO challenge
+      const soloChallenge = await getActiveUserChallenge();
+      
+      // Load TEAM challenge
+      const teamChallenge = await getActiveTeamChallenge();
+      
+      // Combine both into array
+      const allChallenges = [
+        soloChallenge,
+        teamChallenge
+      ].filter(Boolean) as UserChallenge[];
+      
+      console.log('✅ [useHomeData] Loaded challenges:', {
+        solo: soloChallenge ? soloChallenge.admin_challenge?.title : 'none',
+        team: teamChallenge ? teamChallenge.admin_challenge?.title : 'none',
+        total: allChallenges.length
+      });
+      
+      // Update store with ALL active challenges
+      setActiveChallenges(allChallenges);
     } catch (err) {
-      console.error('❌ [useHomeData] Failed to load active challenge:', err);
+      console.error('❌ [useHomeData] Failed to load active challenges:', err);
     }
   };
 

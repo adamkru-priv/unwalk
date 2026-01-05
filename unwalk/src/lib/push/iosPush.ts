@@ -313,8 +313,16 @@ export async function clearBadgeCount(): Promise<void> {
   try {
     console.log('🔔 [Push] Clearing badge count...');
     
-    // Remove all delivered notifications
+    // ✅ FIX: Explicitly set badge count to 0 (removes the red badge)
     await PushNotifications.removeAllDeliveredNotifications();
+    
+    // ✅ CRITICAL: Also set badge number to 0 explicitly
+    // This is the iOS-specific API that actually clears the badge
+    const { PushNotifications: PushNative } = await import('@capacitor/push-notifications');
+    if ((PushNative as any).setBadgeCount) {
+      await (PushNative as any).setBadgeCount({ count: 0 });
+      console.log('✅ [Push] Badge count explicitly set to 0');
+    }
     
     console.log('✅ [Push] Badge count cleared');
   } catch (e) {

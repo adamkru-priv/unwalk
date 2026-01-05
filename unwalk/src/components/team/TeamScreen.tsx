@@ -10,6 +10,12 @@ import { ReceivedChallenges } from './ReceivedChallenges';
 import { TeamChallengeInvitations } from './TeamChallengeInvitations';
 import { InviteModal } from './InviteModal';
 import { MemberDetail } from './MemberDetail';
+// 🎯 NEW: Import TeamHUD component from home sections
+import { TeamHUD } from '../home/sections/TeamHUD';
+import type { UserChallenge } from '../../types';
+// 🎯 NEW: Import modals for Team Challenge selection
+import { SelectTeamChallengeModal } from '../home/modals/SelectTeamChallengeModal';
+import { InviteMoreToTeamChallengeModal } from '../home/modals/InviteMoreToTeamChallengeModal';
 
 // 🔧 Helper function: Retry with exponential backoff
 async function retryWithBackoff<T>(
@@ -48,11 +54,31 @@ export function TeamScreen() {
   const [loading, setLoading] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
-  const [activeTab, setActiveTab] = useState<'team' | 'sent' | 'received'>('team');
+  // 🎯 UPDATED: Changed tabs from 'challenge' | 'team' | 'inbox' to 'challenge' | 'team' | 'activity'
+  const [activeTab, setActiveTab] = useState<'challenge' | 'team' | 'activity'>('challenge');
   
   // 🎯 NEW: Track Team Challenge invitations counts
   const [sentTeamChallengeCount, setSentTeamChallengeCount] = useState(0);
   const [receivedTeamChallengeCount, setReceivedTeamChallengeCount] = useState(0);
+
+  // 🎯 NEW: Team Challenge data (moved from HomeScreen)
+  const [teamChallenge, setTeamChallenge] = useState<UserChallenge | null>(null);
+  const [teamChallengeMembers, setTeamChallengeMembers] = useState<Array<{
+    id: string;
+    name: string;
+    avatar?: string;
+    steps: number;
+    percentage: number;
+    isCurrentUser?: boolean;
+    isHost?: boolean;
+  }>>([]);
+  const [showTeamSelectModal, setShowTeamSelectModal] = useState(false);
+  const [showInviteMoreModal, setShowInviteMoreModal] = useState(false);
+  const [inviteMoreData, setInviteMoreData] = useState<{
+    challengeId: string;
+    challengeTitle: string;
+    alreadyInvitedUserIds: string[];
+  } | null>(null);
 
   // ✅ Reload data when userProfile changes (e.g. after auth init)
   useEffect(() => {
@@ -185,6 +211,13 @@ export function TeamScreen() {
         setSentTeamChallengeCount(0);
         setReceivedTeamChallengeCount(0);
       }
+
+      // 🎯 NEW: 5. Load active Team Challenge (moved from HomeScreen)
+      try {
+        await loadTeamChallenge();
+      } catch (e) {
+        console.error('❌ [TeamScreen] Failed to load team challenge:', e);
+      }
       
       console.log('✅ [TeamScreen] All team data loaded successfully');
     } catch (error) {
@@ -193,6 +226,140 @@ export function TeamScreen() {
       setLoading(false);
       console.log('✅ [TeamScreen] Loading complete');
     }
+  };
+
+  // 🎯 NEW: Load team challenge (from useHomeData hook logic)
+  const loadTeamChallenge = async () => {
+    try {
+      const { supabase } = await import('../../lib/supabase');
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        console.log('[TeamScreen] No authenticated user');
+        setTeamChallenge(null);
+        setTeamChallengeMembers([]);
+        return;
+      }
+
+      console.log('[TeamScreen] Loading team challenge...');
+
+      // 🎯 FIX: Use explicit foreign key column name instead of relationship
+      const { data: teamChallengeData, error: teamChallengeError } = await supabase
+        .from('user_challenges')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .not('team_id', 'is', null)
+        .single();
+
+      if (teamChallengeError) {
+        if (teamChallengeError.code !== 'PGRST116') {
+          console.error('[TeamScreen] Error loading team challenge:', teamChallengeError);
+        }
+        setTeamChallenge(null);
+        setTeamChallengeMembers([]);
+        return;
+      }
+
+      // 🎯 FIX: Load admin_challenge separately
+      if (teamChallengeData?.admin_challenge_id) {
+        const { data: adminChallenge } = await supabase
+          .from('admin_challenges')
+          .select('*')
+          .eq('id', teamChallengeData.admin_challenge_id)
+          .single();
+        
+        teamChallengeData.admin_challenge = adminChallenge;
+      }
+
+      setTeamChallenge(teamChallengeData as UserChallenge);
+
+      // Load team members for this challenge
+      if (teamChallengeData?.team_id) {
+        const { data: membersData, error: membersError } = await supabase
+          .from('user_challenges')
+          .select('id, user_id, current_steps, started_at')
+          .eq('team_id', teamChallengeData.team_id)
+          .eq('status', 'active')
+          .order('started_at', { ascending: true });
+
+        if (membersError) {
+          console.error('[TeamScreen] Error loading team members:', membersError);
+          setTeamChallengeMembers([]);
+          return;
+        }
+
+        // 🎯 FIX: Load user details separately for each member
+        const membersWithUsers = await Promise.all(
+          membersData.map(async (m: any) => {
+            const { data: userData } = await supabase
+              .from('users')
+              .select('id, display_name, nickname, avatar_url')
+              .eq('id', m.user_id)
+              .single();
+            
+            return {
+              ...m,
+              users: userData
+            };
+          })
+        );
+
+        const goalSteps = teamChallengeData.admin_challenge?.goal_steps || 1;
+        
+        // 🎯 FIX: First member (earliest started_at) is the host
+        const hostUserId = membersWithUsers?.[0]?.user_id;
+        
+        const formattedMembers = membersWithUsers.map((m: any) => ({
+          id: m.id,
+          name: m.users?.nickname || m.users?.display_name || 'Unknown',
+          avatar: m.users?.avatar_url,
+          steps: m.current_steps || 0,
+          percentage: Math.round(((m.current_steps || 0) / goalSteps) * 100),
+          isCurrentUser: m.user_id === user.id,
+          isHost: m.user_id === hostUserId
+        }));
+
+        setTeamChallengeMembers(formattedMembers);
+        console.log('[TeamScreen] Team challenge loaded with', formattedMembers.length, 'members');
+        console.log('[TeamScreen] Host user_id:', hostUserId);
+        console.log('[TeamScreen] Members:', formattedMembers);
+      }
+    } catch (error) {
+      console.error('[TeamScreen] Error loading team challenge:', error);
+      setTeamChallenge(null);
+      setTeamChallengeMembers([]);
+    }
+  };
+
+  // 🎯 NEW: Handlers for Team Challenge
+  const handleTeamClick = () => {
+    setShowTeamSelectModal(true);
+  };
+
+  const handleInviteMoreClick = (challengeId: string, challengeTitle: string, alreadyInvitedUserIds: string[]) => {
+    setInviteMoreData({ challengeId, challengeTitle, alreadyInvitedUserIds });
+    setShowInviteMoreModal(true);
+  };
+
+  const handleChallengeStarted = async () => {
+    console.log('🔄 Challenge started - refreshing team data...');
+    await loadTeamData();
+  };
+
+  const handleChallengeCancelled = async () => {
+    console.log('🔄 Challenge cancelled - refreshing team data...');
+    await loadTeamData();
+  };
+
+  const handleChallengeEnded = async () => {
+    console.log('🔄 Challenge ended - refreshing team data...');
+    await loadTeamData();
+  };
+
+  const handleTeamRefresh = async () => {
+    console.log('🔄 [TeamScreen] Manual refresh triggered...');
+    await loadTeamData();
   };
 
   const handleInviteClick = () => {
@@ -242,10 +409,45 @@ export function TeamScreen() {
         onInviteSent={loadTeamData}
       />
 
+      {/* 🎯 NEW: Team Challenge Selection Modal */}
+      <SelectTeamChallengeModal
+        isOpen={showTeamSelectModal}
+        onClose={() => setShowTeamSelectModal(false)}
+        onSuccess={async () => {
+          await loadTeamData();
+          setShowTeamSelectModal(false);
+        }}
+      />
+
+      {/* 🎯 NEW: Invite More to Team Challenge Modal */}
+      {inviteMoreData && (
+        <InviteMoreToTeamChallengeModal
+          isOpen={showInviteMoreModal}
+          onClose={() => setShowInviteMoreModal(false)}
+          onSuccess={async () => {
+            await loadTeamData();
+            setShowInviteMoreModal(false);
+          }}
+          challengeId={inviteMoreData.challengeId}
+          challengeTitle={inviteMoreData.challengeTitle}
+          alreadyInvitedUserIds={inviteMoreData.alreadyInvitedUserIds}
+        />
+      )}
+
       <main className="px-4 py-4 space-y-4">
         
         {/* TABS NAVIGATION */}
         <div className="bg-gray-100 dark:bg-[#151A25] border border-gray-200 dark:border-white/10 rounded-2xl p-1 grid grid-cols-3 gap-1">
+          <button
+            onClick={() => setActiveTab('challenge')}
+            className={`py-2.5 px-3 rounded-xl text-sm font-bold transition-all ${
+              activeTab === 'challenge'
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-500 dark:text-white/50 hover:text-gray-700 dark:hover:text-white/80'
+            }`}
+          >
+            Challenge
+          </button>
           <button
             onClick={() => setActiveTab('team')}
             className={`py-2.5 px-3 rounded-xl text-sm font-bold transition-all ${
@@ -255,77 +457,93 @@ export function TeamScreen() {
             }`}
           >
             Team
+            {/* 🎯 REMOVED: No badge on Team tab */}
           </button>
           <button
-            onClick={() => setActiveTab('sent')}
+            onClick={() => setActiveTab('activity')}
             className={`py-2.5 px-3 rounded-xl text-sm font-bold transition-all relative ${
-              activeTab === 'sent'
+              activeTab === 'activity'
                 ? 'bg-blue-600 text-white'
                 : 'text-gray-500 dark:text-white/50 hover:text-gray-700 dark:hover:text-white/80'
             }`}
           >
-            Sent
-            {/* 🎯 UPDATED: Include Team Challenge invitations + regular challenge assignments */}
-            {(sentChallengeHistory.filter(c => c.status === 'pending').length + sentTeamChallengeCount) > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 rounded-full text-xs flex items-center justify-center font-bold">
-                {sentChallengeHistory.filter(c => c.status === 'pending').length + sentTeamChallengeCount}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab('received')}
-            className={`py-2.5 px-3 rounded-xl text-sm font-bold transition-all relative ${
-              activeTab === 'received'
-                ? 'bg-blue-600 text-white'
-                : 'text-gray-500 dark:text-white/50 hover:text-gray-700 dark:hover:text-white/80'
-            }`}
-          >
-            Received
-            {/* 🎯 UPDATED: Include Team Challenge invitations + regular challenge assignments */}
-            {(receivedChallengeHistory.filter(c => c.status === 'pending').length + receivedTeamChallengeCount) > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-xs flex items-center justify-center font-bold">
-                {receivedChallengeHistory.filter(c => c.status === 'pending').length + receivedTeamChallengeCount}
-              </span>
-            )}
+            Activity
+            {/* 🎯 UPDATED: Total count of all pending items (sent + received) */}
+            {(() => {
+              const totalPending = 
+                sentChallengeHistory.filter(c => c.status === 'pending').length +
+                receivedChallengeHistory.filter(c => c.status === 'pending').length +
+                sentTeamChallengeCount +
+                receivedTeamChallengeCount;
+              
+              return totalPending > 0 ? (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-xs flex items-center justify-center font-bold">
+                  {totalPending}
+                </span>
+              ) : null;
+            })()}
           </button>
         </div>
 
         {/* TAB CONTENT */}
-        {activeTab === 'team' && (
-          <TeamMembers
-            teamMembers={teamMembers}
-            receivedInvitations={receivedInvitations}
-            sentInvitations={sentInvitations}
-            userProfile={userProfile}
-            onMemberSelect={setSelectedMember}
-            onInviteClick={handleInviteClick}
-            onRefresh={loadTeamData}
-          />
+        {activeTab === 'challenge' && (
+          <>
+            {/* 🎯 Team Challenge HUD in Challenge tab */}
+            <TeamHUD
+              teamChallenge={teamChallenge}
+              teamMembers={teamChallengeMembers}
+              onClick={handleTeamClick}
+              onInviteMoreClick={handleInviteMoreClick}
+              onChallengeStarted={handleChallengeStarted}
+              onChallengeCancelled={handleChallengeCancelled}
+              onChallengeEnded={handleChallengeEnded}
+              onRefresh={handleTeamRefresh}
+            />
+          </>
         )}
 
-        {activeTab === 'sent' && (
+        {activeTab === 'team' && (
           <>
-            {/* 🎯 NEW: Sent Team Challenge Invitations */}
-            <SentTeamChallengeInvitations onRefresh={loadTeamData} />
-            
-            {/* Regular challenge assignments */}
-            <SentChallenges
-              challenges={sentChallengeHistory}
+            {/* 🎯 Team Members List */}
+            <TeamMembers
+              teamMembers={teamMembers}
+              receivedInvitations={receivedInvitations}
+              sentInvitations={sentInvitations}
+              userProfile={userProfile}
+              onMemberSelect={setSelectedMember}
+              onInviteClick={handleInviteClick}
               onRefresh={loadTeamData}
             />
           </>
         )}
 
-        {activeTab === 'received' && (
+        {activeTab === 'activity' && (
           <>
-            {/* 🎯 NEW: Team Challenge Invitations */}
-            <TeamChallengeInvitations onRefresh={loadTeamData} />
+            {/* 🎯 INBOX: Combined Sent + Received */}
             
-            {/* Regular challenge assignments */}
-            <ReceivedChallenges
-              challenges={receivedChallengeHistory}
-              onRefresh={loadTeamData}
-            />
+            {/* Received Section */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-1">
+                📥 Received
+              </h3>
+              <TeamChallengeInvitations onRefresh={loadTeamData} />
+              <ReceivedChallenges
+                challenges={receivedChallengeHistory}
+                onRefresh={loadTeamData}
+              />
+            </div>
+
+            {/* Sent Section */}
+            <div className="space-y-3 mt-6">
+              <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide px-1">
+                📤 Sent
+              </h3>
+              <SentTeamChallengeInvitations onRefresh={loadTeamData} />
+              <SentChallenges
+                challenges={sentChallengeHistory}
+                onRefresh={loadTeamData}
+              />
+            </div>
           </>
         )}
       </main>

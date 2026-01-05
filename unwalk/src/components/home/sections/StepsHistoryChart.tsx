@@ -66,13 +66,36 @@ export function StepsHistoryChart({ isOpen, onClose }: StepsHistoryChartProps) {
       const registrationDate = userProfile?.created_at ? new Date(userProfile.created_at) : null;
       const today = new Date();
       
-      let daysSinceRegistration = 365;
-      if (registrationDate) {
-        const diffTime = Math.abs(today.getTime() - registrationDate.getTime());
-        daysSinceRegistration = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+      // ✅ SPECIAL CASE: Admin widzi historię od 1 stycznia 2025
+      let startDate: Date;
+      let maxDaysLimit = 365; // Default limit
+      
+      // 🎯 FIX: Na localhost (web) zawsze pokazuj pełny rok dla testowania
+      const isLocalhost = window.location.hostname === 'localhost';
+      
+      if (isLocalhost || userProfile?.email === 'adam.krusz@gmail.com') {
+        startDate = new Date('2025-01-01T00:00:00Z');
+        maxDaysLimit = 999; // ✅ No limit for admin (up to 999 days)
+        console.log('👑 [StepsHistory] Admin/Localhost mode - showing history from Jan 1, 2025');
+        console.log('👑 [StepsHistory] User email:', userProfile?.email);
+        console.log('👑 [StepsHistory] Is localhost:', isLocalhost);
+        console.log('👑 [StepsHistory] Start date:', startDate.toISOString());
+        console.log('👑 [StepsHistory] Today:', today.toISOString());
+      } else if (registrationDate) {
+        startDate = registrationDate;
+      } else {
+        startDate = new Date();
+        startDate.setFullYear(startDate.getFullYear() - 1); // Fallback: 1 rok wstecz
       }
       
-      const days = Math.min(daysSinceRegistration, 365);
+      const diffTime = Math.abs(today.getTime() - startDate.getTime());
+      const daysSinceStart = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+      
+      console.log('📊 [StepsHistory] Calculated days since start:', daysSinceStart);
+      
+      const days = Math.min(daysSinceStart, maxDaysLimit); // ✅ Use dynamic limit
+      console.log('📊 [StepsHistory] Final days to fetch:', days);
+      
       const history = await getStepsHistory(days);
       
       const todayDateString = today.toISOString().split('T')[0];
@@ -97,23 +120,21 @@ export function StepsHistoryChart({ isOpen, onClose }: StepsHistoryChartProps) {
       // ✅ NOWE: Dodaj puste dni dla reszty miesiąca rejestracji i miesiąca obecnego
       const extendedDays: DayData[] = [];
       
-      // Miesiąc rejestracji - dodaj dni od 1-go dnia miesiąca
-      if (registrationDate) {
-        const regMonth = registrationDate.getMonth();
-        const regYear = registrationDate.getFullYear();
-        const firstDayOfRegMonth = new Date(regYear, regMonth, 1);
-        
-        // Dodaj dni od początku miesiąca rejestracji do daty rejestracji
-        for (let d = new Date(firstDayOfRegMonth); d < registrationDate; d.setDate(d.getDate() + 1)) {
-          extendedDays.push({
-            date: d.toISOString().split('T')[0],
-            steps: -1, // Specjalna wartość oznaczająca "puste kółko"
-            dayOfWeek: DAYS_OF_WEEK[d.getDay() === 0 ? 6 : d.getDay() - 1],
-            dayOfMonth: d.getDate(),
-            month: MONTHS[d.getMonth()],
-            year: d.getFullYear()
-          });
-        }
+      // Miesiąc startowy - dodaj dni od 1-go dnia miesiąca
+      const startMonth = startDate.getMonth();
+      const startYear = startDate.getFullYear();
+      const firstDayOfStartMonth = new Date(startYear, startMonth, 1);
+      
+      // Dodaj dni od początku miesiąca do daty startowej
+      for (let d = new Date(firstDayOfStartMonth); d < startDate; d.setDate(d.getDate() + 1)) {
+        extendedDays.push({
+          date: d.toISOString().split('T')[0],
+          steps: -1,
+          dayOfWeek: DAYS_OF_WEEK[d.getDay() === 0 ? 6 : d.getDay() - 1],
+          dayOfMonth: d.getDate(),
+          month: MONTHS[d.getMonth()],
+          year: d.getFullYear()
+        });
       }
       
       // Dodaj rzeczywiste dane
@@ -142,9 +163,18 @@ export function StepsHistoryChart({ isOpen, onClose }: StepsHistoryChartProps) {
       // Tylko rzeczywiste dni (bez pustych placeholder'ów)
       const realDays = allDays.filter(d => d.steps >= 0);
       
-      // ✅ NOWE: Streak - dni po kolei powyżej celu (od dzisiaj wstecz)
+      // ✅ FIX: Streak - dni po kolei powyżej celu (od dzisiaj wstecz)
+      // Jeśli dzisiaj NIE osiągnięto celu (< 100%), nie liczymy dzisiejszego dnia
       let currentStreak = 0;
-      for (let i = realDays.length - 1; i >= 0; i--) {
+      const todayIndex = realDays.length - 1;
+      
+      // Sprawdź czy dzisiaj osiągnięto cel (100%)
+      const isTodayComplete = realDays[todayIndex]?.steps >= DAILY_GOAL;
+      
+      // Zacznij od dzisiaj (jeśli 100%) lub od wczoraj (jeśli < 100%)
+      const startIndex = isTodayComplete ? todayIndex : todayIndex - 1;
+      
+      for (let i = startIndex; i >= 0; i--) {
         if (realDays[i].steps >= DAILY_GOAL) {
           currentStreak++;
         } else {
@@ -251,7 +281,7 @@ export function StepsHistoryChart({ isOpen, onClose }: StepsHistoryChartProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white dark:bg-[#151A25] rounded-3xl shadow-2xl max-w-2xl w-full max-h-[50vh] overflow-hidden flex flex-col">
+      <div className="bg-white dark:bg-[#151A25] rounded-3xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
           <div className="flex items-center justify-between mb-2">

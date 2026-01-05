@@ -44,18 +44,13 @@ export function TeamChallengeSlots({ members, challengeId, maxMembers = 5, onInv
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // 🎯 NEW: Read from team_members instead of team_challenge_invitations
+      // 🎯 FIX: Load team_members with manual user lookup
       const { data, error } = await supabase
         .from('team_members')
-        .select(`
-          id,
-          member_id,
-          challenge_status,
-          invited_user:users!member_id(display_name, nickname, avatar_url)
-        `)
-        .eq('user_id', user.id) // You are the host
-        .eq('active_challenge_id', challengeId) // For this specific challenge
-        .eq('challenge_status', 'invited'); // Only pending invitations
+        .select('id, member_id, challenge_status')
+        .eq('user_id', user.id)
+        .eq('active_challenge_id', challengeId)
+        .eq('challenge_status', 'invited');
 
       if (error) {
         console.error('[TeamChallengeSlots] Failed to load pending invitations:', error);
@@ -63,16 +58,26 @@ export function TeamChallengeSlots({ members, challengeId, maxMembers = 5, onInv
         return;
       }
 
-      const invitations = (data || []).map((inv: any) => ({
-        id: inv.id,
-        invited_user: inv.member_id,
-        // ✅ Use nickname if available, otherwise display_name
-        display_name: inv.invited_user?.nickname || inv.invited_user?.display_name || 'Unknown',
-        avatar_url: inv.invited_user?.avatar_url
-      }));
+      // 🎯 FIX: Manually fetch user details for each invitation
+      const invitationsWithUsers = await Promise.all(
+        (data || []).map(async (inv: any) => {
+          const { data: userData } = await supabase
+            .from('users')
+            .select('display_name, nickname, avatar_url')
+            .eq('id', inv.member_id)
+            .single();
 
-      console.log('[TeamChallengeSlots] Loaded pending invitations:', invitations.length, invitations);
-      setPendingInvitations(invitations);
+          return {
+            id: inv.id,
+            invited_user: inv.member_id,
+            display_name: userData?.nickname || userData?.display_name || 'Unknown',
+            avatar_url: userData?.avatar_url
+          };
+        })
+      );
+
+      console.log('[TeamChallengeSlots] Loaded pending invitations:', invitationsWithUsers.length, invitationsWithUsers);
+      setPendingInvitations(invitationsWithUsers);
     } catch (error) {
       console.error('[TeamChallengeSlots] Error loading invitations:', error);
       setPendingInvitations([]);

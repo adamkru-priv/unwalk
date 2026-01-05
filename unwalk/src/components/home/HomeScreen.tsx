@@ -13,18 +13,14 @@ import { useGamification } from './hooks/useGamification';
 import { useHealthKitSync } from './hooks/useHealthKitSync';
 import { useHealthKit } from '../../hooks/useHealthKit';
 import { clearBadgeCount } from '../../lib/push/iosPush';
+// 🎯 REMOVED: AIDailyTip - moved to modal opened from DailyActivityHUD badge
 
 export function HomeScreen() {
   const [selectedCompletedChallenge, setSelectedCompletedChallenge] = useState<UserChallenge | null>(null);
   const [showJourneyModal, setShowJourneyModal] = useState(false);
   const [showSoloSelectModal, setShowSoloSelectModal] = useState(false);
   const [showTeamSelectModal, setShowTeamSelectModal] = useState(false);
-  const [showInviteMoreModal, setShowInviteMoreModal] = useState(false);
-  const [inviteMoreData, setInviteMoreData] = useState<{
-    challengeId: string;
-    challengeTitle: string;
-    alreadyInvitedUserIds: string[];
-  } | null>(null);
+  // 🎯 REMOVED: showInviteMoreModal and inviteMoreData - moved to TeamScreen
 
   // Store state
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
@@ -39,7 +35,7 @@ export function HomeScreen() {
   const isGuest = userProfile?.is_guest || false;
 
   // Custom hooks - extract complex logic
-  const { unclaimedChallenges, teamChallenge, teamMembers, loadActiveChallenge, loadUnclaimedChallenges, loadTeamChallenges } = useHomeData();
+  const { unclaimedChallenges, loadActiveChallenge, loadUnclaimedChallenges, loadTeamChallenges } = useHomeData();
   
   const {
     gamificationStats,
@@ -128,36 +124,8 @@ export function HomeScreen() {
     setShowTeamSelectModal(false);
   };
 
-  const handleInviteMoreClick = (challengeId: string, challengeTitle: string, alreadyInvitedUserIds: string[]) => {
-    setInviteMoreData({ challengeId, challengeTitle, alreadyInvitedUserIds });
-    setShowInviteMoreModal(true);
-  };
-
-  const handleInviteMoreSuccess = () => {
-    setShowInviteMoreModal(false);
-    // Refresh data if needed
-  };
-
-  // 🎯 NEW: Refresh data after challenge starts
-  const handleChallengeStarted = async () => {
-    console.log('🔄 Challenge started - refreshing data...');
-    await loadActiveChallenge();
-    await loadTeamChallenges(); // 🎯 FIX: Also reload team challenges!
-  };
-
-  // 🎯 NEW: Refresh data after challenge cancelled
-  const handleChallengeCancelled = async () => {
-    console.log('🔄 Challenge cancelled - refreshing data...');
-    await loadActiveChallenge();
-    await loadTeamChallenges(); // 🎯 FIX: Reload team challenges to clear pending state
-  };
-
-  // 🎯 NEW: Refresh data after challenge ends
-  const handleChallengeEnded = async () => {
-    console.log('🔄 Challenge ended - refreshing data...');
-    await loadActiveChallenge();
-    await loadTeamChallenges(); // 🎯 FIX: Reload team challenges to clear ended challenge
-  };
+  // 🎯 REMOVED: handleInviteMoreClick, handleChallengeStarted, handleChallengeCancelled, handleChallengeEnded, handleInviteMoreSuccess
+  // These are now only used in TeamScreen
 
   // Utility functions
   const calculateProgress = () => {
@@ -181,7 +149,7 @@ export function HomeScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-[#0B101B] text-gray-900 dark:text-white pb-20 font-sans selection:bg-blue-500/30">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0B101B] text-gray-900 dark:text-white pb-28 font-sans selection:bg-blue-500/30">
       <AppHeader />
 
       {/* Centralized Modal Management */}
@@ -203,10 +171,11 @@ export function HomeScreen() {
         onCloseTeamSelect={() => setShowTeamSelectModal(false)}
         onSoloSelectSuccess={handleSoloSelectSuccess}
         onTeamSelectSuccess={handleTeamSelectSuccess}
-        showInviteMoreModal={showInviteMoreModal}
-        onCloseInviteMore={() => setShowInviteMoreModal(false)}
-        onInviteMoreSuccess={handleInviteMoreSuccess}
-        inviteMoreData={inviteMoreData}
+        // 🎯 REMOVED: showInviteMoreModal, onCloseInviteMore, onInviteMoreSuccess, inviteMoreData - moved to TeamScreen
+        showInviteMoreModal={false}
+        onCloseInviteMore={() => {}}
+        onInviteMoreSuccess={() => {}}
+        inviteMoreData={null}
         isGuest={isGuest}
       />
 
@@ -225,19 +194,12 @@ export function HomeScreen() {
 
         <ChallengeCarousel
           soloChallenge={activeUserChallenge}
-          teamChallenge={teamChallenge}
-          teamMembers={teamMembers}
           progress={calculateProgress()}
           currentStreak={gamificationStats?.current_streak || 0}
           xpReward={activeUserChallenge?.admin_challenge?.points || 0}
           todaySteps={todaySteps}
           dailyStepGoal={dailyStepGoal || 10000}
           onSoloClick={handleSoloClick}
-          onTeamClick={() => setShowTeamSelectModal(true)}
-          onInviteMoreClick={handleInviteMoreClick}
-          onChallengeStarted={handleChallengeStarted}
-          onChallengeCancelled={handleChallengeCancelled}
-          onChallengeEnded={handleChallengeEnded}
           onRefresh={handleRefresh}
         />
 

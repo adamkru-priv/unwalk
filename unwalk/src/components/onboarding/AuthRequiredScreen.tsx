@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { authService } from '../../lib/auth';
 import { useChallengeStore } from '../../stores/useChallengeStore';
 import { useToastStore } from '../../stores/useToastStore';
+import { analytics, AnalyticsEvents } from '../../lib/analytics'; // 🎯 NEW: Analytics
 
 export const AuthRequiredScreen = () => {
   const [email, setEmail] = useState('');
@@ -21,16 +22,31 @@ export const AuthRequiredScreen = () => {
   const handleAppleSignIn = async () => {
     setIsOAuthLoading(true); // 🎯 NEW: Show fullscreen loading
     setIsLoading(true);
+    
+    // 🎯 NEW: Track signup attempt
+    analytics.track(AnalyticsEvents.SIGNUP_STARTED, {
+      method: 'apple',
+      source: 'auth_required_screen',
+    });
+    
     try {
       const { error } = await authService.signInWithApple();
       if (error) {
         addToast({ message: error.message || 'Apple sign-in failed', type: 'error' });
+        
+        // 🎯 NEW: Track error
+        analytics.trackError(new Error('Apple sign-in failed'), {
+          method: 'apple',
+          error_message: error.message,
+        });
+        
         setIsOAuthLoading(false); // 🎯 Hide loading on error
         setIsLoading(false);
       }
       // Don't hide loading on success - wait for App.tsx to handle callback
     } catch (e: any) {
       addToast({ message: e?.message || 'Apple sign-in failed', type: 'error' });
+      analytics.trackError(e, { method: 'apple' });
       setIsOAuthLoading(false); // 🎯 Hide loading on error
       setIsLoading(false);
     }
@@ -39,16 +55,31 @@ export const AuthRequiredScreen = () => {
   const handleGoogleSignIn = async () => {
     setIsOAuthLoading(true); // 🎯 NEW: Show fullscreen loading
     setIsLoading(true);
+    
+    // 🎯 NEW: Track signup attempt
+    analytics.track(AnalyticsEvents.SIGNUP_STARTED, {
+      method: 'google',
+      source: 'auth_required_screen',
+    });
+    
     try {
       const { error } = await authService.signInWithGoogle();
       if (error) {
         addToast({ message: error.message || 'Google sign-in failed', type: 'error' });
+        
+        // 🎯 NEW: Track error
+        analytics.trackError(new Error('Google sign-in failed'), {
+          method: 'google',
+          error_message: error.message,
+        });
+        
         setIsOAuthLoading(false); // 🎯 Hide loading on error
         setIsLoading(false);
       }
       // Don't hide loading on success - wait for App.tsx to handle callback
     } catch (e: any) {
       addToast({ message: e?.message || 'Google sign-in failed', type: 'error' });
+      analytics.trackError(e, { method: 'google' });
       setIsOAuthLoading(false); // 🎯 Hide loading on error
       setIsLoading(false);
     }
@@ -61,11 +92,19 @@ export const AuthRequiredScreen = () => {
     }
 
     setIsLoading(true);
+    
+    // 🎯 NEW: Track email OTP request
+    analytics.track(AnalyticsEvents.SIGNUP_STARTED, {
+      method: 'email',
+      source: 'auth_required_screen',
+    });
+    
     try {
       const { error } = await authService.signInWithOTP(email);
       
       if (error) {
         addToast({ message: 'Failed to send code. Please try again.', type: 'error' });
+        analytics.trackError(new Error('OTP send failed'), { method: 'email' });
         return;
       }
 
@@ -73,6 +112,7 @@ export const AuthRequiredScreen = () => {
       setStep('otp');
     } catch (error) {
       addToast({ message: 'Something went wrong. Please try again.', type: 'error' });
+      analytics.trackError(error as Error, { method: 'email' });
     } finally {
       setIsLoading(false);
     }
@@ -90,11 +130,26 @@ export const AuthRequiredScreen = () => {
       
       if (error || !session) {
         addToast({ message: 'Invalid code. Please try again.', type: 'error' });
+        analytics.trackError(new Error('OTP verification failed'), { method: 'email' });
         return;
       }
 
       // Convert guest to authenticated user if needed
       await authService.convertGuestToUser();
+      
+      // 🎯 NEW: Identify user and track successful login
+      if (session.user) {
+        analytics.identify(session.user.id, {
+          email: session.user.email,
+          signup_date: session.user.created_at,
+          is_guest: false,
+        });
+        
+        analytics.track(AnalyticsEvents.LOGIN_COMPLETED, {
+          method: 'email',
+          user_id: session.user.id,
+        });
+      }
       
       addToast({ message: 'Welcome! 🎉', type: 'success' });
       
@@ -103,6 +158,7 @@ export const AuthRequiredScreen = () => {
       setCurrentScreen('home');
     } catch (error) {
       addToast({ message: 'Something went wrong. Please try again.', type: 'error' });
+      analytics.trackError(error as Error, { method: 'email' });
     } finally {
       setIsLoading(false);
     }

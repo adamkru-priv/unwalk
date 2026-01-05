@@ -17,13 +17,17 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 2000,
+      launchShowDuration: 300, // ✅ Reduced from 2000ms to 300ms (barely visible)
       backgroundColor: '#0B101B', // Match app background
       showSpinner: false,
       androidSpinnerStyle: 'large',
       iosSpinnerStyle: 'small',
       splashFullScreen: true,
       splashImmersive: true,
+      // ✅ Use custom splash screen image instead of default Capacitor icon
+      launchAutoHide: true, // Auto-hide after duration
+      androidSplashResourceName: 'splash', // Android uses res/drawable/splash.png
+      iosSplashResourceName: 'Splash', // iOS uses Assets.xcassets/Splash.imageset
     },
     StatusBar: {
       style: 'DARK', // Light text (white) for dark background

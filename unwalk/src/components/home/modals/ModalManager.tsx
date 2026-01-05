@@ -1,7 +1,8 @@
 import { CelebrationModal } from '../CelebrationModal';
 import { LevelUpModal } from '../LevelUpModal';
 import { JourneyModal } from './JourneyModal';
-import { SelectChallengeModal } from './SelectChallengeModal'; // 🎯 NEW: Universal modal
+import { SelectSoloChallengeModal } from './SelectSoloChallengeModal';
+import { SelectTeamChallengeModal } from './SelectTeamChallengeModal';
 import { InviteMoreToTeamChallengeModal } from './InviteMoreToTeamChallengeModal';
 import type { UserChallenge } from '../../../types';
 
@@ -98,20 +99,18 @@ export function ModalManager({
         />
       )}
 
-      {/* 🎯 NEW: Solo Challenge Selection Modal */}
-      <SelectChallengeModal
+      {/* 🎯 Solo Challenge Selection Modal */}
+      <SelectSoloChallengeModal
         isOpen={showSoloSelectModal}
         onClose={onCloseSoloSelect}
         onSuccess={onSoloSelectSuccess}
-        mode="solo"
       />
 
-      {/* 🎯 NEW: Team Challenge Selection Modal */}
-      <SelectChallengeModal
+      {/* 🎯 Team Challenge Selection Modal */}
+      <SelectTeamChallengeModal
         isOpen={showTeamSelectModal}
         onClose={onCloseTeamSelect}
         onSuccess={onTeamSelectSuccess}
-        mode="team"
       />
 
       {/* Invite More Modal - invite additional friends to existing challenge */}

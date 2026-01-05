@@ -4,12 +4,13 @@ import type { Challenge, UserChallenge, UserTier } from '../types';
 import type { AdminChallenge } from '../types';
 import type { UserProfile } from '../lib/auth';
 
-type Screen = 'onboarding' | 'whoToChallenge' | 'auth' | 'home' | 'dashboard' | 'library' | 'myCustomChallenges' | 'team' | 'leaderboard' | 'profile' | 'badges' | 'challengeSelection' | 'customChallenge'; // 🎯 Added 'myCustomChallenges'
-type Theme = 'light' | 'dark';
+type Screen = 'onboarding' | 'whoToChallenge' | 'auth' | 'home' | 'dashboard' | 'library' | 'myCustomChallenges' | 'team' | 'stats' | 'leaderboard' | 'profile' | 'badges' | 'challengeSelection' | 'customChallenge'; // 🎯 Added 'myCustomChallenges'
+export type Theme = 'light' | 'dark';
 
 interface ChallengeStore {
   challenge: Challenge | null;
-  activeUserChallenge: UserChallenge | null;
+  activeUserChallenge: UserChallenge | null; // 🎯 DEPRECATED: Use activeUserChallenges instead
+  activeUserChallenges: UserChallenge[]; // 🎯 NEW: Support multiple active challenges (solo + team)
   pausedChallenges: UserChallenge[];
   currentScreen: Screen;
   previousScreen: Screen | null;
@@ -58,6 +59,7 @@ export const useChallengeStore = create<ChallengeStore>()(
     (set, get) => ({
       challenge: null,
       activeUserChallenge: null,
+      activeUserChallenges: [], // 🎯 NEW: Initialize multiple active challenges
       pausedChallenges: [],
       currentScreen: 'onboarding',
       previousScreen: null,
@@ -209,6 +211,7 @@ export const useChallengeStore = create<ChallengeStore>()(
       resetToInitialState: () => set({
         challenge: null,
         activeUserChallenge: null,
+        activeUserChallenges: [], // 🎯 NEW: Reset multiple active challenges
         pausedChallenges: [],
         currentScreen: 'onboarding',
         previousScreen: null,
@@ -233,6 +236,7 @@ export const useChallengeStore = create<ChallengeStore>()(
         // Persist everything EXCEPT isAppReady
         challenge: state.challenge,
         activeUserChallenge: state.activeUserChallenge,
+        activeUserChallenges: state.activeUserChallenges, // 🎯 NEW: Persist multiple active challenges
         pausedChallenges: state.pausedChallenges,
         currentScreen: state.currentScreen,
         previousScreen: state.previousScreen,
