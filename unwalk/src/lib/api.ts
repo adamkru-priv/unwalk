@@ -237,10 +237,53 @@ export async function startChallenge(
 }
 
 // Update progress (called from HealthKit sync)
+// ✅ FIX: Check deadline before updating progress
 export async function updateChallengeProgress(
   userChallengeId: string,
   steps: number
 ): Promise<UserChallenge> {
+  // 🔍 First, fetch the challenge to check deadline
+  const { data: existingChallenge, error: fetchError } = await supabase
+    .from('user_challenges')
+    .select(`
+      *,
+      admin_challenge:admin_challenges(*)
+    `)
+    .eq('id', userChallengeId)
+    .single();
+
+  if (fetchError) throw fetchError;
+
+  // ✅ CRITICAL: Check if challenge has expired
+  if (existingChallenge?.admin_challenge?.deadline) {
+    const deadline = new Date(existingChallenge.admin_challenge.deadline);
+    const now = new Date();
+    
+    if (deadline < now) {
+      console.warn('⏰ [API] Challenge has expired! Deadline:', deadline, 'Now:', now);
+      
+      // Automatically mark as expired
+      const { data: expiredChallenge, error: expireError } = await supabase
+        .from('user_challenges')
+        .update({ 
+          status: 'expired',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userChallengeId)
+        .select(`
+          *,
+          admin_challenge:admin_challenges(*)
+        `)
+        .single();
+      
+      if (expireError) throw expireError;
+      
+      // Return expired challenge without updating steps
+      return expiredChallenge;
+    }
+  }
+
+  // ✅ Challenge is still valid, proceed with update
   const { data, error } = await supabase
     .from('user_challenges')
     .update({ current_steps: steps })
@@ -253,6 +296,18 @@ export async function updateChallengeProgress(
 
   if (error) throw error;
   return data;
+}
+
+// ✅ NEW: Helper function to check if a challenge has expired
+export function isChallengeExpired(challenge: UserChallenge): boolean {
+  if (!challenge?.admin_challenge?.deadline) {
+    return false; // No deadline = never expires
+  }
+  
+  const deadline = new Date(challenge.admin_challenge.deadline);
+  const now = new Date();
+  
+  return deadline < now;
 }
 
 // Complete challenge (manual or auto when goal reached)

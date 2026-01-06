@@ -2,6 +2,7 @@ import { supabase } from '../supabase';
 import type { User, Session } from '@supabase/supabase-js';
 import { getDeviceId } from '../deviceId';
 import type { UserProfile } from './types';
+import { clearNativeSession } from '../nativeSession';
 
 /**
  * AuthService - Authentication & User Profile Management
@@ -238,6 +239,9 @@ class AuthService {
       console.log('🚪 [Auth] Starting sign out...');
       
       this.clearGuestUser();
+
+      // Clear native session data for Swift plugins
+      await clearNativeSession();
 
       try {
         const { Capacitor } = await import('@capacitor/core');

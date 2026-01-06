@@ -24,15 +24,32 @@ public final class MoveeHealthKitPlugin: CAPPlugin {
     }
     
     @objc public func requestAuthorization(_ call: CAPPluginCall) {
-        print("🔐 requestAuthorization called")
+        print("🔐 [HealthKit] requestAuthorization called")
         manager.requestAuthorization { success, error in
             if let error = error {
-                print("❌ Authorization error: \(error.localizedDescription)")
+                print("❌ [HealthKit] Authorization error: \(error.localizedDescription)")
                 call.reject(error.localizedDescription)
                 return
             }
-            print("✅ Authorization success: \(success)")
-            call.resolve(["authorized": success])
+            print("✅ [HealthKit] Authorization success: \(success)")
+            
+            // 🎯 NEW: Enable background delivery after successful authorization
+            if success {
+                print("🔧 [HealthKit] Enabling background delivery...")
+                self.manager.enableBackgroundDelivery { bgSuccess, bgError in
+                    if bgSuccess {
+                        print("✅ [HealthKit] Background delivery enabled successfully")
+                    } else {
+                        print("⚠️ [HealthKit] Background delivery failed: \(bgError?.localizedDescription ?? "unknown")")
+                    }
+                    
+                    // Always resolve the call after background setup attempt
+                    call.resolve(["authorized": success])
+                }
+            } else {
+                print("⚠️ [HealthKit] Authorization not granted, skipping background delivery")
+                call.resolve(["authorized": success])
+            }
         }
     }
     

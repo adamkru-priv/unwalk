@@ -67,6 +67,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             print("[Capacitor] ❌ ApnsTokenPlugin class not found at runtime")
         }
 
+        // MARK: - BackgroundStepCheck plugin sanity check
+        if let cls = NSClassFromString("BackgroundStepCheckPlugin") as? NSObject.Type {
+            _ = cls.init()
+            print("[Capacitor] ✅ Instantiated BackgroundStepCheckPlugin")
+        } else if let cls = NSClassFromString("App.BackgroundStepCheckPlugin") as? NSObject.Type {
+            _ = cls.init()
+            print("[Capacitor] ✅ Instantiated App.BackgroundStepCheckPlugin")
+        } else {
+            print("[Capacitor] ❌ BackgroundStepCheckPlugin class not found at runtime")
+        }
+
         // MARK: - Initialize Capacitor Window and WebView
         // Create window
         window = UIWindow(frame: UIScreen.main.bounds)

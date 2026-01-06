@@ -96,6 +96,19 @@ export function BottomNavigation({ currentScreen, onTeamClick }: BottomNavigatio
           </svg>
           <span className="text-xs font-medium">Team</span>
         </button>
+
+        {/* Profile */}
+        <button
+          onClick={() => setCurrentScreen('profile')}
+          className={`flex flex-col items-center gap-1 transition-colors ${
+            currentScreen === 'profile' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+          }`}
+        >
+          <svg className="w-7 h-7" fill={currentScreen === 'profile' ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+          <span className="text-xs font-medium">Profile</span>
+        </button>
       </div>
     </nav>
   );

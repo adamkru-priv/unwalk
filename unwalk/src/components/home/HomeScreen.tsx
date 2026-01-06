@@ -13,7 +13,6 @@ import { useGamification } from './hooks/useGamification';
 import { useHealthKitSync } from './hooks/useHealthKitSync';
 import { useHealthKit } from '../../hooks/useHealthKit';
 import { clearBadgeCount } from '../../lib/push/iosPush';
-import { useBackgroundChallengeSync } from '../../hooks/useBackgroundChallengeSync'; // 🎯 NEW
 
 export function HomeScreen() {
   const [selectedCompletedChallenge, setSelectedCompletedChallenge] = useState<UserChallenge | null>(null);
@@ -49,9 +48,6 @@ export function HomeScreen() {
   
   // 🎯 Only handle HealthKit permissions (no auto-sync)
   useHealthKitSync();
-
-  // 🎯 NEW: Sync challenge data with native background tasks
-  useBackgroundChallengeSync();
 
   // 🎯 Get sync function from HealthKit hook
   const { syncSteps } = useHealthKit();

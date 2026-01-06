@@ -93,15 +93,15 @@ export default function DailyActivityHUD({
           >
             <div className="relative">
               {/* Subtle glow */}
-              <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-purple-400 to-pink-400 blur-sm opacity-40 group-hover:opacity-60 transition-opacity" />
+              <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-purple-400/30 to-pink-400/30 blur-sm opacity-30 group-hover:opacity-50 transition-opacity" />
               
               {/* Robot icon */}
-              <div className="relative bg-gradient-to-br from-purple-500 via-purple-400 to-pink-400 rounded-lg p-2 shadow-lg group-hover:scale-110 group-active:scale-95 transition-all duration-300">
+              <div className="relative bg-gradient-to-br from-purple-500/20 via-purple-400/15 to-pink-400/20 dark:from-purple-500/15 dark:via-purple-400/10 dark:to-pink-400/15 rounded-lg p-2 shadow-md group-hover:scale-110 group-active:scale-95 transition-all duration-300 backdrop-blur-sm">
                 <span className="text-2xl block leading-none">🤖</span>
               </div>
               
               {/* Tiny sparkle */}
-              <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-yellow-300 animate-ping" />
+              <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-yellow-300/60 animate-ping" />
             </div>
           </button>
 

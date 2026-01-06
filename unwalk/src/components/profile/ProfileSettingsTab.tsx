@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useChallengeStore } from '../../stores/useChallengeStore';
 import { authService } from '../../lib/auth';
 import { useHealthKit } from '../../hooks/useHealthKit';
 import { Capacitor } from '@capacitor/core';
 import { ThemeSelector } from './ThemeSelector';
-import BackgroundStepCheck from '../../plugins/backgroundStepCheck';
 import type { UserProfile } from '../../lib/auth/types';
 import type { Theme } from '../../stores/useChallengeStore';
 
@@ -48,17 +47,10 @@ export function ProfileSettingsTab({
   const [isEditingNickname, setIsEditingNickname] = useState(false);
   const [nicknameValue, setNicknameValue] = useState('');
   const [nicknameSaving, setNicknameSaving] = useState(false);
-  
-  // 🎯 NEW: Background check settings
-  const [backgroundCheckInterval, setBackgroundCheckInterval] = useState(15);
-  const [backgroundCheckStatus, setBackgroundCheckStatus] = useState<any>(null);
-  const [savingInterval, setSavingInterval] = useState(false);
 
   const platform = Capacitor.getPlatform();
   const healthServiceName = platform === 'ios' ? 'Apple Health' : platform === 'android' ? 'Health Connect' : 'Health Data';
   const isNative = Capacitor.isNativePlatform();
-  const isIOS = platform === 'ios';
-  const isAndroid = platform === 'android';
 
   const {
     isAvailable: healthKitAvailable,
@@ -68,61 +60,6 @@ export function ProfileSettingsTab({
     syncSteps: refreshHealthKitSteps,
     todaySteps,
   } = useHealthKit();
-
-  // 🎯 NEW: Load background check settings on mount (iOS & Android)
-  useEffect(() => {
-    if (isIOS || isAndroid) {
-      loadBackgroundCheckSettings();
-    }
-  }, [isIOS, isAndroid]);
-
-  const loadBackgroundCheckSettings = async () => {
-    try {
-      const [intervalResult, statusResult] = await Promise.all([
-        BackgroundStepCheck.getCheckInterval(),
-        BackgroundStepCheck.getBackgroundCheckStatus()
-      ]);
-      
-      setBackgroundCheckInterval(intervalResult.interval);
-      setBackgroundCheckStatus(statusResult);
-      
-      console.log('[BackgroundCheck] Settings loaded:', { intervalResult, statusResult });
-    } catch (error) {
-      console.error('[BackgroundCheck] Failed to load settings:', error);
-    }
-  };
-
-  const handleIntervalChange = async (minutes: number) => {
-    setSavingInterval(true);
-    try {
-      await BackgroundStepCheck.setCheckInterval({ minutes });
-      setBackgroundCheckInterval(minutes);
-      
-      // Reload status
-      await loadBackgroundCheckSettings();
-      
-      console.log('[BackgroundCheck] Interval updated to:', minutes);
-    } catch (error) {
-      console.error('[BackgroundCheck] Failed to update interval:', error);
-      alert('Failed to update check interval');
-    } finally {
-      setSavingInterval(false);
-    }
-  };
-
-  const formatLastCheck = (timestamp: number) => {
-    if (!timestamp) return 'Never';
-    const date = new Date(timestamp * 1000);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return date.toLocaleDateString();
-  };
 
   const handleSaveNickname = async () => {
     if (!userProfile) return;
@@ -258,7 +195,7 @@ export function ProfileSettingsTab({
         </div>
       </div>
 
-      {/* Push Notifications Permission */}
+      {/* Push Notifications Permission - Only show if not granted */}
       {isNative && pushNotifStatus.isAvailable && !pushNotifStatus.isGranted && (
         <div className="bg-white dark:bg-[#151A25] rounded-2xl px-4 py-3.5 shadow-sm border border-gray-100 dark:border-white/5">
           <div className="flex items-center justify-between">
@@ -279,6 +216,35 @@ export function ProfileSettingsTab({
               className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-[13px] font-medium transition-colors"
             >
               {pushNotifLoading ? 'Enabling...' : 'Enable'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Notifications Toggle - Only show if granted */}
+      {isNative && pushNotifStatus.isGranted && (
+        <div className="bg-white dark:bg-[#151A25] rounded-2xl px-4 py-3.5 shadow-sm border border-gray-100 dark:border-white/5">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-[15px] font-medium text-gray-900 dark:text-white">Notifications</div>
+              <div className="text-[13px] text-gray-500 dark:text-gray-400">
+                {pushEnabled ? 'Enabled' : 'Disabled'}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              disabled={pushSaving}
+              onClick={() => onTogglePushEnabled(!pushEnabled)}
+              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${
+                pushEnabled ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-700'
+              } ${pushSaving ? 'opacity-60' : ''}`}
+            >
+              <span
+                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform shadow-sm ${
+                  pushEnabled ? 'translate-x-7' : 'translate-x-1'
+                }`}
+              />
             </button>
           </div>
         </div>
@@ -311,33 +277,6 @@ export function ProfileSettingsTab({
         </div>
       </div>
 
-      {/* Notifications Toggle */}
-      <div className="bg-white dark:bg-[#151A25] rounded-2xl px-4 py-3.5 shadow-sm border border-gray-100 dark:border-white/5">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-[15px] font-medium text-gray-900 dark:text-white">Notifications</div>
-            <div className="text-[13px] text-gray-500 dark:text-gray-400">
-              {pushEnabled ? 'Enabled' : 'Disabled'}
-            </div>
-          </div>
-
-          <button
-            type="button"
-            disabled={pushSaving}
-            onClick={() => onTogglePushEnabled(!pushEnabled)}
-            className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${
-              pushEnabled ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-700'
-            } ${pushSaving ? 'opacity-60' : ''}`}
-          >
-            <span
-              className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform shadow-sm ${
-                pushEnabled ? 'translate-x-7' : 'translate-x-1'
-              }`}
-            />
-          </button>
-        </div>
-      </div>
-
       {/* Theme Selector */}
       <div className="bg-white dark:bg-[#151A25] rounded-2xl px-4 py-3.5 shadow-sm border border-gray-100 dark:border-white/5">
         <div className="flex items-center justify-between">
@@ -348,64 +287,6 @@ export function ProfileSettingsTab({
           <ThemeSelector theme={theme} onThemeChange={onThemeChange} />
         </div>
       </div>
-
-      {/* 🎯 NEW: Background Step Check Settings (iOS & Android) */}
-      {/* 🔧 TEMP: Show in browser for testing UI */}
-      {(isIOS || isAndroid || !isNative) && (
-        <div className="bg-white dark:bg-[#151A25] rounded-2xl px-4 py-3.5 shadow-sm border border-gray-100 dark:border-white/5">
-          <div className="mb-3">
-            <div className="text-[15px] font-medium text-gray-900 dark:text-white flex items-center gap-2">
-              Background Step Check
-              {isIOS && (
-                <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full font-bold">
-                  iOS
-                </span>
-              )}
-              {isAndroid && (
-                <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 px-2 py-0.5 rounded-full font-bold">
-                  Android
-                </span>
-              )}
-              {!isNative && (
-                <span className="text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded-full font-bold">
-                  Preview
-                </span>
-              )}
-            </div>
-            <div className="text-[13px] text-gray-500 dark:text-gray-400">
-              Auto-check every {backgroundCheckInterval} minutes
-            </div>
-            {backgroundCheckStatus && backgroundCheckStatus.lastCheckTimestamp > 0 && (
-              <div className="text-[12px] text-gray-400 dark:text-gray-500 mt-1">
-                Last check: {formatLastCheck(backgroundCheckStatus.lastCheckTimestamp)}
-              </div>
-            )}
-          </div>
-
-          <div className="grid grid-cols-5 gap-2">
-            {[5, 10, 15, 30, 60].map((minutes) => (
-              <button
-                key={minutes}
-                disabled={savingInterval || !isNative}
-                onClick={() => handleIntervalChange(minutes)}
-                className={`py-2 rounded-lg text-[13px] font-medium transition-all ${
-                  backgroundCheckInterval === minutes
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/15'
-                } ${(savingInterval || !isNative) ? 'opacity-60' : ''}`}
-              >
-                {minutes}m
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-            <p className="text-[12px] text-blue-900 dark:text-blue-300 leading-relaxed">
-              <span className="font-bold">💡 Tip:</span> Background checks help track your progress and send timely notifications about goals and challenges, even when the app is closed.
-            </p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

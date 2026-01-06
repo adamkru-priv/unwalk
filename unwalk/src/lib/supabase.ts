@@ -49,22 +49,42 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
-// Debug: Log session changes
-supabase.auth.onAuthStateChange((event, session) => {
+// Import after supabase client is created to avoid circular dependency
+import { syncSessionToNative, clearNativeSession } from './nativeSession';
+
+// Debug: Log session changes and sync to native UserDefaults
+supabase.auth.onAuthStateChange(async (event, session) => {
   console.log('🔐 [Supabase] Auth event:', event);
   console.log('🔐 [Supabase] Session exists:', !!session);
   console.log('🔐 [Supabase] User ID:', session?.user?.id);
   
   if (event === 'TOKEN_REFRESHED') {
     console.log('✅ [Supabase] Token refreshed successfully');
+    // Sync refreshed token to native
+    await syncSessionToNative(session);
+  }
+  
+  if (event === 'SIGNED_IN') {
+    console.log('✅ [Supabase] User signed in');
+    // Sync session to native UserDefaults for background sync
+    await syncSessionToNative(session);
   }
   
   if (event === 'SIGNED_OUT') {
     console.log('👋 [Supabase] User signed out');
+    // Clear native session data
+    await clearNativeSession();
   }
   
   if (!session && event !== 'SIGNED_OUT' && event !== 'INITIAL_SESSION') {
     console.error('❌ [Supabase] Session lost! Event:', event);
+    await clearNativeSession();
+  }
+  
+  // Sync on initial session if exists
+  if (event === 'INITIAL_SESSION' && session) {
+    console.log('🔄 [Supabase] Syncing initial session to native');
+    await syncSessionToNative(session);
   }
 });
 
@@ -98,12 +118,16 @@ if (Capacitor.isNativePlatform()) {
               console.error('❌ [Supabase] Failed to refresh session:', refreshError);
             } else {
               console.log('✅ [Supabase] Session refreshed on app resume');
+              // Token will be synced via onAuthStateChange (TOKEN_REFRESHED)
             }
           } else {
             console.log('✅ [Supabase] Session valid, time until expiry:', timeUntilExpiry, 'seconds');
+            // Sync current session to make sure native has latest data
+            await syncSessionToNative(data.session);
           }
         } else {
           console.log('⚠️ [Supabase] No session found on app resume');
+          await clearNativeSession();
         }
       } catch (err) {
         console.error('❌ [Supabase] Error checking session on resume:', err);

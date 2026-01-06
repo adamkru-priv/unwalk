@@ -51,6 +51,19 @@ export function ProfileScreen() {
 
   const isNative = Capacitor.isNativePlatform();
 
+  // ✅ Nasłuchuj na zdarzenie z AppHeader aby otworzyć zakładkę Badges
+  useEffect(() => {
+    const handleOpenBadgesTab = () => {
+      setActiveTab('badges');
+    };
+
+    window.addEventListener('openBadgesTab', handleOpenBadgesTab);
+
+    return () => {
+      window.removeEventListener('openBadgesTab', handleOpenBadgesTab);
+    };
+  }, []);
+
   useEffect(() => {
     if (isNative) {
       checkPushNotificationStatus().then(setPushNotifStatus);
@@ -187,25 +200,6 @@ export function ProfileScreen() {
     }
   };
 
-  const handleTogglePushEnabled = async (next: boolean) => {
-    if (!userProfile) return;
-
-    setPushEnabled(next);
-    setPushSaving(true);
-
-    try {
-      const { error } = await authService.updateProfile({ push_enabled: next } as any);
-      if (error) throw error;
-
-      setUserProfile({ ...userProfile, push_enabled: next });
-    } catch (e) {
-      setPushEnabled(userProfile.push_enabled ?? true);
-      alert('Failed to update notification settings. Please try again.');
-    } finally {
-      setPushSaving(false);
-    }
-  };
-
   const handleDailyStepGoalChange = async (newGoal: number) => {
     if (!userProfile) return;
 
@@ -246,6 +240,25 @@ export function ProfileScreen() {
       alert('Failed to enable notifications. Please try again.');
     } finally {
       setPushNotifLoading(false);
+    }
+  };
+
+  const handleTogglePushEnabled = async (next: boolean) => {
+    if (!userProfile) return;
+
+    setPushEnabled(next);
+    setPushSaving(true);
+
+    try {
+      const { error } = await authService.updateProfile({ push_enabled: next } as any);
+      if (error) throw error;
+
+      setUserProfile({ ...userProfile, push_enabled: next });
+    } catch (e) {
+      setPushEnabled(userProfile.push_enabled ?? true);
+      alert('Failed to update notification settings. Please try again.');
+    } finally {
+      setPushSaving(false);
     }
   };
 

@@ -9,10 +9,15 @@ class BackgroundTaskManager {
     // Background task identifier
     private let taskIdentifier = "com.unwalk.backgroundStepCheck"
     
-    // User preferences for check interval (in minutes)
+    // User preferences for check interval (in minutes) - now synced from Supabase
     private var checkInterval: TimeInterval {
         let minutes = UserDefaults.standard.integer(forKey: "background_check_interval_minutes")
         return TimeInterval((minutes > 0 ? minutes : 15) * 60) // Default 15 minutes
+    }
+    
+    // Check if auto-sync is enabled
+    private var isAutoSyncEnabled: Bool {
+        return UserDefaults.standard.bool(forKey: "auto_sync_enabled")
     }
     
     private init() {}
@@ -33,6 +38,13 @@ class BackgroundTaskManager {
     // MARK: - Schedule Next Background Check
     
     func scheduleBackgroundStepCheck() {
+        // Cancel if auto-sync is disabled
+        guard isAutoSyncEnabled else {
+            print("[BackgroundTask] ⏸️ Auto-sync disabled, cancelling scheduled tasks")
+            BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: taskIdentifier)
+            return
+        }
+        
         let request = BGAppRefreshTaskRequest(identifier: taskIdentifier)
         request.earliestBeginDate = Date(timeIntervalSinceNow: checkInterval)
         
@@ -44,12 +56,30 @@ class BackgroundTaskManager {
         }
     }
     
+    // MARK: - Update Sync Settings (called from JS)
+    
+    func updateSyncSettings(enabled: Bool, intervalMinutes: Int) {
+        UserDefaults.standard.set(enabled, forKey: "auto_sync_enabled")
+        UserDefaults.standard.set(intervalMinutes, forKey: "background_check_interval_minutes")
+        
+        print("[BackgroundTask] 🔧 Settings updated: enabled=\(enabled), interval=\(intervalMinutes)min")
+        
+        if enabled {
+            // Re-schedule with new interval
+            scheduleBackgroundStepCheck()
+        } else {
+            // Cancel all scheduled tasks
+            BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: taskIdentifier)
+            print("[BackgroundTask] ❌ All background tasks cancelled")
+        }
+    }
+    
     // MARK: - Handle Background Task
     
     private func handleBackgroundStepCheck(task: BGAppRefreshTask) {
         print("[BackgroundTask] 🔄 Background step check started")
         
-        // Schedule next check
+        // Schedule next check (will respect current settings)
         scheduleBackgroundStepCheck()
         
         // Create operation with timeout

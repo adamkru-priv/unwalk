@@ -7,7 +7,6 @@ import { getMyLeaderboardPosition } from '../../lib/gamification';
 import type { UserChallenge } from '../../types';
 import { Capacitor } from '@capacitor/core';
 import { checkPushNotificationStatus } from '../../lib/push/iosPush';
-import { getInitials } from '../team/utils';
 
 interface AppHeaderProps {
   title?: string;
@@ -21,21 +20,17 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
   const [pendingChallengesCount, setPendingChallengesCount] = useState(0);
   const [notificationCount, setNotificationCount] = useState(0);
   const [leaderboardRank, setLeaderboardRank] = useState<number | null>(null);
-  
-  // 🎯 NEW: Get active challenges from store
+
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
-  const activeUserChallenges = useChallengeStore((s) => s.activeUserChallenges); // 🎯 NEW: Multiple challenges
+  const activeUserChallenges = useChallengeStore((s) => s.activeUserChallenges);
   const setCurrentScreen = useChallengeStore((s) => s.setCurrentScreen);
   const userProfile = useChallengeStore((s) => s.userProfile);
 
-  // Check if user is guest - MUST be before useEffect that uses it
   const isGuest = userProfile?.is_guest || false;
 
-  // 🎯 NEW: Determine if challenges are solo or team (support multiple)
   const hasSoloChallenge = activeUserChallenges.some(c => !c.team_id) || (activeUserChallenge && !activeUserChallenge.team_id);
   const hasTeamChallenge = activeUserChallenges.some(c => c.team_id) || (activeUserChallenge && activeUserChallenge.team_id);
 
-  // ✅ NEW: Check native push notification permission status
   const [pushNotifStatus, setPushNotifStatus] = useState({
     isAvailable: false,
     isGranted: false,
@@ -43,14 +38,12 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
     isPrompt: false,
   });
 
-  // Check push notification status on mount (for native only)
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
       checkPushNotificationStatus().then(setPushNotifStatus);
     }
   }, []);
 
-  // ✅ FIX: Listen for push notification status changes from ProfileScreen
   useEffect(() => {
     const handlePushStatusChange = (event: CustomEvent) => {
       setPushNotifStatus(event.detail);
@@ -63,29 +56,22 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
     };
   }, []);
 
-  // ✅ FIXED: Show notification bell with slash when:
-  // 1. User disabled push_enabled in settings, OR
-  // 2. Native permission not granted (prompt or denied)
   const pushNotificationsDisabled = 
     userProfile?.push_enabled === false || 
     (Capacitor.isNativePlatform() && pushNotifStatus.isAvailable && !pushNotifStatus.isGranted);
 
   const loadNotifications = useCallback(async () => {
     try {
-      // Load pending team invitations
       const invitations = await teamService.getReceivedInvitations();
       const pending = invitations.filter(inv => inv.status === 'pending');
       setReceivedInvitations(pending);
 
-      // Load unclaimed completed challenges
       const unclaimed = await getUnclaimedChallenges();
       setUnclaimedChallenges(unclaimed);
 
-      // Load pending challenge assignments
       const pendingChallenges = await teamService.getPendingChallengesCount();
       setPendingChallengesCount(pendingChallenges);
 
-      // 🎯 NEW: Load pending Team Challenge invitations from team_members
       const { data: { user } } = await (await import('../../lib/supabase')).supabase.auth.getUser();
       let teamChallengeInvitesCount = 0;
       if (user) {
@@ -99,7 +85,6 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
         teamChallengeInvitesCount = count || 0;
       }
 
-      // Total notification count (including team challenge invites)
       const total = pending.length + unclaimed.length + pendingChallenges + teamChallengeInvitesCount;
       setNotificationCount(total);
     } catch (err) {
@@ -110,12 +95,10 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
   useEffect(() => {
     void loadNotifications();
     
-    // Refresh notifications every 30 seconds
     const interval = setInterval(() => void loadNotifications(), 30000);
     return () => clearInterval(interval);
   }, [loadNotifications]);
 
-  // 🎯 NEW: Load leaderboard rank
   useEffect(() => {
     const loadRank = async () => {
       if (!isGuest) {
@@ -135,7 +118,6 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
     const addToast = useToastStore.getState().addToast;
     
     if (pendingChallengesCount > 0) {
-      // Get actual challenge details to show in toast
       const challenges = await teamService.getReceivedChallenges();
       if (challenges.length > 0) {
         const firstChallenge = challenges[0];
@@ -164,12 +146,9 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
     }
   };
 
-  // 🎯 REMOVED: XP/Level calculation functions - no longer needed (moved to Profile Badges tab)
-
   return (
     <header className="bg-gray-50/80 dark:bg-[#0B101B]/80 backdrop-blur-md sticky top-0 z-20 px-6 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)] border-b border-gray-200 dark:border-transparent transition-all duration-300">
       <div className="flex items-center justify-between">
-        {/* Left side - Logo */}
         <div className="flex items-center gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -182,22 +161,18 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
           </div>
         </div>
 
-        {/* Right side - Profile & Notifications */}
         <div className="flex items-center gap-3">
-          {/* 🎯 NEW: Solo Challenge Badge */}
+          {/* Badge (Solo/Team) - po lewej */}
           {!isGuest && hasSoloChallenge && (
             <button
               onClick={() => {
                 setCurrentScreen('home');
-                // Switch carousel to slide 1 (RunnerHUD) and scroll to it
                 setTimeout(() => {
-                  // Trigger carousel slide change by clicking the second dot
                   const carouselDots = document.querySelectorAll('button[aria-label="Solo Challenge"]');
                   if (carouselDots.length > 0) {
                     (carouselDots[0] as HTMLButtonElement).click();
                   }
                   
-                  // Then scroll to the challenge
                   setTimeout(() => {
                     const challengeElement = document.getElementById('active-challenge');
                     if (challengeElement) {
@@ -216,7 +191,6 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
             </button>
           )}
 
-          {/* 🎯 NEW: Team Challenge Badge */}
           {!isGuest && hasTeamChallenge && (
             <button
               onClick={() => setCurrentScreen('team')}
@@ -230,11 +204,32 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
             </button>
           )}
 
-          {/* ✅ NEW: Push Notifications Disabled Warning */}
+          {/* Statystyka (Lvl/Rank) - zawsze po prawej, klikalny */}
+          {!isGuest && (
+            <button
+              onClick={() => {
+                setCurrentScreen('profile');
+                // Wyślij event do ProfileScreen aby przełączył na zakładkę Badges
+                setTimeout(() => {
+                  window.dispatchEvent(new CustomEvent('openBadgesTab'));
+                }, 100);
+              }}
+              className="flex flex-col items-end gap-0.5 hover:opacity-80 transition-opacity"
+              title="View your badges and achievements"
+            >
+              <div className="text-xs font-semibold text-gray-900 dark:text-white leading-tight">
+                Lvl {userProfile?.level || 1} • {userProfile?.xp || 0} XP
+              </div>
+              <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 leading-tight">
+                Rank #{leaderboardRank || '—'}
+              </div>
+            </button>
+          )}
+
           {!isGuest && pushNotificationsDisabled && (
             <button
               onClick={() => setCurrentScreen('profile')}
-              className="relative text-gray-400 dark:text-white/40 hover:text-gray-600 dark:hover:text-white/60 transition-colors"
+              className="relative text-gray-400 dark:text-white/40 hover:text-gray-600 dark:hover:text.white/60 transition-colors"
               title="Push notifications are disabled. Click to enable in settings."
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -246,11 +241,10 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
             </button>
           )}
 
-          {/* Notifications Button */}
           {!isGuest && notificationCount > 0 && (
             <button
               onClick={handleNotificationClick}
-              className="relative text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white transition-colors"
+              className="relative text-gray-600 dark:text.white/70 hover:text-gray-900 dark:hover:text.white transition-colors"
               title={`${pendingChallengesCount} challenges, ${receivedInvitations.length} invitations, ${unclaimedChallenges.length} rewards`}
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -261,32 +255,6 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
               </div>
             </button>
           )}
-
-          {/* 🎯 NEW: Level, XP & Rank Display + Profile Avatar */}
-          <button
-            onClick={() => setCurrentScreen('profile')}
-            className="flex items-center gap-2 hover:scale-[1.02] transition-transform"
-            title="Profile & Settings"
-          >
-            {/* Stats */}
-            {!isGuest && (
-              <div className="text-right">
-                <div className="text-[10px] font-bold text-gray-900 dark:text-white">
-                  Lvl {userProfile?.level || 1} <span className="text-gray-500 dark:text-gray-400">({userProfile?.xp || 0} XP)</span>
-                </div>
-                <div className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">
-                  Rank #{leaderboardRank || '—'}
-                </div>
-              </div>
-            )}
-            
-            {/* Avatar */}
-            <div 
-              className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-sm font-bold shadow-lg ring-2 ring-blue-400/30"
-            >
-              {getInitials(userProfile?.nickname || userProfile?.display_name || userProfile?.email)}
-            </div>
-          </button>
         </div>
       </div>
     </header>

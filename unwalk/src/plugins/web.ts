@@ -40,4 +40,21 @@ export class BackgroundStepCheckWeb extends WebPlugin implements BackgroundStepC
       lastCheckTimestamp: 0 
     };
   }
+
+  async updateSyncSettings(options: { enabled: boolean; intervalMinutes: number }): Promise<{ 
+    success: boolean; 
+    enabled: boolean; 
+    intervalMinutes: number 
+  }> {
+    console.warn('[BackgroundStepCheck] Web platform does not support background tasks');
+    localStorage.setItem('auto_sync_enabled', options.enabled.toString());
+    localStorage.setItem('background_check_interval_minutes', options.intervalMinutes.toString());
+    return { success: true, enabled: options.enabled, intervalMinutes: options.intervalMinutes };
+  }
+
+  async getSyncSettings(): Promise<{ enabled: boolean; intervalMinutes: number }> {
+    const enabled = localStorage.getItem('auto_sync_enabled') !== 'false';
+    const intervalMinutes = parseInt(localStorage.getItem('background_check_interval_minutes') || '15');
+    return { enabled, intervalMinutes };
+  }
 }

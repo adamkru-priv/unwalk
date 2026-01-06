@@ -2,8 +2,46 @@ import Foundation
 import Capacitor
 import BackgroundTasks
 
+@objcMembers
 @objc(BackgroundStepCheckPlugin)
 public class BackgroundStepCheckPlugin: CAPPlugin {
+    
+    // MARK: - Sync Settings Management
+    
+    @objc func updateSyncSettings(_ call: CAPPluginCall) {
+        guard let enabled = call.getBool("enabled"),
+              let intervalMinutes = call.getInt("intervalMinutes") else {
+            call.reject("Missing required parameters: enabled, intervalMinutes")
+            return
+        }
+        
+        // Validate interval (1, 5, 15, 30, 60 minutes)
+        let validIntervals = [1, 5, 15, 30, 60]
+        guard validIntervals.contains(intervalMinutes) else {
+            call.reject("Interval must be one of: 1, 5, 15, 30, 60 minutes")
+            return
+        }
+        
+        // Update settings in BackgroundTaskManager
+        BackgroundTaskManager.shared.updateSyncSettings(enabled: enabled, intervalMinutes: intervalMinutes)
+        
+        call.resolve([
+            "success": true,
+            "enabled": enabled,
+            "intervalMinutes": intervalMinutes
+        ])
+    }
+    
+    @objc func getSyncSettings(_ call: CAPPluginCall) {
+        let enabled = UserDefaults.standard.bool(forKey: "auto_sync_enabled")
+        let intervalMinutes = UserDefaults.standard.integer(forKey: "background_check_interval_minutes")
+        let interval = intervalMinutes > 0 ? intervalMinutes : 15
+        
+        call.resolve([
+            "enabled": enabled,
+            "intervalMinutes": interval
+        ])
+    }
     
     @objc func setCheckInterval(_ call: CAPPluginCall) {
         guard let minutes = call.getInt("minutes") else {
@@ -11,9 +49,9 @@ public class BackgroundStepCheckPlugin: CAPPlugin {
             return
         }
         
-        // Validate interval (5-60 minutes)
-        guard minutes >= 5 && minutes <= 60 else {
-            call.reject("Interval must be between 5 and 60 minutes")
+        // Validate interval (1-60 minutes)
+        guard minutes >= 1 && minutes <= 60 else {
+            call.reject("Interval must be between 1 and 60 minutes")
             return
         }
         
@@ -90,14 +128,32 @@ public class BackgroundStepCheckPlugin: CAPPlugin {
     }
     
     @objc func getBackgroundCheckStatus(_ call: CAPPluginCall) {
+        let enabled = UserDefaults.standard.bool(forKey: "auto_sync_enabled")
         let interval = UserDefaults.standard.integer(forKey: "background_check_interval_minutes")
         let lastCheck = UserDefaults.standard.double(forKey: "cached_steps_timestamp")
         
         call.resolve([
-            "enabled": true,
+            "enabled": enabled,
             "interval": interval > 0 ? interval : 15,
             "lastCheckTimestamp": lastCheck,
             "lastCheckDate": lastCheck > 0 ? Date(timeIntervalSince1970: lastCheck).ISO8601Format() : nil
+        ])
+    }
+    
+    @objc func forceEnableAutoSync(_ call: CAPPluginCall) {
+        // Force enable auto-sync with 15 minute interval
+        UserDefaults.standard.set(true, forKey: "auto_sync_enabled")
+        UserDefaults.standard.set(15, forKey: "background_check_interval_minutes")
+        
+        print("[BackgroundStepCheck] ✅ Force enabled auto-sync with 15 min interval")
+        
+        // Schedule background tasks
+        BackgroundTaskManager.shared.updateSyncSettings(enabled: true, intervalMinutes: 15)
+        
+        call.resolve([
+            "success": true,
+            "enabled": true,
+            "intervalMinutes": 15
         ])
     }
 }
