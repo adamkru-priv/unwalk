@@ -39,8 +39,8 @@ export function TeamChallengeInviteModal({ isOpen, onClose, onSuccess }: TeamCha
         .from('admin_challenges')
         .select('*')
         .eq('is_active', true)
-        .eq('is_team_challenge', true) // 🔥 TYLKO team challenges (50k+)
-        .gte('goal_steps', 50000) // Extra safety: minimum 50k
+        .eq('is_team_challenge', true) // 🔥 TYLKO team challenges (20k+)
+        .gte('goal_steps', 20000) // Extra safety: minimum 20k
         .gt('time_limit_hours', 0) // Must have deadline
         .order('goal_steps', { ascending: false }); // Największe najpierw!
 

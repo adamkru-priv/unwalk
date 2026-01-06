@@ -82,7 +82,7 @@ export function RunnerHUD({
             </div>
           </div>
 
-          {/* Title & Description */}
+          {/* Title & Description (without ? icon - moved to modal) */}
           <div className="text-center mb-5">
             <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-2">
               Ready for a Challenge?

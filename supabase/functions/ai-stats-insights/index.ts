@@ -11,6 +11,9 @@ serve(async (req) => {
   try {
     const { weeklySteps, streak, totalChallenges, completedChallenges, level, xp } = await req.json()
 
+    const monthlyTotal = weeklySteps.reduce((sum, steps) => sum + steps, 0)
+    const dailyAverage = Math.round(monthlyTotal / weeklySteps.length)
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -23,28 +26,55 @@ serve(async (req) => {
         max_tokens: 400,
         messages: [{
           role: 'user',
-          content: `Analyze fitness stats. Be SUPER CONCISE.
+          content: `You are an AI analyst interpreting a user's walking history.
 
-Stats:
-- Weekly steps: ${JSON.stringify(weeklySteps)}
-- Streak: ${streak} days
-- Challenges: ${completedChallenges}/${totalChallenges}
-- Level ${level}, XP: ${xp}
+Context:
+- Daily step goal: 10,000 steps
+- User step history (last 7 days): ${JSON.stringify(weeklySteps)}
+- Total steps for the week: ${monthlyTotal}
+- Daily average: ${dailyAverage}
+
+Your task:
+Generate a short, personalized insight based on the user's real activity patterns.
+This should feel like a smart observation the user might not have noticed themselves.
+
+You may analyze:
+- consistency vs spikes
+- average daily steps
+- how often the user reaches or exceeds the goal
+- estimated calorie burn (rough, human-friendly, not medical)
+- signs of sustainable energy vs overexertion
+
+Guidelines:
+- 2–3 sentences max
+- Calm, reflective, insightful tone
+- Use phrases like "your data suggests", "it looks like", "on average"
+- No judgement, no pressure
+- No fitness buzzwords
+- No emojis
+
+You MAY mention:
+- approximate calories burned (very roughly, e.g. "roughly equivalent to…")
+- patterns like "strong start of the month" or "weekend-heavy activity"
+- energy balance or recovery in a non-medical way
+
+You MUST NOT:
+- give medical advice
+- compare the user to others
+- say "you should" more than once
+- mention streaks, XP, ranks, or challenges
+
+End with one soft reflective line, not a command.
 
 Return JSON:
 {
   "trend": "improving" | "stable" | "declining",
   "trendEmoji": "📈" | "➡️" | "📉",
-  "keyInsight": "ONE main observation (max 60 chars)",
-  "secondInsight": "ONE secondary point (max 60 chars)",
-  "quickAction": "ONE thing to do now (max 80 chars)",
-  "motivation": "Short encouragement (max 100 chars)"
-}
-
-Rules:
-- Be ultra-specific with numbers
-- Focus on the TREND
-- No fluff, just facts + 1 action`
+  "keyInsight": "Main observation (max 120 chars)",
+  "secondInsight": "Secondary observation (max 120 chars)",
+  "quickAction": "One soft suggestion (max 100 chars)",
+  "motivation": "Reflective closing line (max 120 chars)"
+}`
         }]
       })
     })

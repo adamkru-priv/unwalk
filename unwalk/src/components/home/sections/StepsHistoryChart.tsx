@@ -33,7 +33,6 @@ export function StepsHistoryChart({ isOpen, onClose }: StepsHistoryChartProps) {
   
   const { getStepsHistory, isAuthorized } = useHealthKit();
   const todaySteps = useChallengeStore((s) => s.todaySteps);
-  const userProfile = useChallengeStore((s) => s.userProfile);
 
   // ✅ Ref do kontenera kalendarza dla auto-scroll
   const calendarRef = useRef<HTMLDivElement>(null);
@@ -63,37 +62,22 @@ export function StepsHistoryChart({ isOpen, onClose }: StepsHistoryChartProps) {
   const loadData = async () => {
     setLoading(true);
     try {
-      const registrationDate = userProfile?.created_at ? new Date(userProfile.created_at) : null;
       const today = new Date();
       
-      // ✅ SPECIAL CASE: Admin widzi historię od 1 stycznia 2025
-      let startDate: Date;
-      let maxDaysLimit = 365; // Default limit
+      // 🎯 CHANGED: Everyone gets data from Jan 1, 2025 (not just adam.krusz@gmail.com)
+      const startDate = new Date('2025-01-01T00:00:00Z');
+      const maxDaysLimit = 999; // ~3 years of data
       
-      // 🎯 FIX: Na localhost (web) zawsze pokazuj pełny rok dla testowania
-      const isLocalhost = window.location.hostname === 'localhost';
-      
-      if (isLocalhost || userProfile?.email === 'adam.krusz@gmail.com') {
-        startDate = new Date('2025-01-01T00:00:00Z');
-        maxDaysLimit = 999; // ✅ No limit for admin (up to 999 days)
-        console.log('👑 [StepsHistory] Admin/Localhost mode - showing history from Jan 1, 2025');
-        console.log('👑 [StepsHistory] User email:', userProfile?.email);
-        console.log('👑 [StepsHistory] Is localhost:', isLocalhost);
-        console.log('👑 [StepsHistory] Start date:', startDate.toISOString());
-        console.log('👑 [StepsHistory] Today:', today.toISOString());
-      } else if (registrationDate) {
-        startDate = registrationDate;
-      } else {
-        startDate = new Date();
-        startDate.setFullYear(startDate.getFullYear() - 1); // Fallback: 1 rok wstecz
-      }
+      console.log('📊 [StepsHistory] ALL USERS: showing history from Jan 1, 2025');
+      console.log('📊 [StepsHistory] Start date:', startDate.toISOString());
+      console.log('📊 [StepsHistory] Today:', today.toISOString());
       
       const diffTime = Math.abs(today.getTime() - startDate.getTime());
       const daysSinceStart = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
       
       console.log('📊 [StepsHistory] Calculated days since start:', daysSinceStart);
       
-      const days = Math.min(daysSinceStart, maxDaysLimit); // ✅ Use dynamic limit
+      const days = Math.min(daysSinceStart, maxDaysLimit);
       console.log('📊 [StepsHistory] Final days to fetch:', days);
       
       const history = await getStepsHistory(days);

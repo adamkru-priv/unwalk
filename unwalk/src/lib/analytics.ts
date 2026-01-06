@@ -1,4 +1,4 @@
-import posthog from 'posthog-js';
+import posthogWeb from 'posthog-js';
 
 // 🎯 Get platform (web/ios/android)
 const getPlatform = (): string => {
@@ -12,6 +12,11 @@ const getPlatform = (): string => {
   
   // Fallback to web
   return 'web';
+};
+
+const isNativePlatform = (): boolean => {
+  const platform = getPlatform();
+  return platform === 'ios' || platform === 'android';
 };
 
 // 🎯 Analytics Events - wszystkie eventy które trackujesz
@@ -99,9 +104,10 @@ class AnalyticsService {
   // Note: userId stored for future use with advanced features
   // @ts-ignore - userId will be used when implementing user segmentation
   private userId: string | null = null;
+  private posthog: any = null;
 
   // 🎯 Initialize PostHog
-  init() {
+  async init() {
     if (this.isInitialized) return;
 
     try {
@@ -114,21 +120,29 @@ class AnalyticsService {
         return;
       }
 
-      posthog.init(POSTHOG_KEY, {
+      const platform = getPlatform();
+      console.log('🎯 Initializing PostHog for platform:', platform);
+
+      // 🎯 For now, always use web version (posthog-js works on all platforms via Capacitor WebView)
+      // Native SDK has bundling issues with Vite
+      this.posthog = posthogWeb;
+      
+      posthogWeb.init(POSTHOG_KEY, {
         api_host: POSTHOG_HOST,
-        autocapture: false, // Disable auto-capture, track manually
-        capture_pageview: false, // We'll track screens manually
+        autocapture: false,
+        capture_pageview: false,
         persistence: 'localStorage',
         loaded: () => {
-          console.log('✅ PostHog initialized');
-          this.isInitialized = true;
-          
-          // Track app opened
-          this.track(AnalyticsEvents.APP_OPENED, {
-            platform: getPlatform(),
-            app_version: '3.0.0',
-          });
+          console.log('✅ PostHog initialized for platform:', platform);
         },
+      });
+
+      this.isInitialized = true;
+      
+      // Track app opened
+      this.track(AnalyticsEvents.APP_OPENED, {
+        platform,
+        app_version: '3.0.1',
       });
     } catch (error) {
       console.error('❌ Failed to initialize PostHog:', error);
@@ -137,30 +151,30 @@ class AnalyticsService {
 
   // 🎯 Identify user (call after login/signup)
   identify(userId: string, properties?: UserProperties) {
-    if (!this.isInitialized) return;
+    if (!this.isInitialized || !this.posthog) return;
 
     this.userId = userId;
-    posthog.identify(userId, properties);
+    this.posthog.identify(userId, properties);
     console.log('👤 User identified:', userId);
   }
 
   // 🎯 Reset (call on logout)
   reset() {
-    if (!this.isInitialized) return;
+    if (!this.isInitialized || !this.posthog) return;
 
     this.userId = null;
-    posthog.reset();
-    console.log('�� Analytics reset');
+    this.posthog.reset();
+    console.log('🔄 Analytics reset');
   }
 
   // 🎯 Track event
   track(eventName: string, properties?: Record<string, any>) {
-    if (!this.isInitialized) {
+    if (!this.isInitialized || !this.posthog) {
       console.log('📊 [Analytics] Would track:', eventName, properties);
       return;
     }
 
-    posthog.capture(eventName, {
+    this.posthog.capture(eventName, {
       ...properties,
       timestamp: new Date().toISOString(),
       platform: getPlatform(),
@@ -179,9 +193,9 @@ class AnalyticsService {
 
   // 🎯 Update user properties
   setUserProperties(properties: UserProperties) {
-    if (!this.isInitialized) return;
+    if (!this.isInitialized || !this.posthog) return;
 
-    posthog.setPersonProperties(properties);
+    this.posthog.setPersonProperties(properties);
     console.log('👤 User properties updated:', properties);
   }
 
@@ -194,28 +208,28 @@ class AnalyticsService {
     });
   }
 
-  // 🎯 Start session recording (for debugging)
+  // 🎯 Start session recording (for debugging - web only)
   startSessionRecording() {
-    if (!this.isInitialized) return;
-    posthog.startSessionRecording();
+    if (!this.isInitialized || !this.posthog || isNativePlatform()) return;
+    this.posthog.startSessionRecording();
   }
 
   // 🎯 Stop session recording
   stopSessionRecording() {
-    if (!this.isInitialized) return;
-    posthog.stopSessionRecording();
+    if (!this.isInitialized || !this.posthog || isNativePlatform()) return;
+    this.posthog.stopSessionRecording();
   }
 
   // 🎯 Feature flags (for A/B testing)
   isFeatureEnabled(featureName: string): boolean {
-    if (!this.isInitialized) return false;
-    return posthog.isFeatureEnabled(featureName) || false;
+    if (!this.isInitialized || !this.posthog) return false;
+    return this.posthog.isFeatureEnabled(featureName) || false;
   }
 
   // 🎯 Get feature flag variant
   getFeatureFlagVariant(featureName: string): string | boolean {
-    if (!this.isInitialized) return false;
-    return posthog.getFeatureFlag(featureName) || false;
+    if (!this.isInitialized || !this.posthog) return false;
+    return this.posthog.getFeatureFlag(featureName) || false;
   }
 }
 

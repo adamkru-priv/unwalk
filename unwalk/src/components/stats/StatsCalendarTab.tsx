@@ -109,23 +109,11 @@ export function StatsCalendarTab() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const registrationDate = userProfile?.created_at ? new Date(userProfile.created_at) : null;
       const today = new Date();
 
-      let startDate: Date;
-      let maxDaysLimit = 365;
-
-      const isLocalhost = window.location.hostname === 'localhost';
-
-      if (isLocalhost || userProfile?.email === 'adam.krusz@gmail.com') {
-        startDate = new Date('2025-01-01T00:00:00Z');
-        maxDaysLimit = 999;
-      } else if (registrationDate) {
-        startDate = registrationDate;
-      } else {
-        startDate = new Date();
-        startDate.setFullYear(startDate.getFullYear() - 1);
-      }
+      // 🎯 CHANGED: Everyone gets data from Jan 1, 2025 (not just adam.krusz@gmail.com)
+      const startDate = new Date('2025-01-01T00:00:00Z');
+      const maxDaysLimit = 999; // ~3 years of data
 
       const diffTime = Math.abs(today.getTime() - startDate.getTime());
       const daysSinceStart = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
@@ -306,32 +294,46 @@ export function StatsCalendarTab() {
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
 
-    const monthSteps: number[] = new Array(12).fill(0);
-
-    for (let i = 0; i < history.length; i++) {
-      const date = new Date();
-      date.setDate(date.getDate() - (history.length - 1 - i));
-      const month = date.getMonth();
-      const year = date.getFullYear();
-
-      if (year === currentYear) {
-        const dateString = date.toISOString().split('T')[0];
-        const steps = dateString === todayDateString ? todaySteps : (history[i]?.steps || 0);
-        monthSteps[month] += steps;
+    // 🎯 Get data from January 2025 onwards
+    const startYear = 2025;
+    const startMonth = 0; // January
+    
+    const monthlyData: ChartBarData[] = [];
+    
+    // Calculate how many months from Jan 2025 to now
+    const monthsSinceStart = (currentYear - startYear) * 12 + (currentMonth - startMonth) + 1;
+    
+    for (let i = 0; i < monthsSinceStart; i++) {
+      const year = startYear + Math.floor((startMonth + i) / 12);
+      const month = (startMonth + i) % 12;
+      
+      // Calculate steps for this month
+      let monthSteps = 0;
+      for (let j = 0; j < history.length; j++) {
+        const date = new Date();
+        date.setDate(date.getDate() - (history.length - 1 - j));
+        
+        if (date.getFullYear() === year && date.getMonth() === month) {
+          const dateString = date.toISOString().split('T')[0];
+          const steps = dateString === todayDateString ? todaySteps : (history[j]?.steps || 0);
+          monthSteps += steps;
+        }
       }
+      
+      const isCurrentPeriod = year === currentYear && month === currentMonth;
+      
+      monthlyData.push({
+        label: `${MONTHS[month]} ${year}`, // 🎯 FIX: Add year to label
+        steps: monthSteps,
+        isCurrentPeriod
+      });
     }
 
-    const data: ChartBarData[] = MONTHS.map((label, index) => ({
-      label,
-      steps: monthSteps[index],
-      isCurrentPeriod: index === currentMonth
-    }));
-
-    const totalSteps = data.reduce((sum, d) => sum + d.steps, 0);
+    const totalSteps = monthlyData.reduce((sum, d) => sum + d.steps, 0);
 
     setMonthData({
       title: 'Month',
-      data,
+      data: monthlyData,
       totalSteps
     });
   };
@@ -375,21 +377,36 @@ export function StatsCalendarTab() {
     if (!section) return null;
 
     const maxSteps = Math.max(...section.data.map(d => d.steps), 1);
+    
+    // 🎯 Determine chart type
+    const isMonthChart = section.title === 'Month';
+    const isYearChart = section.title === 'Year';
 
     return (
       <div className="bg-white dark:bg-[#151A25] rounded-2xl p-5 border border-gray-200 dark:border-white/5">
         <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">{section.title}</h3>
 
-        <div className="relative mb-4" style={{ height: '212px' }}>
-          <div className="absolute bottom-0 left-0 right-0 flex items-end gap-2" style={{ height: '168px' }}>
+        {/* 🎯 Scrollable container for Month */}
+        <div className={`relative mb-4 ${isMonthChart ? 'overflow-x-auto' : ''}`} style={{ height: '212px' }}>
+          <div 
+            className={`absolute bottom-0 left-0 flex items-end gap-2 ${isMonthChart ? 'pr-4' : 'right-0 justify-center'}`}
+            style={{ 
+              height: '168px',
+              minWidth: isMonthChart ? `${section.data.length * 60}px` : 'auto'
+            }}
+          >
             {section.data.map((bar, index) => {
               const heightPx = maxSteps > 0 ? (bar.steps / maxSteps) * 148 : 0;
 
               return (
-                <div key={index} className="flex flex-col-reverse items-center gap-1" style={{ width: '40px' }}>
-                  <div className={`text-[10px] font-bold ${
+                <div 
+                  key={index} 
+                  className="flex flex-col-reverse items-center gap-1" 
+                  style={{ width: isMonthChart ? '50px' : '40px' }}
+                >
+                  <div className={`text-[10px] font-bold whitespace-nowrap ${
                     bar.isCurrentPeriod
-                      ? 'text-blue-500 dark:text-blue-400' 
+                      ? isYearChart ? 'text-purple-500 dark:text-purple-400' : 'text-blue-500 dark:text-blue-400'
                       : 'text-gray-500 dark:text-gray-400'
                   }`}>
                     {bar.label}
@@ -404,8 +421,12 @@ export function StatsCalendarTab() {
                     <div 
                       className={`w-full rounded-t-lg transition-all duration-300 ${
                         bar.isCurrentPeriod
-                          ? 'bg-gradient-to-t from-blue-500 to-blue-400' 
-                          : 'bg-gradient-to-t from-blue-500/70 to-blue-400/70'
+                          ? isYearChart
+                            ? 'bg-gradient-to-t from-purple-500 to-purple-400'
+                            : 'bg-gradient-to-t from-blue-500 to-blue-400'
+                          : isYearChart
+                            ? 'bg-gradient-to-t from-purple-500/70 to-purple-400/70'
+                            : 'bg-gradient-to-t from-blue-500/70 to-blue-400/70'
                       }`}
                       style={{ 
                         height: `${Math.max(heightPx, bar.steps > 0 ? 8 : 2)}px`
@@ -593,7 +614,7 @@ export function StatsCalendarTab() {
           ) : (
             <div className="p-4 space-y-3">
               {/* Days header */}
-              <div className="sticky top-0 bg-white dark:bg-[#151A25] pb-3 z-10 border-b border-gray-200 dark:border-white/5">
+              <div className="sticky top-0 bg-white dark:bg-[#151A25] pt-2 pb-3 z-10 border-b border-gray-200 dark:border-white/5">
                 <div className="grid grid-cols-7 gap-2">
                   {DAYS_OF_WEEK.map((day, i) => (
                     <div key={i} className="text-center text-sm font-bold text-gray-700 dark:text-gray-300">

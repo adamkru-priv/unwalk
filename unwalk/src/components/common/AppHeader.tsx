@@ -7,7 +7,7 @@ import { getMyLeaderboardPosition } from '../../lib/gamification';
 import type { UserChallenge } from '../../types';
 import { Capacitor } from '@capacitor/core';
 import { checkPushNotificationStatus } from '../../lib/push/iosPush';
-import { getInitials, getColorFromName } from '../team/utils';
+import { getInitials } from '../team/utils';
 
 interface AppHeaderProps {
   title?: string;
@@ -282,8 +282,7 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
             
             {/* Avatar */}
             <div 
-              className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-lg ring-2 ring-white/20 flex-shrink-0"
-              style={{ backgroundColor: getColorFromName(userProfile?.display_name || userProfile?.email) }}
+              className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-sm font-bold shadow-lg ring-2 ring-blue-400/30"
             >
               {getInitials(userProfile?.nickname || userProfile?.display_name || userProfile?.email)}
             </div>

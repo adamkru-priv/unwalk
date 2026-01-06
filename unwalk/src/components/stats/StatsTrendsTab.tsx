@@ -80,34 +80,48 @@ export function StatsTrendsTab() {
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
     
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const monthSteps: number[] = new Array(12).fill(0);
+    // 🎯 Get data from January 2025 onwards
+    const startYear = 2025;
+    const startMonth = 0; // January
     
-    for (let i = 0; i < history.length; i++) {
-      const date = new Date();
-      date.setDate(date.getDate() - (history.length - 1 - i));
-      const month = date.getMonth();
-      const year = date.getFullYear();
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthlyData: ChartBarData[] = [];
+    
+    // Calculate how many months from Jan 2025 to now
+    const monthsSinceStart = (currentYear - startYear) * 12 + (currentMonth - startMonth) + 1;
+    
+    for (let i = 0; i < monthsSinceStart; i++) {
+      const year = startYear + Math.floor((startMonth + i) / 12);
+      const month = (startMonth + i) % 12;
       
-      if (year === currentYear) {
-        const dateString = date.toISOString().split('T')[0];
-        const steps = dateString === todayDateString ? todaySteps : (history[i]?.steps || 0);
-        monthSteps[month] += steps;
+      // Calculate steps for this month
+      let monthSteps = 0;
+      for (let j = 0; j < history.length; j++) {
+        const date = new Date();
+        date.setDate(date.getDate() - (history.length - 1 - j));
+        
+        if (date.getFullYear() === year && date.getMonth() === month) {
+          const dateString = date.toISOString().split('T')[0];
+          const steps = dateString === todayDateString ? todaySteps : (history[j]?.steps || 0);
+          monthSteps += steps;
+        }
       }
+      
+      const isCurrentPeriod = year === currentYear && month === currentMonth;
+      
+      monthlyData.push({
+        label: `${monthNames[month]} ${year}`, // 🎯 FIX: Add year to label
+        steps: monthSteps,
+        isCurrentPeriod
+      });
     }
     
-    const data: ChartBarData[] = monthNames.map((label, index) => ({
-      label,
-      steps: monthSteps[index],
-      isCurrentPeriod: index === currentMonth
-    }));
-    
-    const totalSteps = data.reduce((sum, d) => sum + d.steps, 0);
-    const avgSteps = Math.round(totalSteps / data.length);
+    const totalSteps = monthlyData.reduce((sum, d) => sum + d.steps, 0);
+    const avgSteps = Math.round(totalSteps / monthlyData.length);
     
     setMonthData({
       title: 'Month',
-      data,
+      data: monthlyData,
       totalSteps,
       avgSteps,
       avgLabel: 'Monthly Average'
@@ -158,20 +172,52 @@ export function StatsTrendsTab() {
     
     const maxSteps = Math.max(...section.data.map(d => d.steps), 1);
     
+    // 🎯 Determine chart type for different styling
+    const isMonthChart = section.title === 'Month';
+    const isYearChart = section.title === 'Year';
+    
+    // 🎯 Different colors for different chart types
+    const getBarColor = () => {
+      if (isYearChart) {
+        return {
+          current: 'bg-gradient-to-t from-purple-500 to-purple-400',
+          other: 'bg-gradient-to-t from-purple-500/70 to-purple-400/70'
+        };
+      }
+      // Default blue for Week and Month
+      return {
+        current: 'bg-gradient-to-t from-blue-500 to-blue-400',
+        other: 'bg-gradient-to-t from-blue-500/70 to-blue-400/70'
+      };
+    };
+    
+    const colors = getBarColor();
+    
     return (
       <div className="bg-white dark:bg-[#151A25] rounded-2xl p-5 border border-gray-200 dark:border-white/5">
         <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">{section.title}</h3>
         
-        <div className="relative mb-4" style={{ height: '212px' }}>
-          <div className="absolute bottom-0 left-0 right-0 flex items-end justify-center gap-2" style={{ height: '168px' }}>
+        {/* 🎯 Scrollable container for Month chart */}
+        <div className={`relative mb-4 ${isMonthChart ? 'overflow-x-auto' : ''}`} style={{ height: '212px' }}>
+          <div 
+            className={`absolute bottom-0 left-0 flex items-end gap-2 ${isMonthChart ? 'pr-4' : 'right-0 justify-center'}`}
+            style={{ 
+              height: '168px',
+              minWidth: isMonthChart ? `${section.data.length * 60}px` : 'auto' // 🎯 Fixed width per bar for scrolling
+            }}
+          >
             {section.data.map((bar, index) => {
               const heightPx = maxSteps > 0 ? (bar.steps / maxSteps) * 148 : 0;
               
               return (
-                <div key={index} className="flex flex-col-reverse items-center gap-1" style={{ width: '40px' }}>
-                  <div className={`text-[10px] font-bold ${
+                <div 
+                  key={index} 
+                  className="flex flex-col-reverse items-center gap-1" 
+                  style={{ width: isMonthChart ? '50px' : '40px' }} // 🎯 Wider bars for Month chart
+                >
+                  <div className={`text-[10px] font-bold whitespace-nowrap ${
                     bar.isCurrentPeriod
-                      ? 'text-blue-500 dark:text-blue-400' 
+                      ? isYearChart ? 'text-purple-500 dark:text-purple-400' : 'text-blue-500 dark:text-blue-400'
                       : 'text-gray-500 dark:text-gray-400'
                   }`}>
                     {bar.label}
@@ -186,9 +232,7 @@ export function StatsTrendsTab() {
                     )}
                     <div 
                       className={`w-full rounded-t-lg transition-all duration-300 ${
-                        bar.isCurrentPeriod
-                          ? 'bg-gradient-to-t from-blue-500 to-blue-400' 
-                          : 'bg-gradient-to-t from-blue-500/70 to-blue-400/70'
+                        bar.isCurrentPeriod ? colors.current : colors.other
                       }`}
                       style={{ 
                         height: `${Math.max(heightPx, bar.steps > 0 ? 8 : 2)}px`

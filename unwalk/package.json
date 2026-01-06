@@ -9,7 +9,7 @@
     "dev:app": "vite -c vite.dev.config.ts",
     "build": "tsc -b && vite build",
     "build:web": "tsc -b && vite build",
-    "build:ios": "npm run build:ios:web && npx cap sync ios --config capacitor.config.ios.ts && npm run postcap:ios",
+    "build:ios": "npm run build:ios:web && npx cap sync ios && npm run postcap:ios",
     "build:ios:web": "tsc -b && vite build -c vite.mobile.config.ts",
     "build:android": "npm run build:android:web && npx cap sync android",
     "build:android:web": "tsc -b && vite build -c vite.mobile.config.ts",
