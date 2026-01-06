@@ -405,8 +405,8 @@ export function SelectTeamChallengeModal({ isOpen, onClose, onSuccess }: SelectT
               ×
             </button>
             
-            <div className="flex items-center gap-2">
-              <h2 className="text-2xl font-black text-white">
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-black text-white">
                 {step === 'select-challenge' ? 'Create Team Challenge' : 'Select Team Members'}
               </h2>
               {step === 'select-challenge' && (
@@ -415,7 +415,7 @@ export function SelectTeamChallengeModal({ isOpen, onClose, onSuccess }: SelectT
                     e.stopPropagation();
                     setShowScoringRules(true);
                   }}
-                  className="w-6 h-6 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center text-sm font-bold transition-colors shadow-md"
+                  className="w-6 h-6 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center text-sm font-bold transition-colors shadow-md flex-shrink-0"
                   title="View team scoring rules"
                 >
                   ?

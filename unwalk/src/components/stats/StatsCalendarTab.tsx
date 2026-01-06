@@ -50,6 +50,7 @@ export function StatsCalendarTab() {
   const todaySteps = useChallengeStore((s) => s.todaySteps);
   const userProfile = useChallengeStore((s) => s.userProfile);
   const calendarRef = useRef<HTMLDivElement>(null);
+  const monthChartRef = useRef<HTMLDivElement>(null); // 🎯 NEW: Ref for month chart auto-scroll
 
   useEffect(() => {
     loadData();
@@ -79,6 +80,27 @@ export function StatsCalendarTab() {
       }, 100);
     }
   }, [loading, weeks]);
+
+  // 🎯 NEW: Auto-scroll to current month after month data loads
+  useEffect(() => {
+    if (monthData && monthChartRef.current) {
+      const container = monthChartRef.current;
+      const currentMonthIndex = monthData.data.findIndex(d => d.isCurrentPeriod);
+      
+      if (currentMonthIndex >= 0) {
+        setTimeout(() => {
+          const barWidth = 60; // Width per bar + gap
+          const containerWidth = container.clientWidth;
+          const targetScroll = (currentMonthIndex * barWidth) - (containerWidth / 2) + (barWidth / 2);
+          
+          container.scrollTo({
+            left: Math.max(0, targetScroll),
+            behavior: 'smooth'
+          });
+        }, 100);
+      }
+    }
+  }, [monthData]);
 
   const loadAIInsights = async () => {
     try {
@@ -387,9 +409,13 @@ export function StatsCalendarTab() {
         <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">{section.title}</h3>
 
         {/* 🎯 Scrollable container for Month */}
-        <div className={`relative mb-4 ${isMonthChart ? 'overflow-x-auto' : ''}`} style={{ height: '212px' }}>
+        <div 
+          ref={isMonthChart ? monthChartRef : undefined} 
+          className={`relative mb-4 ${isMonthChart ? 'overflow-x-auto' : ''}`} 
+          style={{ height: '212px' }}
+        >
           <div 
-            className={`absolute bottom-0 left-0 flex items-end gap-2 ${isMonthChart ? 'pr-4' : 'right-0 justify-center'}`}
+            className={`absolute bottom-0 left-0 flex items-end gap-2 ${isMonthChart ? 'pr-4' : isYearChart ? '' : 'right-0 justify-center'}`}
             style={{ 
               height: '168px',
               minWidth: isMonthChart ? `${section.data.length * 60}px` : 'auto'
@@ -402,7 +428,7 @@ export function StatsCalendarTab() {
                 <div 
                   key={index} 
                   className="flex flex-col-reverse items-center gap-1" 
-                  style={{ width: isMonthChart ? '50px' : '40px' }}
+                  style={{ width: isMonthChart ? '50px' : isYearChart ? '80px' : '40px' }}
                 >
                   <div className={`text-[10px] font-bold whitespace-nowrap ${
                     bar.isCurrentPeriod
@@ -482,15 +508,13 @@ export function StatsCalendarTab() {
               title="Get AI insights!"
             >
               <div className="relative">
-                <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-purple-400 to-pink-400 blur-sm opacity-40 group-hover:opacity-60 transition-opacity" />
-                <div className="relative bg-gradient-to-br from-purple-500 via-purple-400 to-pink-400 rounded-lg p-1.5 shadow-lg group-hover:scale-110 group-active:scale-95 transition-all duration-300">
+                <div className="bg-blue-500/10 dark:bg-blue-400/10 rounded-lg p-2 group-hover:bg-blue-500/20 dark:group-hover:bg-blue-400/20 transition-colors">
                   {aiLoading ? (
-                    <span className="inline-block w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span className="inline-block w-5 h-5 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
                   ) : (
                     <span className="text-xl block leading-none">🤖</span>
                   )}
                 </div>
-                {!aiLoading && <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-yellow-300 animate-ping" />}
               </div>
             </button>
           </div>

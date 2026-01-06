@@ -280,14 +280,14 @@ export function SelectSoloChallengeModal({ isOpen, onClose, onSuccess }: SelectS
               ×
             </button>
             
-            <div className="flex items-center gap-2">
-              <h2 className="text-2xl font-black text-white">Select Solo Challenge</h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-black text-white">Select Solo Challenge</h2>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   setShowScoringRules(true);
                 }}
-                className="w-6 h-6 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center text-sm font-bold transition-colors shadow-md"
+                className="w-6 h-6 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center text-sm font-bold transition-colors shadow-md flex-shrink-0"
                 title="View scoring rules"
               >
                 ?

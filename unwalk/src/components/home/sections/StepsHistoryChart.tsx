@@ -268,13 +268,13 @@ export function StepsHistoryChart({ isOpen, onClose }: StepsHistoryChartProps) {
       <div className="bg-white dark:bg-[#151A25] rounded-3xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xl font-black text-gray-900 dark:text-white">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <h2 className="text-lg font-black text-gray-900 dark:text-white">
               Steps History
             </h2>
             <button
               onClick={onClose}
-              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-2xl font-bold"
+              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-2xl font-bold leading-none"
             >
               ×
             </button>
@@ -309,12 +309,8 @@ export function StepsHistoryChart({ isOpen, onClose }: StepsHistoryChartProps) {
                 className="group flex-shrink-0"
                 title="Get AI tips!"
               >
-                <div className="relative">
-                  <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-purple-400 to-pink-400 blur-sm opacity-40 group-hover:opacity-60 transition-opacity" />
-                  <div className="relative bg-gradient-to-br from-purple-500 via-purple-400 to-pink-400 rounded-lg p-1.5 shadow-lg group-hover:scale-110 group-active:scale-95 transition-all duration-300">
-                    <span className="text-xl block leading-none">🤖</span>
-                  </div>
-                  <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-yellow-300 animate-ping" />
+                <div className="bg-blue-500/10 dark:bg-blue-400/10 rounded-lg p-2 group-hover:bg-blue-500/20 dark:group-hover:bg-blue-400/20 transition-colors">
+                  <span className="text-xl block leading-none">🤖</span>
                 </div>
               </button>
             </div>

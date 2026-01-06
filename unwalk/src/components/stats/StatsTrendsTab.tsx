@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useHealthKit } from '../../hooks/useHealthKit';
 import { useChallengeStore } from '../../stores/useChallengeStore';
 
@@ -25,9 +25,34 @@ export function StatsTrendsTab() {
   const { getStepsHistory } = useHealthKit();
   const todaySteps = useChallengeStore((s) => s.todaySteps);
 
+  // 🎯 NEW: Ref for auto-scroll to current month
+  const monthChartRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     loadAllChartData();
   }, [todaySteps]);
+
+  // 🎯 NEW: Auto-scroll to current month after data loads
+  useEffect(() => {
+    if (monthData && monthChartRef.current) {
+      const container = monthChartRef.current;
+      const currentMonthIndex = monthData.data.findIndex(d => d.isCurrentPeriod);
+      
+      if (currentMonthIndex >= 0) {
+        // Wait for render, then scroll to center current month
+        setTimeout(() => {
+          const barWidth = 60; // Width per bar + gap
+          const containerWidth = container.clientWidth;
+          const targetScroll = (currentMonthIndex * barWidth) - (containerWidth / 2) + (barWidth / 2);
+          
+          container.scrollTo({
+            left: Math.max(0, targetScroll),
+            behavior: 'smooth'
+          });
+        }, 100);
+      }
+    }
+  }, [monthData]);
 
   const loadAllChartData = async () => {
     setLoading(true);
@@ -198,12 +223,16 @@ export function StatsTrendsTab() {
         <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">{section.title}</h3>
         
         {/* 🎯 Scrollable container for Month chart */}
-        <div className={`relative mb-4 ${isMonthChart ? 'overflow-x-auto' : ''}`} style={{ height: '212px' }}>
+        <div 
+          ref={isMonthChart ? monthChartRef : undefined} 
+          className={`relative mb-4 ${isMonthChart ? 'overflow-x-auto' : ''}`} 
+          style={{ height: '212px' }}
+        >
           <div 
-            className={`absolute bottom-0 left-0 flex items-end gap-2 ${isMonthChart ? 'pr-4' : 'right-0 justify-center'}`}
+            className={`absolute bottom-0 left-0 flex items-end gap-2 ${isMonthChart ? 'pr-4' : isYearChart ? '' : 'right-0 justify-center'}`}
             style={{ 
               height: '168px',
-              minWidth: isMonthChart ? `${section.data.length * 60}px` : 'auto' // 🎯 Fixed width per bar for scrolling
+              minWidth: isMonthChart ? `${section.data.length * 60}px` : 'auto'
             }}
           >
             {section.data.map((bar, index) => {
@@ -213,7 +242,7 @@ export function StatsTrendsTab() {
                 <div 
                   key={index} 
                   className="flex flex-col-reverse items-center gap-1" 
-                  style={{ width: isMonthChart ? '50px' : '40px' }} // 🎯 Wider bars for Month chart
+                  style={{ width: isMonthChart ? '50px' : isYearChart ? '80px' : '40px' }}
                 >
                   <div className={`text-[10px] font-bold whitespace-nowrap ${
                     bar.isCurrentPeriod

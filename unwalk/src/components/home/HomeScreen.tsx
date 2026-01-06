@@ -13,14 +13,13 @@ import { useGamification } from './hooks/useGamification';
 import { useHealthKitSync } from './hooks/useHealthKitSync';
 import { useHealthKit } from '../../hooks/useHealthKit';
 import { clearBadgeCount } from '../../lib/push/iosPush';
-// 🎯 REMOVED: AIDailyTip - moved to modal opened from DailyActivityHUD badge
+import { useBackgroundChallengeSync } from '../../hooks/useBackgroundChallengeSync'; // 🎯 NEW
 
 export function HomeScreen() {
   const [selectedCompletedChallenge, setSelectedCompletedChallenge] = useState<UserChallenge | null>(null);
   const [showJourneyModal, setShowJourneyModal] = useState(false);
   const [showSoloSelectModal, setShowSoloSelectModal] = useState(false);
   const [showTeamSelectModal, setShowTeamSelectModal] = useState(false);
-  // 🎯 REMOVED: showInviteMoreModal and inviteMoreData - moved to TeamScreen
 
   // Store state
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
@@ -50,6 +49,9 @@ export function HomeScreen() {
   
   // 🎯 Only handle HealthKit permissions (no auto-sync)
   useHealthKitSync();
+
+  // 🎯 NEW: Sync challenge data with native background tasks
+  useBackgroundChallengeSync();
 
   // 🎯 Get sync function from HealthKit hook
   const { syncSteps } = useHealthKit();
@@ -124,9 +126,6 @@ export function HomeScreen() {
     setShowTeamSelectModal(false);
   };
 
-  // 🎯 REMOVED: handleInviteMoreClick, handleChallengeStarted, handleChallengeCancelled, handleChallengeEnded, handleInviteMoreSuccess
-  // These are now only used in TeamScreen
-
   // Utility functions
   const calculateProgress = () => {
     if (!activeUserChallenge) return 0;
@@ -171,7 +170,6 @@ export function HomeScreen() {
         onCloseTeamSelect={() => setShowTeamSelectModal(false)}
         onSoloSelectSuccess={handleSoloSelectSuccess}
         onTeamSelectSuccess={handleTeamSelectSuccess}
-        // 🎯 REMOVED: showInviteMoreModal, onCloseInviteMore, onInviteMoreSuccess, inviteMoreData - moved to TeamScreen
         showInviteMoreModal={false}
         onCloseInviteMore={() => {}}
         onInviteMoreSuccess={() => {}}

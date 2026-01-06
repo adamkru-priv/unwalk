@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		092195D52F0D60C6009341AF /* BackgroundTaskManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 092195D42F0D60C6009341AF /* BackgroundTaskManager.swift */; };
+		092195D62F0D60C6009341AF /* BackgroundStepCheckPlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = 092195D22F0D60C6009341AF /* BackgroundStepCheckPlugin.m */; };
+		092195D72F0D60C6009341AF /* BackgroundStepCheckPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 092195D32F0D60C6009341AF /* BackgroundStepCheckPlugin.swift */; };
 		094C95522EF5A74700D470EF /* ApnsTokenPlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = 094C95502EF58F9B00D470EF /* ApnsTokenPlugin.m */; };
 		0976D9482EF5BE55003DCC33 /* ApnsTokenPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 094E119A2EF581A9004A5AD1 /* ApnsTokenPlugin.swift */; };
 		0980A7992EF29F67002DD6F2 /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0980A7972EF29EFC002DD6F2 /* HealthKit.framework */; };
@@ -23,6 +26,9 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		092195D22F0D60C6009341AF /* BackgroundStepCheckPlugin.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BackgroundStepCheckPlugin.m; sourceTree = "<group>"; };
+		092195D32F0D60C6009341AF /* BackgroundStepCheckPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundStepCheckPlugin.swift; sourceTree = "<group>"; };
+		092195D42F0D60C6009341AF /* BackgroundTaskManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTaskManager.swift; sourceTree = "<group>"; };
 		094C95502EF58F9B00D470EF /* ApnsTokenPlugin.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ApnsTokenPlugin.m; sourceTree = "<group>"; };
 		094E119A2EF581A9004A5AD1 /* ApnsTokenPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApnsTokenPlugin.swift; sourceTree = "<group>"; };
 		0980A7972EF29EFC002DD6F2 /* HealthKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = HealthKit.framework; path = System/Library/Frameworks/HealthKit.framework; sourceTree = SDKROOT; };
@@ -65,6 +71,9 @@
 		504EC2FB1FED79650016851F = {
 			isa = PBXGroup;
 			children = (
+				092195D22F0D60C6009341AF /* BackgroundStepCheckPlugin.m */,
+				092195D32F0D60C6009341AF /* BackgroundStepCheckPlugin.swift */,
+				092195D42F0D60C6009341AF /* BackgroundTaskManager.swift */,
 				958DCC722DB07C7200EA8C5F /* debug.xcconfig */,
 				504EC3061FED79650016851F /* App */,
 				0980A7962EF29EFC002DD6F2 /* Frameworks */,
@@ -181,6 +190,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				092195D52F0D60C6009341AF /* BackgroundTaskManager.swift in Sources */,
+				092195D62F0D60C6009341AF /* BackgroundStepCheckPlugin.m in Sources */,
+				092195D72F0D60C6009341AF /* BackgroundStepCheckPlugin.swift in Sources */,
 				0980A7A02EF2A490002DD6F2 /* HealthKitPlugin.m in Sources */,
 				0980A7A12EF2A490002DD6F2 /* HealthKitManager.swift in Sources */,
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,

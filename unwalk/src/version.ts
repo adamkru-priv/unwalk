@@ -1,4 +1,5 @@
 // Auto-generated version info
-export const APP_VERSION = '2026.01.03_5.03';
-export const BUILD_DATE = new Date().toISOString().split('T')[0];
-export const BUILD_TIME = new Date().toISOString();
+export const APP_VERSION = '2026.01.06';
+export const BUILD_NAME = 'Background Tasks Update';
+export const BUILD_DATE = '2026-01-06';
+export const BUILD_TIME = new Date('2026-01-06').toISOString();

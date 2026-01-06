@@ -13,6 +13,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         print("[App] Bundle identifier: \(Bundle.main.bundleIdentifier ?? "unknown")")
         print("[App] HealthKitPlugin should auto-register via .m file")
 
+        // MARK: - Background Tasks Setup
+        BackgroundTaskManager.shared.registerBackgroundTasks()
+        BackgroundTaskManager.shared.scheduleBackgroundStepCheck()
+        print("[App] ✅ Background tasks initialized")
+
         // Helpful for diagnosing missing APNs token.
         print("[APNs] Notifications enabled (user setting): \(UIApplication.shared.isRegisteredForRemoteNotifications)")
 
@@ -110,10 +115,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func applicationDidEnterBackground(_ application: UIApplication) {
         // Use this method to release shared resources, save user data, invalidate timers, and store enough application state information to restore your application to its current state in case it is terminated later.
         // If your application supports background execution, this method is called instead of applicationWillTerminate: when the user quits.
+        
+        // MARK: - Re-schedule background check when app goes to background
+        BackgroundTaskManager.shared.scheduleBackgroundStepCheck()
+        print("[App] 📱 App entered background, background check scheduled")
     }
 
     func applicationWillEnterForeground(_ application: UIApplication) {
         // Called as part of the transition from the background to the active state; here you can undo many of the changes made on entering the background.
+        
+        // MARK: - Trigger manual check when app comes to foreground
+        BackgroundTaskManager.shared.triggerManualCheck()
+        print("[App] 📱 App entering foreground, triggering manual check")
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {

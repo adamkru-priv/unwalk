@@ -100,7 +100,6 @@ export function SentChallenges({ challenges, onRefresh }: SentChallengesProps) {
   if (challenges.length === 0) {
     return (
       <div className="text-center py-16">
-        <div className="text-6xl mb-4">📤</div>
         <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">No Sent Challenges</h3>
         <p className="text-gray-500 dark:text-white/50 text-sm">
           Send your first challenge to a team member!

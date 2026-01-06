@@ -378,7 +378,7 @@ export function ProfileScreen() {
           </button>
 
           <div className="text-[12px] text-gray-400 dark:text-gray-500">
-            Movee v{APP_VERSION}
+            v{APP_VERSION}
           </div>
         </div>
       </main>
