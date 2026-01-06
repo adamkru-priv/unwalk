@@ -58,6 +58,7 @@ export function ProfileSettingsTab({
   const healthServiceName = platform === 'ios' ? 'Apple Health' : platform === 'android' ? 'Health Connect' : 'Health Data';
   const isNative = Capacitor.isNativePlatform();
   const isIOS = platform === 'ios';
+  const isAndroid = platform === 'android';
 
   const {
     isAvailable: healthKitAvailable,
@@ -68,12 +69,12 @@ export function ProfileSettingsTab({
     todaySteps,
   } = useHealthKit();
 
-  // 🎯 NEW: Load background check settings on mount
+  // 🎯 NEW: Load background check settings on mount (iOS & Android)
   useEffect(() => {
-    if (isIOS) {
+    if (isIOS || isAndroid) {
       loadBackgroundCheckSettings();
     }
-  }, [isIOS]);
+  }, [isIOS, isAndroid]);
 
   const loadBackgroundCheckSettings = async () => {
     try {
@@ -348,16 +349,23 @@ export function ProfileSettingsTab({
         </div>
       </div>
 
-      {/* 🎯 NEW: Background Step Check Settings (iOS only) */}
+      {/* 🎯 NEW: Background Step Check Settings (iOS & Android) */}
       {/* 🔧 TEMP: Show in browser for testing UI */}
-      {(isIOS || !isNative) && (
+      {(isIOS || isAndroid || !isNative) && (
         <div className="bg-white dark:bg-[#151A25] rounded-2xl px-4 py-3.5 shadow-sm border border-gray-100 dark:border-white/5">
           <div className="mb-3">
             <div className="text-[15px] font-medium text-gray-900 dark:text-white flex items-center gap-2">
               Background Step Check
-              <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full font-bold">
-                iOS
-              </span>
+              {isIOS && (
+                <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full font-bold">
+                  iOS
+                </span>
+              )}
+              {isAndroid && (
+                <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 px-2 py-0.5 rounded-full font-bold">
+                  Android
+                </span>
+              )}
               {!isNative && (
                 <span className="text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded-full font-bold">
                   Preview
