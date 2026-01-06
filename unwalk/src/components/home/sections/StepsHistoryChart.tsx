@@ -284,7 +284,7 @@ export function StepsHistoryChart({ isOpen, onClose }: StepsHistoryChartProps) {
       <div className="bg-white dark:bg-[#151A25] rounded-3xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-3">
             <h2 className="text-xl font-black text-gray-900 dark:text-white">
               Steps History
             </h2>
@@ -295,24 +295,47 @@ export function StepsHistoryChart({ isOpen, onClose }: StepsHistoryChartProps) {
               ×
             </button>
           </div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">
-            Goal: {DAILY_GOAL.toLocaleString()} steps
-          </div>
+          
+          {/* 🎯 NEW: Compact stats line with AI robot */}
+          {!loading && (
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-3 flex-1">
+                <div className="text-center">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Goal</div>
+                  <div className="text-sm font-black text-blue-500">{(DAILY_GOAL / 1000).toFixed(0)}k</div>
+                </div>
+                <div className="w-px h-8 bg-gray-300 dark:bg-gray-700" />
+                <div className="text-center">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Best</div>
+                  <div className="text-sm font-black text-purple-500">{(stats.bestStreak / 1000).toFixed(1)}k</div>
+                </div>
+                <div className="w-px h-8 bg-gray-300 dark:bg-gray-700" />
+                <div className="text-center">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Streak</div>
+                  <div className="text-sm font-black text-orange-500">{stats.currentStreak}d</div>
+                </div>
+              </div>
+              
+              {/* 🤖 AI Robot - Daily Tip */}
+              <button
+                onClick={() => {
+                  // TODO: Open Daily Tip modal
+                  console.log('Open Daily Tip');
+                }}
+                className="group flex-shrink-0"
+                title="Get AI tips!"
+              >
+                <div className="relative">
+                  <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-purple-400 to-pink-400 blur-sm opacity-40 group-hover:opacity-60 transition-opacity" />
+                  <div className="relative bg-gradient-to-br from-purple-500 via-purple-400 to-pink-400 rounded-lg p-1.5 shadow-lg group-hover:scale-110 group-active:scale-95 transition-all duration-300">
+                    <span className="text-xl block leading-none">🤖</span>
+                  </div>
+                  <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-yellow-300 animate-ping" />
+                </div>
+              </button>
+            </div>
+          )}
         </div>
-
-        {/* Stats Bar */}
-        {!loading && (
-          <div className="grid grid-cols-2 gap-2 px-4 py-3 border-b border-gray-200 dark:border-gray-800 flex-shrink-0">
-            <div className="text-center">
-              <div className="text-2xl font-black text-orange-500">{stats.currentStreak}</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">Current Streak</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-black text-purple-500">{stats.bestStreak.toLocaleString()}</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">Best Steps</div>
-            </div>
-          </div>
-        )}
 
         {/* Scrollable calendar */}
         <div ref={calendarRef} className="flex-1 overflow-y-auto overflow-x-hidden">

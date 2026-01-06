@@ -271,7 +271,7 @@ export function AppHeader({ title, subtitle }: AppHeaderProps) {
             {/* Stats */}
             {!isGuest && (
               <div className="text-right">
-                <div className="text-xs font-bold text-gray-900 dark:text-white">
+                <div className="text-[10px] font-bold text-gray-900 dark:text-white">
                   Lvl {userProfile?.level || 1} <span className="text-gray-500 dark:text-gray-400">({userProfile?.xp || 0} XP)</span>
                 </div>
                 <div className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">

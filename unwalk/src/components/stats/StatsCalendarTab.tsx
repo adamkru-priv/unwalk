@@ -432,16 +432,46 @@ export function StatsCalendarTab() {
 
   return (
     <div className="space-y-4">
-      {/* Stats Bar */}
+      {/* Stats Bar - NEW: Compact single line with AI robot */}
       {!loading && (
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-white dark:bg-[#151A25] rounded-2xl p-4 text-center border border-gray-200 dark:border-white/5">
-            <div className="text-3xl font-black text-orange-500">{stats.currentStreak}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Current Streak</div>
-          </div>
-          <div className="bg-white dark:bg-[#151A25] rounded-2xl p-4 text-center border border-gray-200 dark:border-white/5">
-            <div className="text-3xl font-black text-purple-500">{stats.bestSteps.toLocaleString()}</div>
-            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Best Steps</div>
+        <div className="bg-white dark:bg-[#151A25] rounded-2xl p-4 border border-gray-200 dark:border-white/5">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-3 flex-1">
+              <div className="text-center">
+                <div className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Goal</div>
+                <div className="text-sm font-black text-blue-500">{(DAILY_GOAL / 1000).toFixed(0)}k</div>
+              </div>
+              <div className="w-px h-8 bg-gray-300 dark:bg-gray-700" />
+              <div className="text-center">
+                <div className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Best</div>
+                <div className="text-sm font-black text-purple-500">{(stats.bestSteps / 1000).toFixed(1)}k</div>
+              </div>
+              <div className="w-px h-8 bg-gray-300 dark:bg-gray-700" />
+              <div className="text-center">
+                <div className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Streak</div>
+                <div className="text-sm font-black text-orange-500">{stats.currentStreak}d</div>
+              </div>
+            </div>
+            
+            {/* 🤖 AI Robot - Get Insights */}
+            <button
+              onClick={loadAIInsights}
+              disabled={aiLoading}
+              className="group flex-shrink-0"
+              title="Get AI insights!"
+            >
+              <div className="relative">
+                <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-purple-400 to-pink-400 blur-sm opacity-40 group-hover:opacity-60 transition-opacity" />
+                <div className="relative bg-gradient-to-br from-purple-500 via-purple-400 to-pink-400 rounded-lg p-1.5 shadow-lg group-hover:scale-110 group-active:scale-95 transition-all duration-300">
+                  {aiLoading ? (
+                    <span className="inline-block w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <span className="text-xl block leading-none">🤖</span>
+                  )}
+                </div>
+                {!aiLoading && <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-yellow-300 animate-ping" />}
+              </div>
+            </button>
           </div>
         </div>
       )}
@@ -543,12 +573,6 @@ export function StatsCalendarTab() {
 
       {/* Calendar */}
       <div className="bg-white dark:bg-[#151A25] rounded-2xl border border-gray-200 dark:border-white/5 overflow-hidden">
-        <div className="p-4 border-b border-gray-200 dark:border-white/5">
-          <div className="text-xs text-gray-500 dark:text-gray-400">
-            Goal: {DAILY_GOAL.toLocaleString()} steps/day
-          </div>
-        </div>
-
         <div ref={calendarRef} className="max-h-[40vh] overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center h-64">
@@ -672,29 +696,6 @@ export function StatsCalendarTab() {
           )}
         </div>
       </div>
-
-      {/* 🎯 AI Insights Badge - Improved Design */}
-      {!loading && (
-        <div className="flex justify-center">
-          <button
-            onClick={loadAIInsights}
-            disabled={aiLoading}
-            className="flex items-center gap-3 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold hover:scale-105 active:scale-95 transition-all disabled:opacity-50 shadow-lg"
-          >
-            <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center">
-              <span className="text-xl">🤖</span>
-            </div>
-            {aiLoading ? (
-              <span className="flex items-center gap-2">
-                <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Analyzing...
-              </span>
-            ) : (
-              <span>Get AI Insights</span>
-            )}
-          </button>
-        </div>
-      )}
 
       {/* Month & Year Charts */}
       {!loading && (

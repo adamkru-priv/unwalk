@@ -18,6 +18,20 @@ interface SelectTeamChallengeModalProps {
 
 type Step = 'select-challenge' | 'select-friends';
 
+// Helper function to format time hours to readable format
+function formatTimeLimit(hours: number): string {
+  if (hours < 1) {
+    const minutes = Math.round(hours * 60);
+    return `${minutes} min`;
+  }
+  const wholeHours = Math.floor(hours);
+  const minutes = Math.round((hours - wholeHours) * 60);
+  if (minutes === 0) {
+    return `${wholeHours}h`;
+  }
+  return `${wholeHours}h ${minutes}min`;
+}
+
 export function SelectTeamChallengeModal({ isOpen, onClose, onSuccess }: SelectTeamChallengeModalProps) {
   const [step, setStep] = useState<Step>('select-challenge');
   const [loading, setLoading] = useState(false);
@@ -234,240 +248,256 @@ export function SelectTeamChallengeModal({ isOpen, onClose, onSuccess }: SelectT
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white dark:bg-[#151A25] rounded-3xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="bg-gradient-to-b from-[#1a1f2e] to-[#151a25] rounded-3xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden border border-blue-500/20">
         {/* Header */}
-        <div className="p-4 border-b border-gray-200 dark:border-gray-800">
-          <div className="flex items-center justify-between mb-1">
-            <h2 className="text-xl font-black text-gray-900 dark:text-white">
-              {step === 'select-challenge' ? 'Create Team Challenge' : 'Select Team Members'}
-            </h2>
-            <button
-              onClick={handleClose}
-              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-2xl font-bold"
-            >
-              ×
-            </button>
-          </div>
-          <p className="text-xs text-gray-600 dark:text-gray-400">
-            {step === 'select-challenge' 
-              ? 'Answer 2 questions about your team'
-              : `Select friends to invite to: ${aiGeneratedChallenge?.title}`}
-          </p>
+        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-6 relative">
+          <button
+            onClick={handleClose}
+            className="absolute top-4 right-4 text-white/80 hover:text-white text-3xl font-bold leading-none w-8 h-8 flex items-center justify-center"
+          >
+            ×
+          </button>
+          
+          <h2 className="text-2xl font-black text-white">
+            {step === 'select-challenge' ? 'Create Team Challenge' : 'Select Team Members'}
+          </h2>
         </div>
 
         {/* Content */}
-        <div className="p-4 overflow-y-auto max-h-[55vh]">
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
           {step === 'select-challenge' && (
-            <div className="space-y-3">
-              {/* 🎯 SIMPLIFIED: Clean AI Challenge Generator */}
-              <div className="p-5 rounded-2xl bg-gradient-to-br from-orange-500/10 to-pink-500/10 dark:from-orange-500/20 dark:to-pink-500/20 border-2 border-orange-500/30 dark:border-orange-500/40">
-                {!aiGeneratedChallenge ? (
-                  <>
-                    {/* Question 1: Team Vibe */}
-                    <div className="mb-4">
-                      <p className="text-base text-gray-900 dark:text-white mb-3 font-bold">
-                        What's your team energy?
-                      </p>
-                      <div className="grid grid-cols-3 gap-2">
-                        {[
-                          { vibe: 'competitive' as const, label: 'Race Mode', desc: 'Beat each other' },
-                          { vibe: 'cooperative' as const, label: 'Together', desc: 'Team goal' },
-                          { vibe: 'fun' as const, label: 'Just Vibes', desc: 'No pressure' }
-                        ].map(({ vibe, label, desc }) => (
-                          <button
-                            key={vibe}
-                            onClick={() => setTeamVibe(vibe)}
-                            className={`p-4 rounded-xl text-center transition-all ${
-                              teamVibe === vibe
-                                ? 'bg-orange-500 scale-105 shadow-lg ring-2 ring-orange-400'
-                                : 'bg-white/60 dark:bg-gray-800/60 hover:scale-105 hover:bg-white dark:hover:bg-gray-800'
-                            }`}
-                          >
-                            <div className={`text-sm font-bold mb-1 ${
-                              teamVibe === vibe
-                                ? 'text-white'
-                                : 'text-gray-900 dark:text-white'
-                            }`}>
-                              {label}
-                            </div>
-                            <div className={`text-xs ${
-                              teamVibe === vibe
-                                ? 'text-white/80'
-                                : 'text-gray-600 dark:text-gray-400'
-                            }`}>
-                              {desc}
-                            </div>
-                          </button>
-                        ))}
+            <>
+              {!aiGeneratedChallenge ? (
+                <div className="space-y-6">
+                  {/* Question 1: Team Vibe */}
+                  <div>
+                    <p className="text-lg text-white mb-4 font-bold">
+                      What's your team energy?
+                    </p>
+                    <div className="grid grid-cols-3 gap-3">
+                      {[
+                        { vibe: 'competitive' as const, emoji: '🏆', label: 'Race Mode', desc: 'Beat each other' },
+                        { vibe: 'cooperative' as const, emoji: '🤝', label: 'Together', desc: 'Team goal' },
+                        { vibe: 'fun' as const, emoji: '🎉', label: 'Just Vibes', desc: 'No pressure' }
+                      ].map(({ vibe, emoji, label, desc }) => (
+                        <button
+                          key={vibe}
+                          onClick={() => setTeamVibe(vibe)}
+                          className={`p-4 rounded-2xl text-center transition-all ${
+                            teamVibe === vibe
+                              ? 'bg-gradient-to-br from-blue-500 to-indigo-500 scale-[1.05] shadow-xl ring-2 ring-blue-400'
+                              : 'bg-white/5 hover:bg-white/10 hover:scale-[1.02] border border-white/10'
+                          }`}
+                        >
+                          <div className="text-3xl mb-2">{emoji}</div>
+                          <div className={`text-sm font-bold mb-1 ${
+                            teamVibe === vibe ? 'text-white' : 'text-white/90'
+                          }`}>
+                            {label}
+                          </div>
+                          <div className={`text-xs ${
+                            teamVibe === vibe ? 'text-white/80' : 'text-white/50'
+                          }`}>
+                            {desc}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Question 2: Team Size */}
+                  <div>
+                    <p className="text-lg text-white mb-4 font-bold">
+                      How big is the squad?
+                    </p>
+                    <div className="grid grid-cols-3 gap-3">
+                      {[
+                        { size: 'small' as const, emoji: '👥', label: 'Small', desc: '2-3 people' },
+                        { size: 'medium' as const, emoji: '👨‍👩‍👦', label: 'Medium', desc: '3-4 people' },
+                        { size: 'large' as const, emoji: '👨‍👩‍👧‍👦', label: 'Large', desc: '5-6 people' }
+                      ].map(({ size, emoji, label, desc }) => (
+                        <button
+                          key={size}
+                          onClick={() => setTeamSize(size)}
+                          className={`p-4 rounded-2xl text-center transition-all ${
+                            teamSize === size
+                              ? 'bg-gradient-to-br from-blue-500 to-indigo-500 scale-[1.05] shadow-xl ring-2 ring-blue-400'
+                              : 'bg-white/5 hover:bg-white/10 hover:scale-[1.02] border border-white/10'
+                          }`}
+                        >
+                          <div className="text-3xl mb-2">{emoji}</div>
+                          <div className={`text-sm font-bold mb-1 ${
+                            teamSize === size ? 'text-white' : 'text-white/90'
+                          }`}>
+                            {label}
+                          </div>
+                          <div className={`text-xs ${
+                            teamSize === size ? 'text-white/80' : 'text-white/50'
+                          }`}>
+                            {desc}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Generate button */}
+                  <button
+                    onClick={handleGenerateAI}
+                    disabled={aiLoading || loading}
+                    className="w-full px-6 py-5 rounded-2xl bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 text-white font-black text-lg hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-2xl"
+                  >
+                    {aiLoading ? (
+                      <span className="flex items-center justify-center gap-3">
+                        <span className="inline-block w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+                        Creating team challenge...
+                      </span>
+                    ) : (
+                      <span className="flex items-center justify-center gap-2">
+                        ✨ Generate Challenge
+                      </span>
+                    )}
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* AI Result Card */}
+                  <div className="rounded-2xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 border-2 border-blue-500/30 p-6">
+                    <h4 className="font-black text-white text-xl mb-3">
+                      {aiGeneratedChallenge.title}
+                    </h4>
+                    <p className="text-sm text-white/70 mb-4 leading-relaxed">
+                      {aiGeneratedChallenge.description}
+                    </p>
+                    
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-3 gap-3 mb-4">
+                      <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 text-center border border-white/10">
+                        <div className="text-3xl mb-1">👣</div>
+                        <div className="text-lg font-black text-white">
+                          {aiGeneratedChallenge.steps.toLocaleString()}
+                        </div>
+                        <div className="text-xs text-white/50">steps</div>
+                      </div>
+                      
+                      <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 text-center border border-white/10">
+                        <div className="text-3xl mb-1">⏱️</div>
+                        <div className="text-lg font-black text-white">
+                          {formatTimeLimit(aiGeneratedChallenge.time_hours)}
+                        </div>
+                        <div className="text-xs text-white/50">time limit</div>
+                      </div>
+                      
+                      <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 text-center border border-white/10">
+                        <div className="text-3xl mb-1">⭐</div>
+                        <div className="text-lg font-black text-white">
+                          +{aiGeneratedChallenge.xp}
+                        </div>
+                        <div className="text-xs text-white/50">XP reward</div>
                       </div>
                     </div>
+                  </div>
 
-                    {/* Question 2: Team Size */}
-                    <div className="mb-4">
-                      <p className="text-base text-gray-900 dark:text-white mb-3 font-bold">
-                        How big is the squad?
-                      </p>
-                      <div className="grid grid-cols-3 gap-2">
-                        {[
-                          { size: 'small' as const, label: 'Small', desc: '2-3 people' },
-                          { size: 'medium' as const, label: 'Medium', desc: '3-4 people' },
-                          { size: 'large' as const, label: 'Large', desc: '5-6 people' }
-                        ].map(({ size, label, desc }) => (
-                          <button
-                            key={size}
-                            onClick={() => setTeamSize(size)}
-                            className={`p-4 rounded-xl text-center transition-all ${
-                              teamSize === size
-                                ? 'bg-orange-500 scale-105 shadow-lg ring-2 ring-orange-400'
-                                : 'bg-white/60 dark:bg-gray-800/60 hover:scale-105 hover:bg-white dark:hover:bg-gray-800'
-                            }`}
-                          >
-                            <div className={`text-sm font-bold mb-1 ${
-                              teamSize === size
-                                ? 'text-white'
-                                : 'text-gray-900 dark:text-white'
-                            }`}>
-                              {label}
-                            </div>
-                            <div className={`text-xs ${
-                              teamSize === size
-                                ? 'text-white/80'
-                                : 'text-gray-600 dark:text-gray-400'
-                            }`}>
-                              {desc}
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Generate button */}
+                  {/* Action buttons */}
+                  <div className="flex gap-3 items-center">
                     <button
-                      onClick={handleGenerateAI}
-                      disabled={aiLoading || loading}
-                      className="w-full px-4 py-4 rounded-xl bg-gradient-to-r from-orange-500 to-pink-500 text-white font-black text-base hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                      onClick={() => setAiGeneratedChallenge(null)}
+                      className="px-4 py-3 text-white/60 hover:text-white text-sm font-medium transition-colors"
                     >
-                      {aiLoading ? (
-                        <span className="flex items-center justify-center gap-2">
-                          <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          Creating challenge...
-                        </span>
-                      ) : (
-                        'Generate Challenge'
-                      )}
+                      Try Again
                     </button>
-                  </>
-                ) : (
-                  <>
-                    {/* AI Result */}
-                    <div className="mb-3 p-4 rounded-xl bg-white/70 dark:bg-gray-800/70">
-                      <h4 className="font-black text-gray-900 dark:text-white text-lg mb-2">
-                        {aiGeneratedChallenge.title}
-                      </h4>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 leading-relaxed">
-                        {aiGeneratedChallenge.description}
-                      </p>
-                      <div className="flex gap-3 text-xs font-bold text-orange-700 dark:text-orange-300">
-                        <span>🎯 {aiGeneratedChallenge.steps.toLocaleString()} steps</span>
-                        <span>•</span>
-                        <span>⏱️ {aiGeneratedChallenge.time_hours}h</span>
-                        <span>•</span>
-                        <span>⭐ +{aiGeneratedChallenge.xp} XP</span>
-                      </div>
-                    </div>
-
-                    {/* Action buttons */}
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setAiGeneratedChallenge(null)}
-                        className="flex-1 px-4 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold text-sm hover:scale-105 active:scale-95 transition-all"
-                      >
-                        Try Again
-                      </button>
-                      <button
-                        onClick={handleContinueToFriends}
-                        disabled={loading}
-                        className="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-pink-500 text-white font-bold text-sm hover:scale-105 active:scale-95 transition-all disabled:opacity-50 shadow-lg"
-                      >
-                        Select Friends →
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
+                    <button
+                      onClick={handleContinueToFriends}
+                      disabled={loading}
+                      className="flex-1 px-6 py-4 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white font-black text-base hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 shadow-xl"
+                    >
+                      👥 Select Friends
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {step === 'select-friends' && (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {/* Selected Challenge Summary */}
-              <div className="p-3 rounded-2xl bg-gradient-to-r from-orange-500/10 to-pink-500/10 dark:from-orange-500/20 dark:to-pink-500/20 border border-orange-500/20 dark:border-orange-500/30">
-                <div className="flex items-center gap-2.5">
-                  <span className="text-3xl">{aiGeneratedChallenge?.emoji || '🎯'}</span>
-                  <div>
-                    <h3 className="font-black text-gray-900 dark:text-white text-base">
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 border-2 border-blue-500/30">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center">
+                    <span className="text-2xl">🎯</span>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-black text-white text-base mb-1">
                       {aiGeneratedChallenge?.title}
                     </h3>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">
-                      {aiGeneratedChallenge?.steps.toLocaleString()} steps
-                    </p>
+                    <div className="flex gap-2 text-xs text-white/60">
+                      <span>👣 {aiGeneratedChallenge?.steps.toLocaleString()}</span>
+                      <span>•</span>
+                      <span>⏱️ {formatTimeLimit(aiGeneratedChallenge?.time_hours || 0)}</span>
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Friends List */}
-              <div className="space-y-2">
-                <p className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase px-1">
-                  Select Friends ({selectedFriends.size} selected)
+              <div className="space-y-3">
+                <p className="text-sm font-bold text-white/80 uppercase tracking-wide">
+                  Select Friends {selectedFriends.size > 0 && `(${selectedFriends.size} selected)`}
                 </p>
                 
                 {teamMembers.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">No friends added yet</p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500">
+                  <div className="text-center py-8 px-4 rounded-2xl bg-white/5 border border-white/10">
+                    <div className="text-4xl mb-3">👥</div>
+                    <p className="text-sm text-white/70 mb-2 font-semibold">No friends added yet</p>
+                    <p className="text-xs text-white/50">
                       Add friends in the Team tab to invite them
                     </p>
                   </div>
                 ) : (
-                  teamMembers.map((member) => (
-                    <button
-                      key={member.id}
-                      onClick={() => toggleFriend(member.id)}
-                      className={`w-full p-3 rounded-xl flex items-center gap-3 transition-all ${
-                        selectedFriends.has(member.id)
-                          ? 'bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-lg scale-105'
-                          : 'bg-gray-50 dark:bg-[#0B101B] hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-900 dark:text-white'
-                      }`}
-                    >
-                      {/* Avatar */}
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center text-white font-bold flex-shrink-0">
-                        {member.avatar_url ? (
-                          <img src={member.avatar_url} alt={member.display_name} className="w-full h-full rounded-full object-cover" />
-                        ) : (
-                          <span className="text-sm">{member.display_name.charAt(0).toUpperCase()}</span>
-                        )}
-                      </div>
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                    {teamMembers.map((member) => (
+                      <button
+                        key={member.id}
+                        onClick={() => toggleFriend(member.id)}
+                        className={`w-full p-4 rounded-xl flex items-center gap-3 transition-all ${
+                          selectedFriends.has(member.id)
+                            ? 'bg-gradient-to-r from-blue-500 to-indigo-500 shadow-xl scale-[1.02]'
+                            : 'bg-white/5 hover:bg-white/10 border border-white/10'
+                        }`}
+                      >
+                        {/* Avatar */}
+                        <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white font-bold flex-shrink-0">
+                          {member.avatar_url ? (
+                            <img src={member.avatar_url} alt={member.display_name} className="w-full h-full rounded-full object-cover" />
+                          ) : (
+                            <span className="text-base">{member.display_name.charAt(0).toUpperCase()}</span>
+                          )}
+                        </div>
 
-                      {/* Name */}
-                      <span className="flex-1 text-left font-bold text-sm">
-                        {member.display_name}
-                      </span>
+                        {/* Name */}
+                        <span className={`flex-1 text-left font-bold text-base ${
+                          selectedFriends.has(member.id) ? 'text-white' : 'text-white/90'
+                        }`}>
+                          {member.display_name}
+                        </span>
 
-                      {/* Checkbox */}
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                        selectedFriends.has(member.id)
-                          ? 'border-white bg-white/20'
-                          : 'border-gray-300 dark:border-gray-600'
-                      }`}>
-                        {selectedFriends.has(member.id) && (
-                          <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                      </div>
-                    </button>
-                  ))
+                        {/* Checkbox */}
+                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                          selectedFriends.has(member.id)
+                            ? 'border-white bg-white/20'
+                            : 'border-white/30'
+                        }`}>
+                          {selectedFriends.has(member.id) && (
+                            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
@@ -475,38 +505,32 @@ export function SelectTeamChallengeModal({ isOpen, onClose, onSuccess }: SelectT
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-200 dark:border-gray-800">
-          <div className="flex gap-2.5">
-            {step === 'select-friends' && (
-              <>
-                <button
-                  onClick={() => setStep('select-challenge')}
-                  disabled={loading}
-                  className="px-5 py-3 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-bold text-sm hover:scale-105 active:scale-95 transition-transform disabled:opacity-50"
-                >
-                  ← Back
-                </button>
-                
-                <button
-                  onClick={handleSendInvitations}
-                  disabled={loading}
-                  className={`flex-1 px-5 py-3 rounded-xl font-black text-sm text-white transition-all ${
-                    loading
-                      ? 'bg-gray-400 dark:bg-gray-700 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-orange-500 to-pink-500 hover:scale-105 active:scale-95 shadow-xl'
-                  }`}
-                >
-                  {loading 
-                    ? 'Starting...' 
-                    : selectedFriends.size === 0 
-                      ? 'Start Challenge' 
-                      : `Send ${selectedFriends.size} Invitation${selectedFriends.size !== 1 ? 's' : ''}`
-                  }
-                </button>
-              </>
-            )}
+        {step === 'select-friends' && (
+          <div className="p-6 border-t border-white/10">
+            <div className="flex gap-3">
+              <button
+                onClick={() => setStep('select-challenge')}
+                disabled={loading}
+                className="px-5 py-4 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-base hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 border border-white/20"
+              >
+                ← Back
+              </button>
+              
+              <button
+                onClick={handleSendInvitations}
+                disabled={loading}
+                className="flex-1 px-5 py-4 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white font-black text-base hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 shadow-xl"
+              >
+                {loading 
+                  ? 'Starting...' 
+                  : selectedFriends.size === 0 
+                    ? '🚀 Start Solo' 
+                    : `🚀 Invite ${selectedFriends.size} Friend${selectedFriends.size !== 1 ? 's' : ''}`
+                }
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

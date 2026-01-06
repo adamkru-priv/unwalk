@@ -84,7 +84,27 @@ export default function DailyActivityHUD({
   return (
     <>
       <div className="w-full px-4">
-        <div className="bg-white dark:bg-[#151A25] rounded-3xl p-6 shadow-xl">
+        <div className="bg-white dark:bg-[#151A25] rounded-3xl p-6 shadow-xl relative">
+          {/* 🎯 Cute AI Robot - small floating assistant in top right */}
+          <button
+            onClick={() => setShowDailyTip(true)}
+            className="absolute top-3 right-3 group z-10"
+            title="Ask me for today's tip!"
+          >
+            <div className="relative">
+              {/* Subtle glow */}
+              <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-purple-400 to-pink-400 blur-sm opacity-40 group-hover:opacity-60 transition-opacity" />
+              
+              {/* Robot icon */}
+              <div className="relative bg-gradient-to-br from-purple-500 via-purple-400 to-pink-400 rounded-lg p-2 shadow-lg group-hover:scale-110 group-active:scale-95 transition-all duration-300">
+                <span className="text-2xl block leading-none">🤖</span>
+              </div>
+              
+              {/* Tiny sparkle */}
+              <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-yellow-300 animate-ping" />
+            </div>
+          </button>
+
           <div className="text-center mb-4">
             <h2 className="text-xl font-black text-gray-800 dark:text-white">My Steps</h2>
           </div>
@@ -200,18 +220,6 @@ export default function DailyActivityHUD({
             <p className="text-sm text-gray-600 dark:text-gray-400">
               {progressPercent >= 100 ? 'Daily goal completed! 🎉' : `${(dailyStepGoal - todaySteps).toLocaleString()} steps to go`}
             </p>
-          </div>
-
-          <div className="mt-6 flex justify-center">
-            <button
-              onClick={() => setShowDailyTip(true)}
-              className="flex items-center gap-3 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold hover:scale-105 active:scale-95 transition-all shadow-lg"
-            >
-              <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                <span className="text-xl">🤖</span>
-              </div>
-              <span>Daily Tip</span>
-            </button>
           </div>
         </div>
 

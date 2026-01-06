@@ -285,10 +285,10 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
       // 🎯 SIMPLIFIED: Compact empty state - just title, description, and CTA
       return (
         <div className="w-full px-4">
-          <div className="bg-gradient-to-br from-orange-50 to-pink-50 dark:from-orange-900/20 dark:to-pink-900/20 rounded-3xl p-6 shadow-xl border border-orange-200 dark:border-orange-500/30">
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-3xl p-6 shadow-xl border border-blue-200 dark:border-blue-500/30">
             {/* Compact Icon */}
             <div className="flex justify-center mb-4">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-500 to-pink-600 flex items-center justify-center shadow-lg">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
                 <span className="text-4xl">👥</span>
               </div>
             </div>
@@ -306,7 +306,7 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
             {/* CTA Button */}
             <button
               onClick={onClick}
-              className="w-full bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white py-4 rounded-2xl font-black text-lg shadow-xl hover:shadow-2xl active:scale-98 transition-all duration-200"
+              className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white py-4 rounded-2xl font-black text-lg shadow-xl hover:shadow-2xl active:scale-98 transition-all duration-200"
             >
               Start Team Challenge →
             </button>
@@ -364,7 +364,7 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-gray-900 dark:text-white flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
                     👤
                   </div>
                   <span className="font-semibold text-sm">You (Host)</span>
@@ -416,7 +416,7 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
             <button 
               onClick={handleStartChallenge}
               disabled={starting}
-              className="w-full bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white py-3.5 rounded-xl font-semibold text-sm shadow-md hover:shadow-lg active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white py-3.5 rounded-xl font-semibold text-sm shadow-md hover:shadow-lg active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {starting ? 'Starting...' : 'Start Challenge'}
             </button>
@@ -489,7 +489,7 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
               {/* 🎯 NEW: Animated background - "filling water" effect (like Solo) */}
               <div className="absolute inset-0 rounded-full overflow-hidden">
                 <div 
-                  className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-orange-400/30 via-pink-400/20 to-transparent transition-all duration-1000 ease-out"
+                  className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-blue-400/30 via-indigo-400/20 to-transparent transition-all duration-1000 ease-out"
                   style={{ 
                     height: `${progressPercent}%`,
                     animation: 'wave 3s ease-in-out infinite'
@@ -533,14 +533,14 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
                   strokeLinecap="round"
                   className="transition-all duration-1000 ease-out"
                   style={{
-                    filter: 'drop-shadow(0 0 8px rgba(249, 115, 22, 0.5))'
+                    filter: 'drop-shadow(0 0 8px rgba(59, 130, 246, 0.5))'
                   }}
                 />
                 <defs>
                   <linearGradient id="gradient-team" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#f97316" />
-                    <stop offset="50%" stopColor="#ec4899" />
-                    <stop offset="100%" stopColor="#a855f7" />
+                    <stop offset="0%" stopColor="#3b82f6" />
+                    <stop offset="50%" stopColor="#6366f1" />
+                    <stop offset="100%" stopColor="#8b5cf6" />
                   </linearGradient>
                 </defs>
               </svg>
