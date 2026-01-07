@@ -10,20 +10,6 @@ interface SelectSoloChallengeModalProps {
   onSuccess: () => void;
 }
 
-// Helper function to format time hours to readable format
-function formatTimeLimit(hours: number): string {
-  if (hours < 1) {
-    const minutes = Math.round(hours * 60);
-    return `${minutes} min`;
-  }
-  const wholeHours = Math.floor(hours);
-  const minutes = Math.round((hours - wholeHours) * 60);
-  if (minutes === 0) {
-    return `${wholeHours}h`;
-  }
-  return `${wholeHours}h ${minutes}min`;
-}
-
 export function SelectSoloChallengeModal({ isOpen, onClose, onSuccess }: SelectSoloChallengeModalProps) {
   const [loading, setLoading] = useState(false);
   const [showScoringRules, setShowScoringRules] = useState(false); // 🎯 NEW: Scoring rules popup
@@ -403,7 +389,7 @@ export function SelectSoloChallengeModal({ isOpen, onClose, onSuccess }: SelectS
                   {/* Stats Grid */}
                   <div className="grid grid-cols-3 gap-3 mb-4">
                     <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 text-center border border-white/10">
-                      <div className="text-3xl mb-1">👣</div>
+                      <div className="text-3xl mb-1">👟</div>
                       <div className="text-lg font-black text-white">
                         {aiGeneratedChallenge.steps.toLocaleString()}
                       </div>
@@ -413,9 +399,9 @@ export function SelectSoloChallengeModal({ isOpen, onClose, onSuccess }: SelectS
                     <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 text-center border border-white/10">
                       <div className="text-3xl mb-1">⏱️</div>
                       <div className="text-lg font-black text-white">
-                        {formatTimeLimit(aiGeneratedChallenge.time_hours)}
+                        Unlimited
                       </div>
-                      <div className="text-xs text-white/50">time limit</div>
+                      <div className="text-xs text-white/50">time</div>
                     </div>
                     
                     <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 text-center border border-white/10">

@@ -114,36 +114,7 @@ export function RunnerHUD({
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (progressPercent / 100) * circumference;
 
-  const calculateDeadline = () => {
-    if (!activeChallenge.admin_challenge?.time_limit_hours || !activeChallenge.started_at) {
-      return null;
-    }
-    
-    const startTime = new Date(activeChallenge.started_at).getTime();
-    const limitMs = activeChallenge.admin_challenge.time_limit_hours * 60 * 60 * 1000;
-    const deadlineTime = startTime + limitMs;
-    const now = Date.now();
-    const remainingMs = deadlineTime - now;
-    
-    if (remainingMs <= 0) return 'Expired';
-    
-    const totalMinutes = Math.floor(remainingMs / (1000 * 60));
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-    const days = Math.floor(hours / 24);
-    
-    if (days > 0) {
-      return `${days}d ${hours % 24}h`;
-    }
-    
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    }
-    
-    return `${minutes}m`;
-  };
-
-  const deadline = calculateDeadline();
+  // Challenges are unlimited in the UI.
 
   // Calculate distance metrics
   // @ts-ignore - Reserved for future display
@@ -343,35 +314,11 @@ export function RunnerHUD({
               Goal: {goalSteps.toLocaleString()} steps • Reward: {xpReward} XP
             </p>
             
-            {/* ✅ TYLKO DEADLINE - jak w Team Challenge */}
-            {deadline && (
-              <p className={`text-sm font-medium mt-1 ${deadline === 'Expired' ? 'text-red-500' : 'text-orange-500'}`}>
-                ⏱️ {deadline} left
-              </p>
-            )}
-            {!deadline && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                ⏱️ Unlimited Time
-              </p>
-            )}
+            {/* ✅ Unlimited time in UI */}
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              ⏱️ Unlimited
+            </p>
           </div>
-
-          {/* 🎯 NEW: Challenge from - ALWAYS VISIBLE if assigned by someone */}
-          {activeChallenge.assigned_by && (
-            <div className="mb-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-500/30 rounded-xl p-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center flex-shrink-0 shadow-md">
-                  <span className="text-xl">🤝</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs text-amber-700 dark:text-amber-400 font-semibold uppercase tracking-wide">Challenge from</div>
-                  <div className="text-base text-gray-900 dark:text-white font-bold truncate">
-                    {activeChallenge.assigned_by_name || 'Team Member'}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
 
           <button 
             onClick={(e) => {

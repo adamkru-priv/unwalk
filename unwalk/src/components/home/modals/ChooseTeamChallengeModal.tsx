@@ -131,8 +131,8 @@ export function ChooseTeamChallengeModal({ isOpen, onClose, onChallengeSelected 
                         {challenge.goal_steps.toLocaleString()} steps
                       </span>
                       <span className="text-gray-700 dark:text-gray-300 font-bold flex items-center gap-1.5">
-                        <span>⏱️</span>
-                        {challenge.time_limit_hours}h
+                        <span></span>
+                        Unlimited
                       </span>
                       <span className="text-gray-700 dark:text-gray-300 font-bold flex items-center gap-1.5">
                         <span>💎</span>

@@ -232,50 +232,6 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
     }
   };
 
-  // ✅ NEW: Calculate time remaining for team challenge (same as solo)
-  const calculateTimeRemaining = () => {
-    if (!teamChallenge || !teamChallenge.admin_challenge?.time_limit_hours) {
-      return null; // No time limit
-    }
-    
-    const startedAt = new Date(teamChallenge.started_at);
-    const timeLimitMs = teamChallenge.admin_challenge.time_limit_hours * 60 * 60 * 1000;
-    const deadlineAt = new Date(startedAt.getTime() + timeLimitMs);
-    const now = new Date();
-    const remainingMs = deadlineAt.getTime() - now.getTime();
-    
-    if (remainingMs <= 0) {
-      return { expired: true, days: 0, hours: 0, minutes: 0 };
-    }
-    
-    const totalSeconds = Math.floor(remainingMs / 1000);
-    const days = Math.floor(totalSeconds / 86400);
-    const hours = Math.floor((totalSeconds % 86400) / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    
-    return { expired: false, days, hours, minutes };
-  };
-
-  const formatTimeRemaining = () => {
-    const timeRemaining = calculateTimeRemaining();
-    
-    if (!timeRemaining) {
-      return null; // No time limit
-    }
-    
-    if (timeRemaining.expired) {
-      return 'Expired';
-    }
-    
-    if (timeRemaining.days > 0) {
-      return `${timeRemaining.days}d ${timeRemaining.hours}h left`;
-    } else if (timeRemaining.hours > 0) {
-      return `${timeRemaining.hours}h ${timeRemaining.minutes}m left`;
-    } else {
-      return `${timeRemaining.minutes}m left`;
-    }
-  };
-
   if (!teamChallenge) {
     const size = 280;
     const strokeWidth = 20;
@@ -352,7 +308,7 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
             </h3>
             <div className="flex items-center justify-center gap-3 text-xs text-gray-600 dark:text-gray-400">
               <span>🎯 {pendingChallenge.goal_steps.toLocaleString()} steps</span>
-              <span>⏱️ {pendingChallenge.time_limit_hours}h</span>
+              <span>⏱️ Unlimited</span>
               <span>💎 {pendingChallenge.points} XP</span>
             </div>
           </div>
@@ -466,12 +422,6 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
     const circumference = 2 * Math.PI * radius;
     const strokeDashoffset = circumference - (progressPercent / 100) * circumference;
 
-    // ✅ NEW: Check time status
-    const hasTimeLimit = teamChallenge.admin_challenge?.time_limit_hours != null;
-    const timeRemaining = calculateTimeRemaining();
-    const isExpired = timeRemaining?.expired || false;
-    const timeRemainingText = formatTimeRemaining();
-
     return (
       <div className="w-full px-4">
         <div className="bg-white dark:bg-[#151A25] rounded-3xl pt-6 px-6 pb-8 shadow-xl relative">
@@ -574,17 +524,9 @@ export function TeamHUD({ teamChallenge, teamMembers, onClick, onInviteMoreClick
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Goal: {goalSteps.toLocaleString()} steps • Reward: {xpReward} XP
             </p>
-            {/* ✅ REPLACED: Show time remaining instead of member count */}
-            {hasTimeLimit && timeRemainingText && (
-              <p className={`text-sm font-medium mt-1 ${isExpired ? 'text-red-500' : 'text-orange-500'}`}>
-                ⏱️ {timeRemainingText}
-              </p>
-            )}
-            {!hasTimeLimit && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                ⏱️ Unlimited Time
-              </p>
-            )}
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              ⏱️ Unlimited
+            </p>
           </div>
 
           <button 

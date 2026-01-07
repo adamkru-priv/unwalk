@@ -29,3 +29,6 @@ unwalk/plugins/movee-healthkit/
 *.tgz
 .DS_Store
 .vscode/
+.DS_Store
+unwalk/Movee.apk
+*.bak

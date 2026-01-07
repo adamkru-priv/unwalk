@@ -26,48 +26,8 @@ export function BottomNavigation({ currentScreen, onTeamClick }: BottomNavigatio
             currentScreen === 'home' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
           }`}
         >
-          {/* 👣 Better footsteps icon - two detailed footprints */}
-          <svg className="w-7 h-7" fill={currentScreen === 'home' ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-            {currentScreen === 'home' ? (
-              // Filled version
-              <g>
-                {/* Left footprint */}
-                <ellipse cx="7" cy="6" rx="1.5" ry="2" fill="currentColor" />
-                <ellipse cx="7" cy="10.5" rx="2" ry="3" fill="currentColor" />
-                <ellipse cx="5.5" cy="4.5" rx="0.8" ry="1" fill="currentColor" />
-                <ellipse cx="6.2" cy="3.5" rx="0.7" ry="0.9" fill="currentColor" />
-                <ellipse cx="7.5" cy="3" rx="0.7" ry="0.9" fill="currentColor" />
-                <ellipse cx="8.8" cy="3.2" rx="0.7" ry="0.9" fill="currentColor" />
-                
-                {/* Right footprint (offset) */}
-                <ellipse cx="16" cy="14" rx="1.5" ry="2" fill="currentColor" />
-                <ellipse cx="16" cy="18.5" rx="2" ry="3" fill="currentColor" />
-                <ellipse cx="14.5" cy="12.5" rx="0.8" ry="1" fill="currentColor" />
-                <ellipse cx="15.2" cy="11.5" rx="0.7" ry="0.9" fill="currentColor" />
-                <ellipse cx="16.5" cy="11" rx="0.7" ry="0.9" fill="currentColor" />
-                <ellipse cx="17.8" cy="11.2" rx="0.7" ry="0.9" fill="currentColor" />
-              </g>
-            ) : (
-              // Outline version
-              <g>
-                {/* Left footprint */}
-                <ellipse cx="7" cy="6" rx="1.5" ry="2" stroke="currentColor" strokeWidth="1.5" fill="none" />
-                <ellipse cx="7" cy="10.5" rx="2" ry="3" stroke="currentColor" strokeWidth="1.5" fill="none" />
-                <ellipse cx="5.5" cy="4.5" rx="0.8" ry="1" stroke="currentColor" strokeWidth="1.2" fill="none" />
-                <ellipse cx="6.2" cy="3.5" rx="0.7" ry="0.9" stroke="currentColor" strokeWidth="1.2" fill="none" />
-                <ellipse cx="7.5" cy="3" rx="0.7" ry="0.9" stroke="currentColor" strokeWidth="1.2" fill="none" />
-                <ellipse cx="8.8" cy="3.2" rx="0.7" ry="0.9" stroke="currentColor" strokeWidth="1.2" fill="none" />
-                
-                {/* Right footprint (offset) */}
-                <ellipse cx="16" cy="14" rx="1.5" ry="2" stroke="currentColor" strokeWidth="1.5" fill="none" />
-                <ellipse cx="16" cy="18.5" rx="2" ry="3" stroke="currentColor" strokeWidth="1.5" fill="none" />
-                <ellipse cx="14.5" cy="12.5" rx="0.8" ry="1" stroke="currentColor" strokeWidth="1.2" fill="none" />
-                <ellipse cx="15.2" cy="11.5" rx="0.7" ry="0.9" stroke="currentColor" strokeWidth="1.2" fill="none" />
-                <ellipse cx="16.5" cy="11" rx="0.7" ry="0.9" stroke="currentColor" strokeWidth="1.2" fill="none" />
-                <ellipse cx="17.8" cy="11.2" rx="0.7" ry="0.9" stroke="currentColor" strokeWidth="1.2" fill="none" />
-              </g>
-            )}
-          </svg>
+          {/* Use a clean emoji for clarity at small sizes */}
+          <span className="text-2xl leading-none" aria-hidden="true">👟</span>
           <span className="text-xs font-medium">My Steps</span>
         </button>
 

@@ -203,53 +203,8 @@ export function Dashboard() {
     }
   };
 
-  // Calculate time remaining if there's a time limit
-  const calculateTimeRemaining = () => {
-    if (!activeUserChallenge || !activeUserChallenge.admin_challenge?.time_limit_hours) {
-      return null; // No time limit
-    }
-    
-    const startedAt = new Date(activeUserChallenge.started_at);
-    const timeLimitMs = activeUserChallenge.admin_challenge.time_limit_hours * 60 * 60 * 1000;
-    const deadlineAt = new Date(startedAt.getTime() + timeLimitMs);
-    const now = new Date();
-    const remainingMs = deadlineAt.getTime() - now.getTime();
-    
-    if (remainingMs <= 0) {
-      return { expired: true, days: 0, hours: 0, minutes: 0 };
-    }
-    
-    const totalSeconds = Math.floor(remainingMs / 1000);
-    const days = Math.floor(totalSeconds / 86400);
-    const hours = Math.floor((totalSeconds % 86400) / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    
-    return { expired: false, days, hours, minutes };
-  };
-
-  const formatTimeRemaining = () => {
-    const timeRemaining = calculateTimeRemaining();
-    
-    if (!timeRemaining) {
-      return 'Unlimited';
-    }
-    
-    if (timeRemaining.expired) {
-      return 'Expired';
-    }
-    
-    if (timeRemaining.days > 0) {
-      return `${timeRemaining.days}d ${timeRemaining.hours}h left`;
-    } else if (timeRemaining.hours > 0) {
-      return `${timeRemaining.hours}h ${timeRemaining.minutes}m left`;
-    } else {
-      return `${timeRemaining.minutes}m left`;
-    }
-  };
-
-  const hasTimeLimit = activeUserChallenge?.admin_challenge?.time_limit_hours != null;
-  const timeRemaining = calculateTimeRemaining();
-  const isExpired = timeRemaining?.expired || false;
+  // NOTE: Challenges are treated as "unlimited" in the UI.
+  // We keep time_limit_hours for generation/difficulty tuning, but we don't display countdowns.
 
   // Calculate stats
   const progress = activeUserChallenge 
@@ -420,17 +375,10 @@ export function Dashboard() {
                 Goal: {(activeUserChallenge.admin_challenge?.goal_steps || 0).toLocaleString()} steps
               </p>
               
-              {/* ✅ TYLKO DEADLINE - tak jak w Team Challenge */}
-              {hasTimeLimit && (
-                <p className={`text-sm font-medium ${isExpired ? 'text-red-500' : 'text-orange-500'}`}>
-                  ⏱️ {formatTimeRemaining()}
-                </p>
-              )}
-              {!hasTimeLimit && (
-                <p className="text-xs text-gray-500">
-                  ⏱️ Unlimited Time
-                </p>
-              )}
+              {/* ✅ Time is always unlimited in the UI */}
+              <p className="text-xs text-gray-500">
+                ⏱️ Unlimited
+              </p>
             </div>
 
             {/* Progress circle - skopiowany z Team Challenge */}

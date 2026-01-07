@@ -61,9 +61,6 @@
     <!-- 🎯 Health Connect permissions -->
     <uses-permission android:name="android.permission.health.READ_STEPS"/>
     
-    <!-- 🎯 POST_NOTIFICATIONS permission (Android 13+) -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-    
     <!-- 🎯 Query for Health Connect availability -->
     <queries>
         <package android:name="com.google.android.apps.healthdata" />
