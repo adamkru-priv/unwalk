@@ -116,12 +116,93 @@ class BackgroundTaskManager {
             UserDefaults.standard.set(steps, forKey: "cached_today_steps")
             UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: "cached_steps_timestamp")
             
-            // Check goals and send notifications
-            self.checkGoalsAndNotify(currentSteps: steps) { notificationSent in
-                print("[BackgroundTask] ✅ Step check completed, notification sent: \(notificationSent)")
-                completion(true)
+            // 🎯 NEW: Sync steps to Supabase via Edge Function
+            self.syncStepsToSupabase(steps: steps) { syncSuccess in
+                if syncSuccess {
+                    print("[BackgroundTask] ✅ Steps synced to Supabase: \(steps)")
+                } else {
+                    print("[BackgroundTask] ⚠️ Failed to sync to Supabase (will retry next time)")
+                }
+                
+                // Check goals and send notifications
+                self.checkGoalsAndNotify(currentSteps: steps) { notificationSent in
+                    print("[BackgroundTask] ✅ Step check completed, notification sent: \(notificationSent)")
+                    completion(true)
+                }
             }
         }
+    }
+    
+    // MARK: - Sync Steps to Supabase
+    
+    private func syncStepsToSupabase(steps: Int, completion: @escaping (Bool) -> Void) {
+        // Get Supabase credentials from UserDefaults (set by JS layer)
+        guard let supabaseUrl = UserDefaults.standard.string(forKey: "supabase_url"),
+              let supabaseAnonKey = UserDefaults.standard.string(forKey: "supabase_anon_key"),
+              let accessToken = UserDefaults.standard.string(forKey: "supabase_access_token"),
+              let userId = UserDefaults.standard.string(forKey: "supabase_user_id"),
+              let deviceId = UserDefaults.standard.string(forKey: "device_id") else {
+            print("[BackgroundTask] ⚠️ Missing Supabase credentials, skipping sync")
+            completion(false)
+            return
+        }
+        
+        // Prepare Edge Function URL
+        let edgeFunctionUrl = "\(supabaseUrl)/functions/v1/sync-steps"
+        
+        guard let url = URL(string: edgeFunctionUrl) else {
+            print("[BackgroundTask] ❌ Invalid Edge Function URL")
+            completion(false)
+            return
+        }
+        
+        // Prepare request body
+        let requestBody: [String: Any] = [
+            "user_id": userId,
+            "device_id": deviceId,
+            "steps": steps,
+            "date": ISO8601DateFormatter().string(from: Date()).split(separator: "T")[0]
+        ]
+        
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: requestBody) else {
+            print("[BackgroundTask] ❌ Failed to serialize request body")
+            completion(false)
+            return
+        }
+        
+        // Create request
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = jsonData
+        
+        // Send request
+        let task = URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                print("[BackgroundTask] ❌ Network error: \(error.localizedDescription)")
+                completion(false)
+                return
+            }
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                print("[BackgroundTask] 📡 Sync response: \(httpResponse.statusCode)")
+                
+                if httpResponse.statusCode == 200 {
+                    completion(true)
+                } else {
+                    if let data = data, let responseBody = String(data: data, encoding: .utf8) {
+                        print("[BackgroundTask] ❌ Sync failed: \(responseBody)")
+                    }
+                    completion(false)
+                }
+            } else {
+                completion(false)
+            }
+        }
+        
+        task.resume()
     }
     
     // MARK: - Check Goals & Send Notifications

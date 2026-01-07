@@ -29,6 +29,7 @@ export async function syncSessionToNative(session: Session | null): Promise<void
     const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
     // Save to native UserDefaults via Capacitor Preferences
+    // HealthKit reads these with "CapacitorStorage." prefix
     await Promise.all([
       Preferences.set({ key: 'user_id', value: userId }),
       Preferences.set({ key: 'access_token', value: accessToken }),
@@ -37,7 +38,7 @@ export async function syncSessionToNative(session: Session | null): Promise<void
       Preferences.set({ key: 'supabase_anon_key', value: supabaseAnonKey }),
     ]);
 
-    console.log('✅ [NativeSession] Synced to native UserDefaults:', {
+    console.log('✅ [NativeSession] Synced to native storage:', {
       userId,
       deviceId,
       hasToken: !!accessToken,
@@ -65,7 +66,7 @@ export async function clearNativeSession(): Promise<void> {
       Preferences.remove({ key: 'supabase_anon_key' }),
     ]);
 
-    console.log('🧹 [NativeSession] Cleared native UserDefaults');
+    console.log('🧹 [NativeSession] Cleared native storage');
   } catch (error) {
     console.error('❌ [NativeSession] Failed to clear session:', error);
   }

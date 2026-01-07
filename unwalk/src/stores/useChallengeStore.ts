@@ -17,6 +17,7 @@ interface ChallengeStore {
   isOnboardingComplete: boolean;
   hasSeenWhoToChallenge: boolean;
   isHealthConnected: boolean;
+  healthKitAuthorized: boolean; // 🎯 NEW: Persist HealthKit authorization status
   userProfile: UserProfile | null;
   userTier: UserTier;
   dailyStepGoal: number;
@@ -41,6 +42,7 @@ interface ChallengeStore {
   clearChallenge: () => void;
   setOnboardingComplete: (complete: boolean) => void;
   setHealthConnected: (connected: boolean) => void;
+  setHealthKitAuthorized: (authorized: boolean) => void; // 🎯 NEW
   setUserProfile: (profile: UserProfile | null) => void;
   setUserTier: (tier: UserTier) => void;
   setDailyStepGoal: (goal: number) => void;
@@ -66,6 +68,7 @@ export const useChallengeStore = create<ChallengeStore>()(
       isOnboardingComplete: false,
       hasSeenWhoToChallenge: false, // New: track if user saw target selection
       isHealthConnected: false,
+      healthKitAuthorized: false, // 🎯 NEW: Initialize HealthKit authorization status
       userProfile: null, // ✅ NEW: Full user profile
       userTier: 'pro',
       dailyStepGoal: 0,
@@ -178,6 +181,8 @@ export const useChallengeStore = create<ChallengeStore>()(
       
       setHealthConnected: (connected) => set({ isHealthConnected: connected }),
 
+      setHealthKitAuthorized: (authorized) => set({ healthKitAuthorized: authorized }), // 🎯 NEW
+
       setUserProfile: (profile) => set({ userProfile: profile }), // ✅ NEW
 
       setUserTier: (tier) => set({ userTier: tier }),
@@ -218,6 +223,7 @@ export const useChallengeStore = create<ChallengeStore>()(
         isOnboardingComplete: false,
         hasSeenWhoToChallenge: false, // New: track if user saw target selection
         isHealthConnected: false,
+        healthKitAuthorized: false, // 🎯 NEW: Reset HealthKit authorization status
         userProfile: null, // ✅ NEW: Full user profile
         userTier: 'pro',
         dailyStepGoal: 0,
@@ -243,6 +249,7 @@ export const useChallengeStore = create<ChallengeStore>()(
         isOnboardingComplete: state.isOnboardingComplete,
         hasSeenWhoToChallenge: state.hasSeenWhoToChallenge,
         isHealthConnected: state.isHealthConnected,
+        healthKitAuthorized: state.healthKitAuthorized, // 🎯 NEW: Persist HealthKit authorization status
         userProfile: state.userProfile,
         userTier: state.userTier,
         dailyStepGoal: state.dailyStepGoal,

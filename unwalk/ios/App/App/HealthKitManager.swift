@@ -12,6 +12,16 @@ class HealthKitManager {
         return HKHealthStore.isHealthDataAvailable()
     }
     
+    // 🎯 NEW: Check authorization status
+    func isAuthorized() -> Bool {
+        guard let stepType = HKQuantityType.quantityType(forIdentifier: .stepCount) else {
+            return false
+        }
+        
+        let status = healthStore.authorizationStatus(for: stepType)
+        return status == .sharingAuthorized
+    }
+    
     func requestAuthorization(completion: @escaping (Bool, Error?) -> Void) {
         guard let stepType = HKQuantityType.quantityType(forIdentifier: .stepCount) else {
             completion(false, NSError(domain: "HealthKit", code: -1, userInfo: [NSLocalizedDescriptionKey: "Step count type not available"]))
@@ -111,103 +121,87 @@ class HealthKitManager {
     
     // 🎯 NEW: Sync steps with backend
     private func syncStepsWithBackend(steps: Int) {
-        // 🔍 DEBUG: Check ALL available keys in UserDefaults
-        print("[HealthKit] 🔍 Checking UserDefaults for user session...")
+        print("⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️")
+        print("⚡️ [HealthKit] SYNC STEPS WITH BACKEND CALLED - STEPS: \(steps)")
+        print("⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️⚡️")
         
-        // 🔍 DEBUG: Print ALL UserDefaults keys to see what's actually stored
-        print("[HealthKit] 🔍 ===== ALL UserDefaults KEYS =====")
-        let allKeys = UserDefaults.standard.dictionaryRepresentation().keys
-        for key in allKeys {
-            let value = UserDefaults.standard.object(forKey: key)
-            let valueStr = String(describing: value).prefix(100)
-            print("[HealthKit] 🔍   KEY: '\(key)' = \(valueStr)...")
-        }
-        print("[HealthKit] 🔍 ===== END OF KEYS =====")
+        print("[HealthKit] 🔍 Checking UserDefaults for user session...")
         
         // Try WITHOUT CapacitorStorage prefix first
         let userIdDirect = UserDefaults.standard.string(forKey: "user_id")
         let accessTokenDirect = UserDefaults.standard.string(forKey: "access_token")
         let deviceIdDirect = UserDefaults.standard.string(forKey: "device_id")
-        let supabaseUrlDirect = UserDefaults.standard.string(forKey: "supabase_url")
-        let supabaseKeyDirect = UserDefaults.standard.string(forKey: "supabase_anon_key")
-        
-        print("[HealthKit] 🔍 Direct keys (no prefix):")
-        print("[HealthKit] 🔍   user_id: \(userIdDirect != nil ? "✅ FOUND" : "❌ NOT FOUND")")
-        print("[HealthKit] 🔍   access_token: \(accessTokenDirect != nil ? "✅ FOUND" : "❌ NOT FOUND")")
-        print("[HealthKit] 🔍   device_id: \(deviceIdDirect != nil ? "✅ FOUND" : "❌ NOT FOUND")")
-        print("[HealthKit] 🔍   supabase_url: \(supabaseUrlDirect != nil ? "✅ FOUND" : "❌ NOT FOUND")")
-        print("[HealthKit] 🔍   supabase_anon_key: \(supabaseKeyDirect != nil ? "✅ FOUND" : "❌ NOT FOUND")")
         
         // Try WITH CapacitorStorage prefix
         let capacitorPrefix = "CapacitorStorage."
         let userId = UserDefaults.standard.string(forKey: "\(capacitorPrefix)user_id")
         let accessToken = UserDefaults.standard.string(forKey: "\(capacitorPrefix)access_token")
         let deviceId = UserDefaults.standard.string(forKey: "\(capacitorPrefix)device_id")
-        let supabaseUrl = UserDefaults.standard.string(forKey: "\(capacitorPrefix)supabase_url")
-        let supabaseKey = UserDefaults.standard.string(forKey: "\(capacitorPrefix)supabase_anon_key")
-        
-        print("[HealthKit] 🔍 Capacitor prefixed keys:")
-        print("[HealthKit] 🔍   CapacitorStorage.user_id: \(userId != nil ? "✅ FOUND" : "❌ NOT FOUND")")
-        print("[HealthKit] 🔍   CapacitorStorage.access_token: \(accessToken != nil ? "✅ FOUND" : "❌ NOT FOUND")")
-        print("[HealthKit] 🔍   CapacitorStorage.device_id: \(deviceId != nil ? "✅ FOUND" : "❌ NOT FOUND")")
-        print("[HealthKit] 🔍   CapacitorStorage.supabase_url: \(supabaseUrl != nil ? "✅ FOUND" : "❌ NOT FOUND")")
-        print("[HealthKit] 🔍   CapacitorStorage.supabase_anon_key: \(supabaseKey != nil ? "✅ FOUND" : "❌ NOT FOUND")")
         
         // Use whichever set was found
         let finalUserId = userId ?? userIdDirect
         let finalAccessToken = accessToken ?? accessTokenDirect
         let finalDeviceId = deviceId ?? deviceIdDirect ?? "unknown"
         
-        // Get Supabase config - use fallback if not found in UserDefaults
-        let finalSupabaseUrl: String
-        if let url = supabaseUrl ?? supabaseUrlDirect {
-            finalSupabaseUrl = url
-        } else {
-            finalSupabaseUrl = "https://bctcjrxvgwooiayawfyl.supabase.co"
-            print("[HealthKit] ⚠️ Using fallback Supabase URL")
-        }
-        
-        let finalSupabaseKey = supabaseKey ?? supabaseKeyDirect
-        
         // Get user data from UserDefaults
         guard let finalUserId = finalUserId,
-              let finalAccessToken = finalAccessToken,
-              let finalSupabaseKey = finalSupabaseKey else {
-            print("[HealthKit] ⚠️ No user session or Supabase config found in UserDefaults")
-            print("[HealthKit] ⚠️ Missing: userId=\(finalUserId == nil), token=\(finalAccessToken == nil), key=\(finalSupabaseKey == nil)")
+              let finalAccessToken = finalAccessToken else {
+            print("[HealthKit] ⚠️ No user session found in UserDefaults")
             return
         }
         
-        print("[HealthKit] ✅ Found user session and Supabase config!")
-        print("[HealthKit] 👤 User ID: \(finalUserId)")
-        print("[HealthKit] 📱 Device ID: \(finalDeviceId)")
-        print("[HealthKit] 🌐 Supabase URL: \(finalSupabaseUrl)")
+        // 🎯 NEW: Verify token is not expired before sending
+        if !isTokenValid(finalAccessToken) {
+            print("[HealthKit] ⚠️ Token expired or invalid - skipping sync")
+            print("[HealthKit] ℹ️ Token will be refreshed by JavaScript layer")
+            return
+        }
         
-        let today = Calendar.current.startOfDay(for: Date())
-        let dateFormatter = ISO8601DateFormatter()
-        let todayString = dateFormatter.string(from: today)
+        print("[HealthKit] ✅ Using raw token: \(String(finalAccessToken.prefix(30)))...")
+        print("[HealthKit] ✅ Found user session:")
+        print("[HealthKit]    user_id: \(String(finalUserId.prefix(20)))...")
+        print("[HealthKit]    device_id: \(finalDeviceId)")
+        print("[HealthKit]    token: \(String(finalAccessToken.prefix(30)))...")
         
-        // Prepare request
-        let url = URL(string: "\(finalSupabaseUrl)/rest/v1/rpc/sync_steps")!
+        // Get date in format that Edge Function expects (YYYY-MM-DD)
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let todayString = dateFormatter.string(from: Date())
+        
+        print("[HealthKit] ✅ Loaded Supabase config from UserDefaults")
+        
+        // 🎯 NEW: Use Edge Function endpoint instead of RPC
+        let urlString = "https://bctcjrxvgwooiayawfyl.supabase.co/functions/v1/sync-steps"
+        print("[HealthKit] 🌐 Target URL: \(urlString)")
+        
+        let url = URL(string: urlString)!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(finalAccessToken)", forHTTPHeaderField: "Authorization")
-        request.setValue(finalSupabaseKey, forHTTPHeaderField: "apikey")
         
+        // 🎯 NEW: Simplified payload for Edge Function
         let payload: [String: Any] = [
-            "p_user_id": finalUserId,
-            "p_device_id": finalDeviceId,
-            "p_date": todayString,
-            "p_steps": steps
+            "user_id": finalUserId,
+            "device_id": finalDeviceId,
+            "date": todayString,
+            "steps": steps
         ]
         
+        print("[HealthKit] 📦 Payload: \(payload)")
+        
         request.httpBody = try? JSONSerialization.data(withJSONObject: payload)
+        
+        print("[HealthKit] 🚀 Sending sync request to backend...")
+        print("[HealthKit] 📍 Method: POST")
+        print("[HealthKit] 📍 Headers: Content-Type=application/json, Authorization=Bearer <token>")
         
         // Send request
         let task = URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
                 print("[HealthKit] ❌ Sync failed: \(error.localizedDescription)")
+                print("[HealthKit] ❌ Error domain: \(error._domain)")
+                print("[HealthKit] ❌ Error code: \(error._code)")
                 return
             }
             
@@ -223,9 +217,53 @@ class HealthKitManager {
                 } else {
                     print("[HealthKit] ⚠️ Sync failed with status: \(httpResponse.statusCode)")
                 }
+            } else {
+                print("[HealthKit] ⚠️ No HTTP response received")
             }
         }
         task.resume()
+        print("[HealthKit] ⏳ Request sent, waiting for response...")
+    }
+    
+    // 🎯 NEW: Check if JWT token is still valid
+    private func isTokenValid(_ token: String) -> Bool {
+        // JWT format: header.payload.signature
+        let parts = token.components(separatedBy: ".")
+        guard parts.count == 3 else {
+            print("[HealthKit] ⚠️ Invalid JWT format")
+            return false
+        }
+        
+        // Decode payload (base64url)
+        let payload = parts[1]
+        
+        // Add padding if needed for base64 decoding
+        var base64 = payload
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        
+        let paddingLength = (4 - base64.count % 4) % 4
+        base64 += String(repeating: "=", count: paddingLength)
+        
+        guard let data = Data(base64Encoded: base64),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let exp = json["exp"] as? TimeInterval else {
+            print("[HealthKit] ⚠️ Could not decode JWT expiry")
+            return false
+        }
+        
+        let now = Date().timeIntervalSince1970
+        let isValid = exp > now
+        
+        if !isValid {
+            let expiredAgo = now - exp
+            print("[HealthKit] ❌ Token expired \(Int(expiredAgo)) seconds ago")
+        } else {
+            let expiresIn = exp - now
+            print("[HealthKit] ✅ Token valid, expires in \(Int(expiresIn)) seconds")
+        }
+        
+        return isValid
     }
     
     func getSteps(from startDate: Date, to endDate: Date, completion: @escaping (Int?, Error?) -> Void) {

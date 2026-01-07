@@ -1,4 +1,5 @@
 apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
 
 android {
     namespace = "com.adamkruszewski.movee"
@@ -36,6 +37,9 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
+    
+    // Kotlin
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.20"
     
     // WorkManager for background tasks
     implementation "androidx.work:work-runtime-ktx:2.8.1"

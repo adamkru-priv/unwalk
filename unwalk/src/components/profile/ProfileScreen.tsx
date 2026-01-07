@@ -12,6 +12,7 @@ import { ProfileHistoryTab } from './ProfileHistoryTab';
 import { APP_VERSION } from '../../version';
 import { Capacitor } from '@capacitor/core';
 import { checkPushNotificationStatus, initIosPushNotifications } from '../../lib/push/iosPush';
+import { useHealthKit } from '../../hooks/useHealthKit'; // 🎯 NEW: Import useHealthKit
 
 export function ProfileScreen() {
   const setUserTier = useChallengeStore((s) => s.setUserTier);
@@ -50,6 +51,16 @@ export function ProfileScreen() {
   const [activeTab, setActiveTab] = useState<'settings' | 'badges' | 'history'>('settings');
 
   const isNative = Capacitor.isNativePlatform();
+
+  // 🎯 NEW: Add HealthKit hook to recheck authorization
+  const { recheckAuthorization } = useHealthKit();
+
+  // 🎯 NEW: Recheck authorization when Settings tab becomes visible
+  useEffect(() => {
+    if (activeTab === 'settings' && isNative) {
+      recheckAuthorization();
+    }
+  }, [activeTab, isNative, recheckAuthorization]);
 
   // ✅ Nasłuchuj na zdarzenie z AppHeader aby otworzyć zakładkę Badges
   useEffect(() => {

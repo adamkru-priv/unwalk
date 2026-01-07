@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useChallengeStore } from '../../stores/useChallengeStore';
 import { authService } from '../../lib/auth';
 import { useHealthKit } from '../../hooks/useHealthKit';
@@ -59,7 +59,15 @@ export function ProfileSettingsTab({
     requestPermission: connectHealthKit,
     syncSteps: refreshHealthKitSteps,
     todaySteps,
+    recheckAuthorization, // 🎯 NEW: Get recheckAuthorization function
   } = useHealthKit();
+
+  // 🎯 NEW: Recheck authorization when component mounts
+  useEffect(() => {
+    if (isNative && healthKitAvailable) {
+      recheckAuthorization();
+    }
+  }, [isNative, healthKitAvailable, recheckAuthorization]);
 
   const handleSaveNickname = async () => {
     if (!userProfile) return;

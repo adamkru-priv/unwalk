@@ -7,12 +7,15 @@ import { updateChallengeProgress, getActiveTeamChallenge } from '../lib/api'; //
 
 export function useHealthKit() {
   const setHealthConnected = useChallengeStore((s) => s.setHealthConnected);
-  const setTodaySteps = useChallengeStore((s) => s.setTodaySteps); // 🎯 NEW: Use global store
-  const todaySteps = useChallengeStore((s) => s.todaySteps); // 🎯 NEW: Read from global store
-  const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge); // 🎯 NEW: Get active challenge
+  const setTodaySteps = useChallengeStore((s) => s.setTodaySteps);
+  const todaySteps = useChallengeStore((s) => s.todaySteps);
+  const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
+  
+  // 🎯 Use global state for authorization status (persisted in localStorage)
+  const healthKitAuthorized = useChallengeStore((s) => s.healthKitAuthorized);
+  const setHealthKitAuthorized = useChallengeStore((s) => s.setHealthKitAuthorized);
 
   const [isAvailable, setIsAvailable] = useState(false);
-  const [isAuthorized, setIsAuthorized] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   // Initial setup and authorization check
@@ -21,18 +24,29 @@ export function useHealthKit() {
       try {
         console.log('🔍 Checking Health Connect availability...');
         const available = await healthKitService.isAvailable();
-        console.log('✅ Health Connect available:', available);
+        console.log('✅ Health available on', Capacitor.getPlatform() + ':', available);
         setIsAvailable(available);
 
-        // ✅ NEW: Check if already authorized (don't request automatically)
+        // ✅ Check authorization ONLY if we don't have it persisted
         if (Capacitor.isNativePlatform() && available) {
-          const authorized = await healthKitService.isAuthorized();
-          console.log('✅ Health Connect authorization status:', authorized);
-          setIsAuthorized(authorized);
-          setHealthConnected(authorized);
-          
-          // If authorized, sync steps immediately
-          if (authorized) {
+          // 🎯 FIX: iOS HealthKit can't reliably check authorization status
+          // Once user grants permission, trust the persisted state
+          if (!healthKitAuthorized) {
+            // Only check native authorization if we don't have it persisted
+            const authorized = await healthKitService.isAuthorized();
+            console.log('✅ Health Connect authorization status:', authorized);
+            
+            if (authorized) {
+              // If iOS says yes, save it
+              setHealthKitAuthorized(true);
+              setHealthConnected(true);
+              await syncSteps();
+            }
+            // If iOS says no, don't override persisted state - user might have granted it before
+          } else {
+            // We have persisted authorization - trust it and sync
+            console.log('✅ Using persisted Health authorization status:', healthKitAuthorized);
+            setHealthConnected(true);
             await syncSteps();
           }
         } else {
@@ -44,25 +58,60 @@ export function useHealthKit() {
         setHealthConnected(false);
       }
     })();
-  }, [setHealthConnected]);
+  }, [setHealthConnected, setHealthKitAuthorized]); // healthKitAuthorized intentionally NOT in deps
+
+  // 🎯 Function to recheck authorization status (for profile screen)
+  const recheckAuthorization = useCallback(async () => {
+    if (!isAvailable || !Capacitor.isNativePlatform()) return;
+    
+    try {
+      // 🎯 FIX: Don't override persisted state - just refresh steps
+      if (healthKitAuthorized) {
+        console.log('🔄 Rechecked Health authorization: using persisted status =', healthKitAuthorized);
+        setHealthConnected(true);
+        
+        // Refresh steps to show latest count
+        const steps = await healthKitService.getTodaySteps();
+        setTodaySteps(steps);
+      } else {
+        // Only check native if we don't have persisted authorization
+        const authorized = await healthKitService.isAuthorized();
+        console.log('🔄 Rechecked Health authorization from native:', authorized);
+        
+        if (authorized) {
+          setHealthKitAuthorized(true);
+          setHealthConnected(true);
+          const steps = await healthKitService.getTodaySteps();
+          setTodaySteps(steps);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error rechecking authorization:', error);
+    }
+  }, [isAvailable, healthKitAuthorized, setHealthConnected, setHealthKitAuthorized, setTodaySteps]);
 
   const requestPermission = useCallback(async (): Promise<boolean> => {
     setIsLoading(true);
     try {
+      console.log('🔐 [useHealthKitSync] Requesting HealthKit permission...');
       const granted = await healthKitService.requestAuthorization();
-      setIsAuthorized(granted);
-      setHealthConnected(granted);
+      console.log('✅ HealthKit authorization result:', granted);
+      
       if (granted) {
+        // 🎯 Save authorization status persistently
+        setHealthKitAuthorized(true);
+        setHealthConnected(true);
         await syncSteps();
       }
+      
       return granted;
     } finally {
       setIsLoading(false);
     }
-  }, [setHealthConnected]);
+  }, [setHealthConnected, setHealthKitAuthorized]);
 
   const syncSteps = useCallback(async (): Promise<number> => {
-    if (!isAuthorized && isAvailable) {
+    if (!healthKitAuthorized && isAvailable) { // 🎯 Use global state
       const granted = await requestPermission();
       if (!granted) return 0;
     }
@@ -130,23 +179,23 @@ export function useHealthKit() {
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthorized, isAvailable, requestPermission, setTodaySteps, activeUserChallenge]);
+  }, [healthKitAuthorized, isAvailable, requestPermission, setTodaySteps, activeUserChallenge]);
 
   const getSteps = useCallback(
     async (startDate: Date, endDate: Date): Promise<number> => {
-      if (!isAuthorized && isAvailable) {
+      if (!healthKitAuthorized && isAvailable) { // 🎯 Use global state
         const granted = await requestPermission();
         if (!granted) return 0;
       }
 
       return healthKitService.getSteps(startDate, endDate);
     },
-    [isAuthorized, isAvailable, requestPermission],
+    [healthKitAuthorized, isAvailable, requestPermission],
   );
 
   const getStepsHistory = useCallback(
     async (days: number): Promise<Array<{ date: string; steps: number }>> => {
-      if (!isAuthorized && isAvailable) {
+      if (!healthKitAuthorized && isAvailable) { // 🎯 Use global state
         const granted = await requestPermission();
         if (!granted) return [];
       }
@@ -200,18 +249,19 @@ export function useHealthKit() {
         return [];
       }
     },
-    [isAuthorized, isAvailable, requestPermission],
+    [healthKitAuthorized, isAvailable, requestPermission],
   );
 
   return {
     isAvailable,
-    isAuthorized,
+    isAuthorized: healthKitAuthorized, // 🎯 Return global state
     todaySteps,
     isLoading,
     isNative: Capacitor.isNativePlatform(),
     requestPermission,
     syncSteps,
     getSteps,
-    getStepsHistory, // 🎯 NEW: Export steps history function
+    getStepsHistory,
+    recheckAuthorization,
   };
 }

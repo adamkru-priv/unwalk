@@ -1,5 +1,6 @@
 import Foundation
 import Capacitor
+import HealthKit // 🎯 NEW: Import HealthKit framework
 
 @objcMembers
 @objc(MoveeHealthKitPlugin)
@@ -21,6 +22,16 @@ public final class MoveeHealthKitPlugin: CAPPlugin {
         let available = manager.isAvailable()
         print("📱 HealthKit available: \(available)")
         call.resolve(["available": available])
+    }
+    
+    // 🎯 NEW: Check if user has authorized HealthKit access
+    @objc public func isAuthorized(_ call: CAPPluginCall) {
+        print("🔍 [HealthKit] isAuthorized called")
+        
+        let isAuthorized = manager.isAuthorized()
+        
+        print("🔍 [HealthKit] Authorization status: \(isAuthorized)")
+        call.resolve(["authorized": isAuthorized])
     }
     
     @objc public func requestAuthorization(_ call: CAPPluginCall) {

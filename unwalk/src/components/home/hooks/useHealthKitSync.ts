@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useHealthKit } from '../../../hooks/useHealthKit';
 
 /**
@@ -13,10 +13,19 @@ export function useHealthKitSync() {
     isNative
   } = useHealthKit();
 
+  // 🎯 FIX: Prevent multiple permission requests during initial load
+  const hasRequestedPermission = useRef(false);
+
   // Request HealthKit permission when plugin is ready
   useEffect(() => {
-    if (isNative && healthKitAvailable && !healthKitAuthorized) {
+    // Only request if:
+    // 1. Native platform
+    // 2. HealthKit available
+    // 3. Not yet authorized
+    // 4. Haven't requested in this session
+    if (isNative && healthKitAvailable && !healthKitAuthorized && !hasRequestedPermission.current) {
       console.log('🔐 [useHealthKitSync] Requesting HealthKit permission...');
+      hasRequestedPermission.current = true;
       requestHealthKitPermission();
     }
   }, [isNative, healthKitAvailable, healthKitAuthorized, requestHealthKitPermission]);

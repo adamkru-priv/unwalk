@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		092195E22F0D6720009341AF /* BackgroundTaskManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 092195DF2F0D6720009341AF /* BackgroundTaskManager.swift */; };
 		092195E32F0D6720009341AF /* BackgroundStepCheckPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 092195E02F0D6720009341AF /* BackgroundStepCheckPlugin.swift */; };
 		092195E52F0D6D0F009341AF /* BackgroundStepCheckPlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = 092195E42F0D6D0F009341AF /* BackgroundStepCheckPlugin.m */; };
 		094C95522EF5A74700D470EF /* ApnsTokenPlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = 094C95502EF58F9B00D470EF /* ApnsTokenPlugin.m */; };
@@ -26,7 +25,6 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		092195DF2F0D6720009341AF /* BackgroundTaskManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BackgroundTaskManager.swift; path = App/BackgroundTaskManager.swift; sourceTree = "<group>"; };
 		092195E02F0D6720009341AF /* BackgroundStepCheckPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BackgroundStepCheckPlugin.swift; path = App/BackgroundStepCheckPlugin.swift; sourceTree = "<group>"; };
 		092195E42F0D6D0F009341AF /* BackgroundStepCheckPlugin.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = BackgroundStepCheckPlugin.m; path = App/BackgroundStepCheckPlugin.m; sourceTree = "<group>"; };
 		094C95502EF58F9B00D470EF /* ApnsTokenPlugin.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ApnsTokenPlugin.m; sourceTree = "<group>"; };
@@ -73,7 +71,6 @@
 			children = (
 				092195E42F0D6D0F009341AF /* BackgroundStepCheckPlugin.m */,
 				092195E02F0D6720009341AF /* BackgroundStepCheckPlugin.swift */,
-				092195DF2F0D6720009341AF /* BackgroundTaskManager.swift */,
 				958DCC722DB07C7200EA8C5F /* debug.xcconfig */,
 				504EC3061FED79650016851F /* App */,
 				0980A7962EF29EFC002DD6F2 /* Frameworks */,
@@ -191,7 +188,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				092195E52F0D6D0F009341AF /* BackgroundStepCheckPlugin.m in Sources */,
-				092195E22F0D6720009341AF /* BackgroundTaskManager.swift in Sources */,
 				092195E32F0D6720009341AF /* BackgroundStepCheckPlugin.swift in Sources */,
 				0980A7A02EF2A490002DD6F2 /* HealthKitPlugin.m in Sources */,
 				0980A7A12EF2A490002DD6F2 /* HealthKitManager.swift in Sources */,
@@ -353,7 +349,7 @@
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 426B284894;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
@@ -382,7 +378,7 @@
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 426B284894;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
