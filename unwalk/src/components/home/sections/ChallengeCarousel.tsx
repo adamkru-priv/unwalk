@@ -12,6 +12,7 @@ interface ChallengeCarouselProps {
   dailyStepGoal: number;
   onSoloClick: () => void;
   onRefresh?: () => Promise<void>;
+  onAIChallengeClick?: () => void;
 }
 
 export function ChallengeCarousel({
@@ -21,7 +22,8 @@ export function ChallengeCarousel({
   currentStreak,
   onSoloClick,
   xpReward,
-  onRefresh
+  onRefresh,
+  onAIChallengeClick
 }: ChallengeCarouselProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [touchStart, setTouchStart] = useState(0);
@@ -122,6 +124,7 @@ export function ChallengeCarousel({
               onClick={onSoloClick}
               xpReward={xpReward}
               onRefresh={onRefresh}
+              onAIChallengeClick={onAIChallengeClick}
             />
           </div>
         )}

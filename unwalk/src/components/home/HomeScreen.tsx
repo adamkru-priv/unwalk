@@ -13,12 +13,14 @@ import { useGamification } from './hooks/useGamification';
 import { useHealthKitSync } from './hooks/useHealthKitSync';
 import { useHealthKit } from '../../hooks/useHealthKit';
 import { clearBadgeCount } from '../../lib/push/iosPush';
+import { AIChallengeScreen } from '../ai-challenge/AIChallengeScreen';
 
 export function HomeScreen() {
   const [selectedCompletedChallenge, setSelectedCompletedChallenge] = useState<UserChallenge | null>(null);
   const [showJourneyModal, setShowJourneyModal] = useState(false);
   const [showSoloSelectModal, setShowSoloSelectModal] = useState(false);
   const [showTeamSelectModal, setShowTeamSelectModal] = useState(false);
+  const [showAIChallenge, setShowAIChallenge] = useState(false);
 
   // Store state
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
@@ -143,6 +145,20 @@ export function HomeScreen() {
     return '< 1m';
   };
 
+  // 🎯 NEW: AI Challenge handler
+  const handleAIChallengeClick = () => {
+    setShowAIChallenge(true);
+  };
+
+  const handleBackFromAIChallenge = () => {
+    setShowAIChallenge(false);
+  };
+
+  // 🎯 If AI Challenge is active, show only AI Challenge screen
+  if (showAIChallenge) {
+    return <AIChallengeScreen onBackToHome={handleBackFromAIChallenge} />;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0B101B] text-gray-900 dark:text-white pb-28 font-sans selection:bg-blue-500/30">
       <AppHeader />
@@ -195,6 +211,7 @@ export function HomeScreen() {
           dailyStepGoal={dailyStepGoal || 10000}
           onSoloClick={handleSoloClick}
           onRefresh={handleRefresh}
+          onAIChallengeClick={handleAIChallengeClick}
         />
 
         <PausedChallengesGrid

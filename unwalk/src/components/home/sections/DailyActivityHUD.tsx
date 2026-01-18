@@ -85,26 +85,6 @@ export default function DailyActivityHUD({
     <>
       <div className="w-full px-4">
         <div className="bg-white dark:bg-[#151A25] rounded-3xl p-6 shadow-xl relative">
-          {/* 🎯 Cute AI Robot - small floating assistant in top right */}
-          <button
-            onClick={() => setShowDailyTip(true)}
-            className="absolute top-3 right-3 group z-10"
-            title="Ask me for today's tip!"
-          >
-            <div className="relative">
-              {/* Subtle glow */}
-              <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-purple-400/30 to-pink-400/30 blur-sm opacity-30 group-hover:opacity-50 transition-opacity" />
-              
-              {/* Robot icon */}
-              <div className="relative bg-gradient-to-br from-purple-500/20 via-purple-400/15 to-pink-400/20 dark:from-purple-500/15 dark:via-purple-400/10 dark:to-pink-400/15 rounded-lg p-2 shadow-md group-hover:scale-110 group-active:scale-95 transition-all duration-300 backdrop-blur-sm">
-                <span className="text-2xl block leading-none">🤖</span>
-              </div>
-              
-              {/* Tiny sparkle */}
-              <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-yellow-300/60 animate-ping" />
-            </div>
-          </button>
-
           <div className="text-center mb-4">
             <h2 className="text-xl font-black text-gray-800 dark:text-white">My Steps</h2>
           </div>

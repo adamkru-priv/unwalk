@@ -4,19 +4,22 @@ import type { UserChallenge } from '../../../types';
 import { useChallengeStore } from '../../../stores/useChallengeStore';
 import { useHealthKit } from '../../../hooks/useHealthKit';
 import { updateChallengeProgress } from '../../../lib/api';
+import { AIChallengeEntryBox } from '../../ai-challenge/AIChallengeEntryBox';
 
 interface RunnerHUDProps {
   activeChallenge: UserChallenge | null;
   onClick: () => void;
   xpReward?: number;
   onRefresh?: () => Promise<void>;
+  onAIChallengeClick?: () => void;
 }
 
 export function RunnerHUD({ 
   activeChallenge, 
   onClick,
   xpReward = 0,
-  onRefresh
+  onRefresh,
+  onAIChallengeClick
 }: RunnerHUDProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
@@ -73,7 +76,8 @@ export function RunnerHUD({
   if (!activeChallenge) {
     // 🎯 SIMPLIFIED: Compact empty state - just title, description, and CTA
     return (
-      <div className="w-full px-4">
+      <div className="w-full px-4 space-y-4">
+        {/* Solo Challenge Box */}
         <div className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-3xl p-6 shadow-xl border border-blue-200 dark:border-blue-500/30">
           {/* Compact Icon */}
           <div className="flex justify-center mb-4">
@@ -100,6 +104,11 @@ export function RunnerHUD({
             Start Challenge →
           </button>
         </div>
+
+        {/* AI Challenge Entry Box - NEW */}
+        {onAIChallengeClick && (
+          <AIChallengeEntryBox onStartClick={onAIChallengeClick} />
+        )}
       </div>
     );
   }
@@ -217,7 +226,8 @@ export function RunnerHUD({
         document.body
       )}
 
-      <div className="w-full px-4" id="active-challenge">
+      <div className="w-full px-4 space-y-4" id="active-challenge">
+        {/* Main Solo Challenge Box */}
         <div className="bg-white dark:bg-[#151A25] rounded-3xl pt-6 px-6 pb-12 shadow-xl relative">
           <div className="text-center mb-4">
             <h2 className="text-xl font-black text-gray-800 dark:text-white">My Challenge</h2>
@@ -442,6 +452,8 @@ export function RunnerHUD({
             </div>
           </div>
         </div>
+
+        {/* AI Challenge Entry Box - REMOVED when active challenge exists */}
       </div>
     </>
   );

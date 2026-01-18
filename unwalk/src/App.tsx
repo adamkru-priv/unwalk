@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useChallengeStore } from './stores/useChallengeStore';
 import { useToastStore } from './stores/useToastStore';
 import { ToastContainer } from './components/common/Toast';
+import { StepSimulator } from './components/common/StepSimulator';
 import { OnboardingScreen } from './components/onboarding/OnboardingScreen'; // 🎯 RESTORED: Landing page needed after sign out
 import { WhoToChallengeScreen } from './components/onboarding/WhoToChallengeScreen';
 import { AuthRequiredScreen } from './components/onboarding/AuthRequiredScreen';
@@ -737,6 +738,7 @@ function App() {
     <div className={theme}>
       {renderScreen()}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
+      <StepSimulator />
     </div>
   );
 }
