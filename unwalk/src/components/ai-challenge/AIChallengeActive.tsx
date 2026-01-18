@@ -115,7 +115,7 @@ export function AIChallengeActive({
   const aiProgress = Math.min((aiSteps / opponentSteps) * 100, 100);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 px-6 py-6 relative overflow-hidden flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 px-6 relative overflow-hidden flex flex-col" style={{ paddingTop: 'max(1.5rem, env(safe-area-inset-top))' }}>
       {/* Dynamic background based on who's winning */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div 
@@ -131,7 +131,7 @@ export function AIChallengeActive({
       </div>
 
       {/* Timer at top */}
-      <div className="relative z-10 text-center mb-6">
+      <div className="relative z-10 text-center mb-6 mt-4">
         <div className="inline-flex flex-col items-center gap-1 px-8 py-3 bg-black/60 backdrop-blur-xl border-2 border-cyan-500/50 rounded-2xl shadow-2xl">
           <div className="flex items-center gap-2 mb-1">
             <div className={`w-2 h-2 rounded-full animate-pulse ${
