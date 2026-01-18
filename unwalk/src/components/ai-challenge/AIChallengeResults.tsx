@@ -22,7 +22,7 @@ export function AIChallengeResults({
   const difference = Math.abs(playerSteps - aiSteps);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 px-6 py-6 relative overflow-hidden flex flex-col justify-between">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 px-6 relative overflow-hidden flex flex-col justify-between" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))', paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
       {/* Animated celebration/consolation background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {won ? (
@@ -38,15 +38,15 @@ export function AIChallengeResults({
 
       {/* Header Section */}
       <div className="relative z-10">
-        <div className="text-center mb-6">
-          <h1 className={`text-6xl font-black mb-3 ${
+        <div className="text-center mb-4">
+          <h1 className={`text-5xl font-black mb-2 ${
             won ? 'text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-500 animate-pulse' : 'text-white'
           }`} style={{
             textShadow: won ? '0 0 40px rgba(250, 204, 21, 0.5)' : 'none'
           }}>
             {won ? 'VICTORY!' : 'DEFEAT'}
           </h1>
-          <p className="text-lg text-white/70 font-semibold">
+          <p className="text-base text-white/70 font-semibold">
             {won 
               ? `You beat ${opponentName}!` 
               : `${opponentName} was faster!`}
@@ -54,29 +54,29 @@ export function AIChallengeResults({
         </div>
 
         {/* Score Comparison - Big Numbers */}
-        <div className="bg-black/40 backdrop-blur-xl rounded-3xl p-6 border border-white/10 mb-6">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-black/40 backdrop-blur-xl rounded-3xl p-5 border border-white/10 mb-4">
+          <div className="flex items-center justify-between mb-3">
             <div className="text-center flex-1">
-              <div className="text-5xl font-black text-white mb-1">{playerSteps}</div>
+              <div className="text-4xl font-black text-white mb-1">{playerSteps}</div>
               <div className="text-xs text-white/50 font-bold uppercase tracking-wider">Your Steps</div>
             </div>
             
-            <div className="px-4">
-              <div className="text-3xl font-black text-white/30">VS</div>
+            <div className="px-3">
+              <div className="text-2xl font-black text-white/30">VS</div>
             </div>
             
             <div className="text-center flex-1">
-              <div className="text-5xl font-black text-white mb-1">{aiSteps}</div>
+              <div className="text-4xl font-black text-white mb-1">{aiSteps}</div>
               <div className="text-xs text-white/50 font-bold uppercase tracking-wider">Bot Steps</div>
             </div>
           </div>
 
           {/* Difference indicator */}
-          <div className="text-center pt-4 border-t border-white/10">
-            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${
+          <div className="text-center pt-3 border-t border-white/10">
+            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full ${
               won ? 'bg-green-500/20 border border-green-500/30' : 'bg-red-500/20 border border-red-500/30'
             }`}>
-              <span className="text-2xl">{won ? '🎯' : '😤'}</span>
+              <span className="text-xl">{won ? '🎯' : '😤'}</span>
               <span className={`text-sm font-bold ${won ? 'text-green-400' : 'text-red-400'}`}>
                 {difference} steps difference
               </span>
@@ -86,7 +86,7 @@ export function AIChallengeResults({
       </div>
 
       {/* Detailed Stats */}
-      <div className="relative z-10 space-y-3 mb-6">
+      <div className="relative z-10 space-y-2.5 mb-4">
         {/* Player Card */}
         <div className={`${
           won 
@@ -129,10 +129,10 @@ export function AIChallengeResults({
       </div>
 
       {/* Actions */}
-      <div className="relative z-10 space-y-3">
+      <div className="relative z-10 space-y-2.5">
         <button
           onClick={onPlayAgain}
-          className="w-full bg-gradient-to-r from-cyan-600 via-blue-600 to-purple-600 hover:from-cyan-500 hover:via-blue-500 hover:to-purple-500 text-white py-4 rounded-2xl font-black text-base shadow-2xl shadow-blue-500/30 transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2"
+          className="w-full bg-gradient-to-r from-cyan-600 via-blue-600 to-purple-600 hover:from-cyan-500 hover:via-blue-500 hover:to-purple-500 text-white py-3.5 rounded-2xl font-black text-base shadow-2xl shadow-blue-500/30 transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2"
         >
           <span className="text-xl">🔄</span>
           <span>Play Again</span>
@@ -140,13 +140,13 @@ export function AIChallengeResults({
         
         <button
           onClick={onBackToHome}
-          className="w-full bg-white/5 backdrop-blur-lg hover:bg-white/10 text-white/90 py-3.5 rounded-2xl font-semibold text-sm transition-all border border-white/10 hover:border-white/20 hover:scale-[1.02] active:scale-95"
+          className="w-full bg-white/5 backdrop-blur-lg hover:bg-white/10 text-white/90 py-3 rounded-2xl font-semibold text-sm transition-all border border-white/10 hover:border-white/20 hover:scale-[1.02] active:scale-95"
         >
           ← Back to Home
         </button>
 
         {/* Motivational tip */}
-        <div className="text-center pt-2">
+        <div className="text-center pt-1">
           <p className="text-white/40 text-xs italic">
             {won 
               ? "💪 Ready for a tougher challenge?" 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useChallengeStore } from '../../stores/useChallengeStore';
 
 interface AIChallengeActiveProps {
@@ -22,27 +22,36 @@ export function AIChallengeActive({
   const [playerSteps, setPlayerSteps] = useState(0);
   const [aiSteps, setAiSteps] = useState(0);
   const [buttonPosition, setButtonPosition] = useState({ top: '50%', left: '20%' });
+  
+  // Use refs to completely isolate timer from React re-renders
+  const timerRef = useRef<number | null>(null);
+  const aiTimerRef = useRef<number | null>(null);
+  const playerStepsRef = useRef(0);
+  const startTimeRef = useRef<number>(0);
+  const hasFinishedRef = useRef(false);
 
   const todaySteps = useChallengeStore((s) => s.todaySteps);
   const setTodaySteps = useChallengeStore((s) => s.setTodaySteps);
 
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
+  // Sync playerStepsRef whenever playerSteps changes
+  useEffect(() => {
+    playerStepsRef.current = playerSteps;
+  }, [playerSteps]);
+
   const addOneStep = () => {
     if (!isLocalhost) return;
     setPlayerSteps(prev => prev + 1);
     setTodaySteps(todaySteps + 1);
     
-    // Move button to random position every 3-5 steps
-    const shouldMove = Math.random() > 0.6; // 40% chance on each click
+    const shouldMove = Math.random() > 0.6;
     if (shouldMove) {
-      // Safe zones: avoid center and top/bottom edges where UI elements are
-      // Divide screen into 4 safe quadrants around the speedometers
       const zones = [
-        { top: 25, topRange: 15, left: 10, leftRange: 15 },  // Top-left
-        { top: 25, topRange: 15, left: 75, leftRange: 15 },  // Top-right
-        { top: 70, topRange: 15, left: 10, leftRange: 15 },  // Bottom-left
-        { top: 70, topRange: 15, left: 75, leftRange: 15 },  // Bottom-right
+        { top: 25, topRange: 15, left: 10, leftRange: 15 },
+        { top: 25, topRange: 15, left: 75, leftRange: 15 },
+        { top: 70, topRange: 15, left: 10, leftRange: 15 },
+        { top: 70, topRange: 15, left: 75, leftRange: 15 },
       ];
       
       const selectedZone = zones[Math.floor(Math.random() * zones.length)];
@@ -56,6 +65,7 @@ export function AIChallengeActive({
     }
   };
 
+  // Countdown before start
   useEffect(() => {
     if (countdown > 0) {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
@@ -65,30 +75,54 @@ export function AIChallengeActive({
     }
   }, [countdown]);
 
+  // Main timer - runs ONCE when started
   useEffect(() => {
     if (!started) return;
-    if (timeLeft > 0) {
-      const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
-      return () => clearTimeout(timer);
-    } else {
-      const won = playerSteps >= opponentSteps;
-      onFinish(playerSteps, opponentSteps, won);
-    }
-  }, [timeLeft, started, playerSteps, opponentSteps, onFinish]);
-
-  useEffect(() => {
-    if (!started) return;
-    const startTime = Date.now();
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const elapsed = now - startTime;
+    
+    // Store start time
+    startTimeRef.current = Date.now();
+    hasFinishedRef.current = false;
+    
+    // Clear any existing timers
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (aiTimerRef.current) clearInterval(aiTimerRef.current);
+    
+    // Timer based on elapsed time, not state
+    timerRef.current = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      const remaining = duration - elapsed;
+      
+      if (remaining <= 0 && !hasFinishedRef.current) {
+        hasFinishedRef.current = true;
+        if (timerRef.current) clearInterval(timerRef.current);
+        if (aiTimerRef.current) clearInterval(aiTimerRef.current);
+        
+        setTimeLeft(0);
+        // Use ref to get latest playerSteps
+        onFinish(playerStepsRef.current, opponentSteps, playerStepsRef.current >= opponentSteps);
+      } else if (remaining > 0) {
+        setTimeLeft(remaining);
+      }
+    }, 100); // Update every 100ms for smooth display
+    
+    // AI steps timer
+    aiTimerRef.current = setInterval(() => {
+      const elapsed = Date.now() - startTimeRef.current;
       const progress = Math.min(elapsed / (duration * 1000), 1);
       const currentAiSteps = Math.floor(opponentSteps * progress);
       setAiSteps(currentAiSteps);
-      if (progress >= 1) clearInterval(interval);
+      
+      if (progress >= 1 && aiTimerRef.current) {
+        clearInterval(aiTimerRef.current);
+      }
     }, 100);
-    return () => clearInterval(interval);
-  }, [started, duration, opponentSteps]);
+    
+    // Cleanup
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (aiTimerRef.current) clearInterval(aiTimerRef.current);
+    };
+  }, [started]); // TYLKO started - nic więcej!
 
   if (!started) {
     return (

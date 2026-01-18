@@ -75,7 +75,7 @@ export function OpponentSelection({ duration, onSelectOpponent, onBack }: Oppone
   const opponentsList = opponents[duration];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 px-6 py-8 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 px-6 relative overflow-hidden" style={{ paddingTop: 'max(2rem, env(safe-area-inset-top))', paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}>
       {/* Dynamic grid background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-10">
         <div className="absolute inset-0" style={{
@@ -92,22 +92,22 @@ export function OpponentSelection({ duration, onSelectOpponent, onBack }: Oppone
 
       <button
         onClick={onBack}
-        className="relative z-10 mb-6 text-white/60 hover:text-white flex items-center gap-2 transition-colors"
+        className="relative z-10 mb-4 text-white/60 hover:text-white flex items-center gap-2 transition-colors"
       >
         ← Back
       </button>
 
-      <div className="relative z-10 text-center mb-10">
-        <h1 className="text-5xl font-black text-white mb-4 tracking-tight">
+      <div className="relative z-10 text-center mb-8">
+        <h1 className="text-4xl font-black text-white mb-3 tracking-tight">
           Select Opponent
         </h1>
         <div className="inline-flex items-center gap-3 px-5 py-2 bg-cyan-500/20 backdrop-blur-sm rounded-full border-2 border-cyan-400/30">
           <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
-          <p className="text-cyan-300 font-black text-lg">{duration}s SPRINT</p>
+          <p className="text-cyan-300 font-black text-base">{duration}s SPRINT</p>
         </div>
       </div>
 
-      <div className="relative z-10 space-y-4 max-w-md mx-auto">
+      <div className="relative z-10 space-y-3 max-w-md mx-auto">
         {opponentsList.map((opponent, index) => (
           <button
             key={opponent.difficulty}
@@ -128,24 +128,24 @@ export function OpponentSelection({ duration, onSelectOpponent, onBack }: Oppone
               style={{ background: `radial-gradient(circle at center, ${opponent.glowColor}, transparent 70%)` }}
             ></div>
 
-            <div className="relative p-6 flex items-center justify-between">
+            <div className="relative p-5 flex items-center justify-between">
               {/* Left side - Icon and Info */}
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
                 {/* Icon with difficulty badge */}
                 <div className="relative">
-                  <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center border-2 border-white/30 shadow-xl">
-                    <span className="text-5xl">{opponent.emoji}</span>
+                  <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center border-2 border-white/30 shadow-xl">
+                    <span className="text-4xl">{opponent.emoji}</span>
                   </div>
                   {/* Difficulty number badge */}
-                  <div className="absolute -top-2 -right-2 w-7 h-7 bg-slate-900 rounded-full border-2 border-white flex items-center justify-center shadow-lg">
+                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-slate-900 rounded-full border-2 border-white flex items-center justify-center shadow-lg">
                     <span className="text-xs font-black text-white">{index + 1}</span>
                   </div>
                 </div>
 
                 {/* Info */}
                 <div className="text-left">
-                  <h3 className="text-3xl font-black text-white mb-1">{opponent.name}</h3>
-                  <div className="flex items-center gap-2 mb-1">
+                  <h3 className="text-2xl font-black text-white mb-0.5">{opponent.name}</h3>
+                  <div className="flex items-center gap-2 mb-0.5">
                     <div className="px-2 py-0.5 bg-white/30 backdrop-blur-sm rounded-md">
                       <p className="text-xs font-black text-white uppercase">{difficultyLabels[opponent.difficulty]}</p>
                     </div>
@@ -155,7 +155,7 @@ export function OpponentSelection({ duration, onSelectOpponent, onBack }: Oppone
               </div>
 
               {/* Right side - Arrow */}
-              <div className="text-5xl text-white/40 group-hover:text-white/90 group-hover:translate-x-2 transition-all">
+              <div className="text-4xl text-white/40 group-hover:text-white/90 group-hover:translate-x-2 transition-all">
                 →
               </div>
             </div>
@@ -167,7 +167,7 @@ export function OpponentSelection({ duration, onSelectOpponent, onBack }: Oppone
       </div>
 
       {/* Bottom hint */}
-      <div className="relative z-10 text-center mt-10">
+      <div className="relative z-10 text-center mt-6">
         <p className="text-white/30 text-xs uppercase tracking-wider font-bold">Choose your challenge level</p>
       </div>
     </div>
