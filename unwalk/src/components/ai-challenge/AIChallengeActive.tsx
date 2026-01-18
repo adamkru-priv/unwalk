@@ -173,17 +173,20 @@ export function AIChallengeActive({
             }`}></div>
             <span className="text-xs font-bold text-white/60 uppercase tracking-wider">Time Left</span>
           </div>
-          <div className={`text-6xl font-black transition-all duration-300 ${
-            timeLeft <= 5 ? 'text-red-500 animate-pulse' : timeLeft <= 10 ? 'text-yellow-400' : 'text-white'
-          }`} style={{ 
-            textShadow: timeLeft <= 5 
-              ? '0 0 30px rgba(239, 68, 68, 0.8)' 
-              : timeLeft <= 10
-              ? '0 0 30px rgba(250, 204, 21, 0.6)'
-              : '0 0 30px rgba(6, 182, 212, 0.5)',
-            fontVariantNumeric: 'tabular-nums'
-          }}>
-            {timeLeft}
+          <div className="min-w-[100px] flex justify-center">
+            <div className={`text-6xl font-black transition-colors duration-300 ${
+              timeLeft <= 5 ? 'text-red-500 animate-pulse' : timeLeft <= 10 ? 'text-yellow-400' : 'text-white'
+            }`} style={{ 
+              textShadow: timeLeft <= 5 
+                ? '0 0 30px rgba(239, 68, 68, 0.8)' 
+                : timeLeft <= 10
+                ? '0 0 30px rgba(250, 204, 21, 0.6)'
+                : '0 0 30px rgba(6, 182, 212, 0.5)',
+              fontVariantNumeric: 'tabular-nums',
+              fontFeatureSettings: '"tnum"'
+            }}>
+              {timeLeft}
+            </div>
           </div>
           <div className="text-xs font-bold text-white/40">seconds</div>
         </div>

@@ -9,7 +9,8 @@ const opponents = {
     { 
       difficulty: 'easy' as const, 
       name: 'Turtle', 
-      steps: 60, 
+      minSteps: 30,
+      maxSteps: 45,
       emoji: '🐢', 
       gradient: 'from-emerald-500 via-green-500 to-teal-500',
       glowColor: 'rgba(16, 185, 129, 0.4)',
@@ -18,7 +19,8 @@ const opponents = {
     { 
       difficulty: 'medium' as const, 
       name: 'Runner', 
-      steps: 100, 
+      minSteps: 50,
+      maxSteps: 70,
       emoji: '🏃', 
       gradient: 'from-amber-500 via-yellow-500 to-orange-400',
       glowColor: 'rgba(245, 158, 11, 0.4)',
@@ -27,7 +29,8 @@ const opponents = {
     { 
       difficulty: 'hard' as const, 
       name: 'Speedster', 
-      steps: 150, 
+      minSteps: 75,
+      maxSteps: 100,
       emoji: '⚡', 
       gradient: 'from-orange-500 via-red-500 to-pink-500',
       glowColor: 'rgba(249, 115, 22, 0.4)',
@@ -38,7 +41,8 @@ const opponents = {
     { 
       difficulty: 'easy' as const, 
       name: 'Turtle', 
-      steps: 120, 
+      minSteps: 60,
+      maxSteps: 90,
       emoji: '🐢', 
       gradient: 'from-emerald-500 via-green-500 to-teal-500',
       glowColor: 'rgba(16, 185, 129, 0.4)',
@@ -47,7 +51,8 @@ const opponents = {
     { 
       difficulty: 'medium' as const, 
       name: 'Runner', 
-      steps: 200, 
+      minSteps: 100,
+      maxSteps: 140,
       emoji: '🏃', 
       gradient: 'from-amber-500 via-yellow-500 to-orange-400',
       glowColor: 'rgba(245, 158, 11, 0.4)',
@@ -56,7 +61,8 @@ const opponents = {
     { 
       difficulty: 'hard' as const, 
       name: 'Speedster', 
-      steps: 300, 
+      minSteps: 150,
+      maxSteps: 200,
       emoji: '⚡', 
       gradient: 'from-orange-500 via-red-500 to-pink-500',
       glowColor: 'rgba(249, 115, 22, 0.4)',
@@ -150,7 +156,7 @@ export function OpponentSelection({ duration, onSelectOpponent, onBack }: Oppone
                       <p className="text-xs font-black text-white uppercase">{difficultyLabels[opponent.difficulty]}</p>
                     </div>
                   </div>
-                  <p className="text-white/90 text-sm font-bold">{opponent.steps} steps target</p>
+                  <p className="text-white/90 text-sm font-bold">{opponent.minSteps} - {opponent.maxSteps} steps target</p>
                 </div>
               </div>
 
