@@ -13,6 +13,7 @@ interface ChallengeCarouselProps {
   onSoloClick: () => void;
   onRefresh?: () => Promise<void>;
   onAIChallengeClick?: () => void;
+  onAILeaderboardClick?: () => void;
 }
 
 export function ChallengeCarousel({
@@ -23,7 +24,8 @@ export function ChallengeCarousel({
   onSoloClick,
   xpReward,
   onRefresh,
-  onAIChallengeClick
+  onAIChallengeClick,
+  onAILeaderboardClick
 }: ChallengeCarouselProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [touchStart, setTouchStart] = useState(0);
@@ -125,6 +127,7 @@ export function ChallengeCarousel({
               xpReward={xpReward}
               onRefresh={onRefresh}
               onAIChallengeClick={onAIChallengeClick}
+              onAILeaderboardClick={onAILeaderboardClick}
             />
           </div>
         )}

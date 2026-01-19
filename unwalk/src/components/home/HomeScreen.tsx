@@ -21,6 +21,7 @@ export function HomeScreen() {
   const [showSoloSelectModal, setShowSoloSelectModal] = useState(false);
   const [showTeamSelectModal, setShowTeamSelectModal] = useState(false);
   const [showAIChallenge, setShowAIChallenge] = useState(false);
+  const [aiChallengeInitialScreen, setAIChallengeInitialScreen] = useState<'duration' | 'leaderboard'>('duration');
 
   // Store state
   const activeUserChallenge = useChallengeStore((s) => s.activeUserChallenge);
@@ -147,6 +148,13 @@ export function HomeScreen() {
 
   // 🎯 NEW: AI Challenge handler
   const handleAIChallengeClick = () => {
+    setAIChallengeInitialScreen('duration');
+    setShowAIChallenge(true);
+  };
+
+  const handleAILeaderboardClick = () => {
+    // Open AI Challenge directly to leaderboard
+    setAIChallengeInitialScreen('leaderboard');
     setShowAIChallenge(true);
   };
 
@@ -156,7 +164,7 @@ export function HomeScreen() {
 
   // 🎯 If AI Challenge is active, show only AI Challenge screen
   if (showAIChallenge) {
-    return <AIChallengeScreen onBackToHome={handleBackFromAIChallenge} />;
+    return <AIChallengeScreen onBackToHome={handleBackFromAIChallenge} initialScreen={aiChallengeInitialScreen} />;
   }
 
   return (
@@ -212,6 +220,7 @@ export function HomeScreen() {
           onSoloClick={handleSoloClick}
           onRefresh={handleRefresh}
           onAIChallengeClick={handleAIChallengeClick}
+          onAILeaderboardClick={handleAILeaderboardClick}
         />
 
         <PausedChallengesGrid

@@ -3,8 +3,9 @@ import { DurationSelection } from './DurationSelection';
 import { OpponentSelection } from './OpponentSelection';
 import { AIChallengeActive } from './AIChallengeActive';
 import { AIChallengeResults } from './AIChallengeResults';
+import { SprintLeaderboard } from './SprintLeaderboard';
 
-type ChallengeStep = 'duration' | 'opponent' | 'active' | 'results';
+type ChallengeStep = 'duration' | 'opponent' | 'active' | 'results' | 'leaderboard';
 
 const opponents = {
   30: {
@@ -12,25 +13,21 @@ const opponents = {
     medium: { name: 'Runner', minSteps: 50, maxSteps: 70, emoji: '🏃' },
     hard: { name: 'Speedster', minSteps: 75, maxSteps: 100, emoji: '⚡' },
   },
-  60: {
-    easy: { name: 'Turtle', minSteps: 60, maxSteps: 90, emoji: '🐢' },
-    medium: { name: 'Runner', minSteps: 100, maxSteps: 140, emoji: '🏃' },
-    hard: { name: 'Speedster', minSteps: 150, maxSteps: 200, emoji: '⚡' },
-  },
 };
 
 interface AIChallengeScreenProps {
   onBackToHome: () => void;
+  initialScreen?: 'duration' | 'leaderboard';
 }
 
-export function AIChallengeScreen({ onBackToHome }: AIChallengeScreenProps) {
-  const [step, setStep] = useState<ChallengeStep>('duration');
-  const [duration, setDuration] = useState<30 | 60>(30);
+export function AIChallengeScreen({ onBackToHome, initialScreen = 'duration' }: AIChallengeScreenProps) {
+  const [step, setStep] = useState<ChallengeStep>(initialScreen === 'leaderboard' ? 'leaderboard' : 'duration');
+  const [duration, setDuration] = useState<30>(30);
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
   const [opponentSteps, setOpponentSteps] = useState<number>(0);
   const [results, setResults] = useState<{ playerSteps: number; aiSteps: number; won: boolean } | null>(null);
 
-  const handleSelectDuration = (selectedDuration: 30 | 60) => {
+  const handleSelectDuration = (selectedDuration: 30) => {
     setDuration(selectedDuration);
     setStep('opponent');
   };
@@ -53,6 +50,19 @@ export function AIChallengeScreen({ onBackToHome }: AIChallengeScreenProps) {
   const handlePlayAgain = () => {
     setResults(null);
     setStep('duration');
+  };
+
+  const handleViewLeaderboard = () => {
+    setStep('leaderboard');
+  };
+
+  const handleBackFromLeaderboard = () => {
+    // Go back to home instead of results when opened from home
+    if (initialScreen === 'leaderboard') {
+      onBackToHome();
+    } else {
+      setStep('results');
+    }
   };
 
   const opponent = opponents[duration][difficulty];
@@ -92,9 +102,15 @@ export function AIChallengeScreen({ onBackToHome }: AIChallengeScreenProps) {
           opponentName={opponent.name}
           opponentEmoji={opponent.emoji}
           duration={duration}
+          difficulty={difficulty}
           onPlayAgain={handlePlayAgain}
           onBackToHome={onBackToHome}
+          onViewLeaderboard={handleViewLeaderboard}
         />
+      )}
+
+      {step === 'leaderboard' && (
+        <SprintLeaderboard onBack={handleBackFromLeaderboard} />
       )}
     </>
   );

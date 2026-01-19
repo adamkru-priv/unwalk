@@ -12,6 +12,7 @@ interface RunnerHUDProps {
   xpReward?: number;
   onRefresh?: () => Promise<void>;
   onAIChallengeClick?: () => void;
+  onAILeaderboardClick?: () => void;
 }
 
 export function RunnerHUD({ 
@@ -19,7 +20,8 @@ export function RunnerHUD({
   onClick,
   xpReward = 0,
   onRefresh,
-  onAIChallengeClick
+  onAIChallengeClick,
+  onAILeaderboardClick
 }: RunnerHUDProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
@@ -106,8 +108,11 @@ export function RunnerHUD({
         </div>
 
         {/* AI Challenge Entry Box - NEW */}
-        {onAIChallengeClick && (
-          <AIChallengeEntryBox onStartClick={onAIChallengeClick} />
+        {onAIChallengeClick && onAILeaderboardClick && (
+          <AIChallengeEntryBox 
+            onStartClick={onAIChallengeClick}
+            onLeaderboardClick={onAILeaderboardClick}
+          />
         )}
       </div>
     );
